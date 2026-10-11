@@ -122,6 +122,13 @@ select { appearance: auto; }
 .join-card form { display: grid; gap: 20px; }
 .join-card h2 { margin: 0; font: 800 28px/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
 .fineprint { margin: 18px 0 0; font-size: 13px; color: var(--dim); }
+.gate { display: grid; gap: 20px; }
+.gate-head { display: flex; align-items: center; gap: 12px; }
+.gate-ic { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--lamp); color: var(--on-lamp); }
+.gate-text { margin: -8px 0 0; font-size: 15px; }
+.link-btn { justify-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; border: 0; background: transparent; color: var(--dim); font-size: 13px; }
+.link-btn:hover { color: var(--fg); text-decoration: underline; }
+.link-btn .ic { width: 14px; height: 14px; }
 .mic-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .mic-row select { flex: 1 1 200px; min-width: 0; }
 @media (max-width: 860px) {
@@ -415,6 +422,9 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-signal" viewBox="0 0 24 24"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></symbol>
     <symbol id="i-phone-off" viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="M22 2 2 22"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path d="M2 2l20 20"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </defs>
 </svg>
@@ -423,13 +433,27 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 <main id="join" class="join">
   <section>
     <h1 class="wordmark"><span>Party</span><span class="lit">Line</span></h1>
-    <p class="lede">A little server for you and your friends: voice channels, text channels, screen sharing, photos and videos. Pick a room name, send it to your crew, and start talking.</p>
+    <p class="lede">A private little server for you and your friends: voice channels, text channels, screen sharing, photos and videos. Only people with the password can get in.</p>
     <div class="jackfield" id="jackfield" aria-hidden="true"></div>
     <p class="strip">No accounts · Peer to peer · Best with up to 8 people</p>
   </section>
 
   <section class="join-card">
-    <form id="joinForm" novalidate>
+    <form id="gateForm" class="gate" novalidate>
+      <div class="gate-head"><span class="gate-ic" aria-hidden="true"><svg class="ic"><use href="#i-lock"/></svg></span><h2>Private line</h2></div>
+      <p class="hint gate-text">This Party Line is only for friends. Enter the password to continue.</p>
+      <div class="field">
+        <label class="flabel" for="gatePass">Password</label>
+        <div class="row">
+          <input type="password" id="gatePass" class="input" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <button type="button" class="btn icon-btn" id="gateShow" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="ic"><use href="#i-eye"/></svg></button>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="gateRemember" checked><span><b>Remember on this device</b><small>Skip this step next time in this browser.</small></span></label>
+      <p class="error" id="gateError" role="alert" hidden></p>
+      <button type="submit" class="btn primary" id="gateBtn">Unlock</button>
+    </form>
+    <form id="joinForm" novalidate hidden>
       <h2>Get on the line</h2>
       <label class="field">
         <span class="flabel">Your name</span>
@@ -454,6 +478,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       </div>
       <p class="error" id="joinError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="enterBtn">Enter room</button>
+      <button type="button" class="link-btn" id="lockBtn"><svg class="ic"><use href="#i-lock"/></svg>Forget the password on this device</button>
     </form>
     <p class="fineprint">Your voice and screen go straight to your friends' browsers. A free public server only helps you find each other. Use headphones to avoid echo.</p>
   </section>
@@ -823,7 +848,7 @@ if (typeof registerProcessor === 'function') {
 /* ================= basics ================= */
 const $ = (s) => document.querySelector(s);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const PREFIX = 'partyline-v1-';
+const PREFIX = 'partyline-v2-';
 const PEER_OPTS = Object.assign({ debug: 1 }, window.PARTYLINE_PEER_OPTS || {});
 const DATA_OPTS = { reliable: true, serialization: 'json' };
 
@@ -849,14 +874,33 @@ const S = {
   peer: null, lobbyPeer: null, lobbyConn: null, lobbyWaiter: null, roster: null,
   firstRoster: true, recovering: false,
   peers: new Map(),
-  rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null,
+  rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
   screenStream: null, stageFocus: null,
   pttHeld: false, chatOpen: true, unread: 0,
   lastAuthor: null, lastTs: 0,
 };
 
-const lobbyId = () => PREFIX + S.room;
+const lobbyId = () => PREFIX + S.roomTag;
+
+/* ================= private line =================
+   The password never appears in this code. PBKDF2 turns it into 512 bits: the first half must match
+   GATE.verifier to unlock, the second half becomes a secret key mixed into every room's address,
+   so someone without the password can't even find your rooms. */
+const GATE = { salt: 'partyline-private-v1', iterations: 200000, verifier: '2e8d89a4976046af67df896617fe6ecba91cf1efb8a671863323f57566074ab7' };
+const foldPass = (s) => String(s || '').toLowerCase().replace(/ı/g, 'i').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '');
+const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+async function derivePass(pass) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(foldPass(pass)), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(GATE.salt), iterations: GATE.iterations }, key, 512);
+  const hex = toHex(bits);
+  return { verifier: hex.slice(0, 64), roomKey: hex.slice(64) };
+}
+async function roomTagFor(room) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(S.roomKey + ':' + room));
+  return toHex(digest).slice(0, 32);
+}
 const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
 function cleanRoom(s) {
   return String(s || '').toLowerCase().replace(/ı/g, 'i').normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -2087,7 +2131,9 @@ function voiceMembers(chId) {
 
 /* ================= room lifecycle ================= */
 async function enterRoom(name, room) {
+  if (!S.roomKey) { showGate(); throw new Error('Enter the password first.'); }
   S.me.name = name; S.room = room;
+  S.roomTag = await roomTagFor(room);
   S.me.muted = false; S.me.deafened = false; S.me.sharing = false;
   resetChannels();
   S.me.vc = LOBBY;   // like walking into the server and hopping straight into the Lobby
@@ -2991,6 +3037,55 @@ $('#joinForm').addEventListener('submit', async (e) => {
     btn.disabled = false; btn.textContent = 'Enter room';
   }
 });
+
+function showGate(msg) {
+  $('#gateForm').hidden = false; $('#joinForm').hidden = true;
+  const err = $('#gateError'); err.textContent = msg || ''; err.hidden = !msg;
+  setTimeout(() => $('#gatePass').focus(), 0);
+}
+function unlock(roomKey) {
+  S.roomKey = roomKey;
+  $('#gateForm').hidden = true; $('#joinForm').hidden = false;
+  $('#gatePass').value = '';
+  if (!$('#nameInput').value) $('#nameInput').focus();
+}
+$('#gateShow').addEventListener('click', () => {
+  const inp = $('#gatePass'), show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  const b = $('#gateShow');
+  b.setAttribute('aria-pressed', String(show));
+  b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); b.title = b.getAttribute('aria-label');
+  b.querySelector('use').setAttribute('href', show ? '#i-eye-off' : '#i-eye');
+  inp.focus();
+});
+$('#gateForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pass = $('#gatePass').value;
+  if (!foldPass(pass)) { showGate('Type the password your friend gave you.'); return; }
+  if (!(window.crypto && crypto.subtle)) { showGate('This browser can\u2019t check the password here. Open the https link in Chrome, Edge or Firefox.'); return; }
+  const btn = $('#gateBtn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const d = await derivePass(pass);
+    if (d.verifier !== GATE.verifier) { showGate('That password isn\u2019t right. Check the spelling and try again.'); $('#gatePass').select(); return; }
+    if ($('#gateRemember').checked) store.set('gate', { v: d.verifier, k: d.roomKey }); else store.set('gate', null);
+    unlock(d.roomKey);
+  } catch {
+    showGate('Couldn\u2019t check the password. Reload the page and try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Unlock';
+  }
+});
+$('#lockBtn').addEventListener('click', () => {
+  store.set('gate', null);
+  S.roomKey = null;
+  showGate('Locked. This device will ask for the password again.');
+});
+(() => {
+  const saved = store.get('gate', null);
+  if (saved && saved.v === GATE.verifier && typeof saved.k === 'string' && saved.k.length === 64) unlock(saved.k);
+  else showGate();
+})();
 
 if (!window.RTCPeerConnection) showJoinError("This browser doesn't support voice calls. Open Party Line in Chrome, Edge or Firefox.");
 if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', refreshDevices);
