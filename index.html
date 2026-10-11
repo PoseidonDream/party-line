@@ -123,6 +123,14 @@ select { appearance: auto; }
 .join-card h2 { margin: 0; font: 800 28px/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
 .fineprint { margin: 18px 0 0; font-size: 13px; color: var(--dim); }
 .gate { display: grid; gap: 20px; }
+.quick { display: grid; gap: 18px; }
+.quick h2 { margin: 0; font: 800 28px/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
+.quick-who { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; background: var(--field); border: 1px solid var(--line); }
+.quick-who .mini-av { width: 48px; height: 48px; font-size: 20px; }
+.quick-text { min-width: 0; display: grid; gap: 2px; }
+.quick-text b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-text > span { color: var(--dim); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-text code { font: 600 13px var(--font-mono); color: var(--fg); }
 .gate-head { display: flex; align-items: center; gap: 12px; }
 .gate-ic { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--lamp); color: var(--on-lamp); }
 .gate-text { margin: -8px 0 0; font-size: 15px; }
@@ -453,6 +461,16 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       <p class="error" id="gateError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="gateBtn">Unlock</button>
     </form>
+    <div id="quickJoin" class="quick" hidden>
+      <h2>Welcome back</h2>
+      <div class="quick-who">
+        <span class="mini-av" id="qjAv" aria-hidden="true"></span>
+        <span class="quick-text"><b id="qjName"></b><span>Server <code id="qjRoom"></code></span></span>
+      </div>
+      <p class="error" id="qjError" role="alert" hidden></p>
+      <button type="button" class="btn primary" id="qjGo">Enter server</button>
+      <button type="button" class="link-btn" id="qjEdit">Change name, server or mic</button>
+    </div>
     <form id="joinForm" novalidate hidden>
       <h2>Get on the line</h2>
       <label class="field">
@@ -460,12 +478,12 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <input type="text" id="nameInput" maxlength="24" autocomplete="nickname" placeholder="e.g. Deniz">
       </label>
       <div class="field">
-        <label class="flabel" for="roomInput">Room name</label>
+        <label class="flabel" for="roomInput">Server name</label>
         <div class="row">
           <input type="text" id="roomInput" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" class="input">
-          <button type="button" class="btn icon-btn" id="diceBtn" title="New random room name" aria-label="New random room name"><svg class="ic"><use href="#i-dice"/></svg></button>
+          <button type="button" class="btn icon-btn" id="diceBtn" title="New random server name" aria-label="New random server name"><svg class="ic"><use href="#i-dice"/></svg></button>
         </div>
-        <p class="hint">Friends join by typing the same room name. A random name keeps strangers out.</p>
+        <p class="hint">Friends join by typing the same server name, or by opening your invite link.</p>
       </div>
       <div class="field">
         <label class="flabel" for="joinMic">Microphone</label>
@@ -476,9 +494,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <div class="meter" aria-hidden="true"><i></i></div>
         <p class="hint" id="micHint">Press Check mic and say something. The green bar should move.</p>
       </div>
+      <label class="check"><input type="checkbox" id="rememberMe" checked><span><b>Remember my name and server</b><small>Next time you'll just press Enter server, like the password.</small></span></label>
       <p class="error" id="joinError" role="alert" hidden></p>
-      <button type="submit" class="btn primary" id="enterBtn">Enter room</button>
-      <button type="button" class="link-btn" id="lockBtn"><svg class="ic"><use href="#i-lock"/></svg>Forget the password on this device</button>
+      <button type="submit" class="btn primary" id="enterBtn">Enter server</button>
+      <button type="button" class="link-btn" id="lockBtn"><svg class="ic"><use href="#i-lock"/></svg>Forget me on this device</button>
     </form>
     <p class="fineprint">Your voice and screen go straight to your friends' browsers. A free public server only helps you find each other. Use headphones to avoid echo.</p>
   </section>
@@ -2138,7 +2157,6 @@ async function enterRoom(name, room) {
   resetChannels();
   S.me.vc = LOBBY;   // like walking into the server and hopping straight into the Lobby
   S.view = { kind: 'text', id: GENERAL }; S.lastText = GENERAL;
-  store.set('name', name);
   audioCtx();
   if (!S.micStream || S.noMic || !S.sendTrack || S.sendTrack.readyState !== 'live') await setupMic(settings.micId);
   if (typeof window.Peer !== 'function') throw new Error("Couldn't load the connection library. Check your internet connection and reload the page.");
@@ -2204,6 +2222,7 @@ function leaveRoom() {
     try { history.replaceState(null, '', location.pathname + location.search); } catch {}
     document.title = 'Party Line';
     $('#room').hidden = true; $('#join').hidden = false;
+    showJoinStart();
     $('#micHint').textContent = 'Press Check mic and say something. The green bar should move.';
   }, 200);
 }
@@ -2882,7 +2901,7 @@ function inviteInfo() {
   const hosted = /^https?:$/.test(location.protocol);
   return hosted
     ? { text: location.origin + location.pathname + '#' + S.room, note: 'Invite link copied. Friends who open it land in this server.' }
-    : { text: `Join me on Party Line. Room name: ${S.room}`, note: 'Copied. Friends need Party Line open too, then they type this room name.' };
+    : { text: `Join me on Party Line. Server name: ${S.room}`, note: 'Copied. Friends need Party Line open too, then they type this server name.' };
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; }
@@ -2983,7 +3002,9 @@ function openSettings() {
 function applyName() {
   const n = cleanName($('#setName').value);
   if (!n || n === S.me.name) { $('#setName').value = S.me.name; return; }
-  S.me.name = n; store.set('name', n);
+  S.me.name = n;
+  const saved = store.get('me', null);
+  if (saved) store.set('me', Object.assign({}, saved, { name: n }));
   if (S.roster && S.peer && S.roster.has(S.peer.id)) S.roster.get(S.peer.id).name = n;
   sendState(); updateTile('me'); renderChannels();
 }
@@ -3004,9 +3025,54 @@ for (const r of document.querySelectorAll('input[name="quality"]')) {
 
 /* ================= join screen ================= */
 function showJoinError(text) { const el = $('#joinError'); el.textContent = text; el.hidden = !text; }
-$('#nameInput').value = cleanName(store.get('name', ''));
-const fromHash = cleanRoom(decodeURIComponent(location.hash.slice(1) || ''));
-$('#roomInput').value = fromHash.length >= 3 ? fromHash : randomRoom();
+// Your name and server are remembered on this device (like the password), so next time it's one click.
+const savedMe = () => { const m = store.get('me', null); return m && typeof m === 'object' ? { name: cleanName(m.name), room: cleanRoom(m.room) } : null; };
+const hashRoom = () => { let h = ''; try { h = decodeURIComponent(location.hash.slice(1) || ''); } catch {} const r = cleanRoom(h); return r.length >= 3 ? r : ''; };
+function saveMe(name, room) { store.set('me', $('#rememberMe').checked ? { name, room } : null); }
+(() => {
+  const me = savedMe();
+  $('#nameInput').value = (me && me.name) || cleanName(store.get('name', ''));
+  $('#roomInput').value = hashRoom() || (me && me.room.length >= 3 ? me.room : '') || randomRoom();
+})();
+let quickRoom = '';
+function showJoinStart() {
+  if (!S.roomKey) { showGate(); return; }
+  const me = savedMe();
+  quickRoom = hashRoom() || (me ? me.room : '');
+  const quick = !!(me && me.name && quickRoom.length >= 3);
+  $('#gateForm').hidden = true;
+  $('#quickJoin').hidden = !quick;
+  $('#joinForm').hidden = quick;
+  $('#qjError').hidden = true;
+  if (quick) {
+    $('#qjName').textContent = me.name;
+    $('#qjRoom').textContent = quickRoom;
+    const av = $('#qjAv'); av.textContent = initials(me.name); av.style.setProperty('--h', hue(me.name));
+    setTimeout(() => $('#qjGo').focus(), 0);
+  } else if (!$('#nameInput').value) setTimeout(() => $('#nameInput').focus(), 0);
+}
+function showQjError(text) { const el = $('#qjError'); el.textContent = text; el.hidden = !text; }
+async function joinWith(name, room, btn, showErr) {
+  showErr('');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  try { await enterRoom(name, room); saveMe(name, room); }
+  catch (err) { teardown(); showErr((err && err.message) || 'Something went wrong. Try again.'); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+$('#qjGo').addEventListener('click', () => {
+  const me = savedMe();
+  if (!me || !me.name || quickRoom.length < 3) { showJoinStart(); return; }
+  $('#nameInput').value = me.name; $('#roomInput').value = quickRoom;
+  joinWith(me.name, quickRoom, $('#qjGo'), showQjError);
+});
+$('#qjEdit').addEventListener('click', () => {
+  const me = savedMe();
+  if (me && me.name) $('#nameInput').value = me.name;
+  if (quickRoom) $('#roomInput').value = quickRoom;
+  $('#quickJoin').hidden = true; $('#joinForm').hidden = false;
+  $('#nameInput').focus();
+});
 $('#diceBtn').addEventListener('click', () => { $('#roomInput').value = randomRoom(); });
 $('#roomInput').addEventListener('blur', (e) => { const c = cleanRoom(e.target.value); if (c) e.target.value = c; });
 $('#joinMic').addEventListener('change', (e) => {
@@ -3025,29 +3091,20 @@ $('#joinForm').addEventListener('submit', async (e) => {
   const name = cleanName($('#nameInput').value);
   const room = cleanRoom($('#roomInput').value);
   if (!name) { showJoinError('Enter your name so your friends know who you are.'); $('#nameInput').focus(); return; }
-  if (room.length < 3) { showJoinError('Room names need at least 3 letters or numbers.'); $('#roomInput').focus(); return; }
+  if (room.length < 3) { showJoinError('Server names need at least 3 letters or numbers.'); $('#roomInput').focus(); return; }
   $('#roomInput').value = room;
-  const btn = $('#enterBtn');
-  btn.disabled = true; btn.textContent = 'Connecting…';
-  try { await enterRoom(name, room); }
-  catch (err) {
-    teardown();
-    showJoinError((err && err.message) || 'Something went wrong. Try again.');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Enter room';
-  }
+  await joinWith(name, room, $('#enterBtn'), showJoinError);
 });
 
 function showGate(msg) {
-  $('#gateForm').hidden = false; $('#joinForm').hidden = true;
+  $('#gateForm').hidden = false; $('#joinForm').hidden = true; $('#quickJoin').hidden = true;
   const err = $('#gateError'); err.textContent = msg || ''; err.hidden = !msg;
   setTimeout(() => $('#gatePass').focus(), 0);
 }
 function unlock(roomKey) {
   S.roomKey = roomKey;
-  $('#gateForm').hidden = true; $('#joinForm').hidden = false;
   $('#gatePass').value = '';
-  if (!$('#nameInput').value) $('#nameInput').focus();
+  showJoinStart();
 }
 $('#gateShow').addEventListener('click', () => {
   const inp = $('#gatePass'), show = inp.type === 'password';
@@ -3077,9 +3134,10 @@ $('#gateForm').addEventListener('submit', async (e) => {
   }
 });
 $('#lockBtn').addEventListener('click', () => {
-  store.set('gate', null);
+  store.set('gate', null); store.set('me', null); store.set('name', null);
   S.roomKey = null;
-  showGate('Locked. This device will ask for the password again.');
+  $('#nameInput').value = '';
+  showGate('Forgotten. This device will ask for the password, your name and the server again.');
 });
 (() => {
   const saved = store.get('gate', null);
