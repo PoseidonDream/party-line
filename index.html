@@ -434,6 +434,31 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .popover { width: 270px; }
 .mini-av.has-img, .avatar.has-img { background-size: cover; background-position: center; color: transparent; }
 .avatar.has-img .initials { visibility: hidden; }
+.crown { display: inline-grid; place-items: center; margin-left: 5px; color: var(--lamp-ink); vertical-align: -2px; flex: none; }
+.crown .ic { width: 14px; height: 14px; }
+.pop-admin { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+.pop-admin .flabel { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--lamp-ink); }
+.pop-admin .flabel .ic { width: 14px; height: 14px; }
+.pop-admin .btn { justify-content: flex-start; }
+.adm-danger { color: var(--danger); }
+.adm-danger:hover { border-color: var(--danger); }
+#confirmDlg { width: min(420px, calc(100% - 32px)); }
+.cf { display: grid; gap: 10px; padding: 22px; }
+.cf h2 { margin: 0; font-size: 19px; font-weight: 700; text-wrap: balance; }
+.cf p { margin: 0; color: var(--dim); }
+.cf-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.cf-ok { background: var(--danger); color: var(--on-danger); border-color: transparent; }
+.msg { position: relative; }
+.msg-del { position: absolute; top: 12px; right: 0; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--danger); opacity: 0; transition: opacity .12s; }
+.msg.cont .msg-del { top: 0; }
+.msg:hover .msg-del, .msg-del:focus-visible { opacity: 1; }
+.msg-del .ic { width: 15px; height: 15px; }
+@media (hover: none) { .msg-del { opacity: .75; } }
+.chan-list li { position: relative; }
+.chan-del { position: absolute; right: 4px; top: 5px; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: var(--panel-2); color: var(--danger); opacity: 0; }
+.chan-list li:hover > .chan-del, .chan-del:focus-visible { opacity: 1; }
+.chan-del .ic { width: 14px; height: 14px; }
+@media (hover: none) { .chan-del { opacity: .75; } }
 .count-pill { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 #feedback { width: min(600px, calc(100% - 32px)); }
 .fb-form { display: grid; gap: 14px; }
@@ -514,6 +539,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 8h8"/><path d="M8 12h5"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.63a1 1 0 0 0 1.52.3l4.27-3.66a.5.5 0 0 1 .82.52l-2.83 10.25a1 1 0 0 1-.96.73H5.8a1 1 0 0 1-.96-.73L2.01 6.06a.5.5 0 0 1 .82-.52L7.1 9.2a1 1 0 0 0 1.52-.3z"/><path d="M5 21h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </defs>
 </svg>
@@ -561,6 +588,11 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <span class="flabel">Your name</span>
         <input type="text" id="nameInput" maxlength="24" autocomplete="nickname" placeholder="e.g. Deniz">
       </label>
+      <div class="field" id="ownerField" hidden>
+        <label class="flabel" for="ownerCodeInput">Owner code</label>
+        <input type="password" id="ownerCodeInput" class="input" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <p class="hint">Poseidon is the admin's name. Paste your owner code to use it on this device.</p>
+      </div>
       <div class="field">
         <label class="flabel" for="roomInput">Server name</label>
         <div class="row">
@@ -793,7 +825,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     </section>
     <section class="fb-section">
       <details class="fb-owner" id="fbOwnerBox">
-        <summary>Owner? Unlock your inbox</summary>
+        <summary>Owner? Unlock your inbox and admin tools</summary>
         <form id="fbOwnerForm" class="fb-form" novalidate>
           <label class="flabel" for="fbOwnerCode">Owner code</label>
           <div class="row">
@@ -804,8 +836,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         </form>
       </details>
       <div class="fb-owner-on" id="fbOwnerOn" hidden>
-        <p class="fb-note">This device is your feedback inbox. Feedback from friends lands here.</p>
-        <button type="button" class="link-btn" id="fbLock"><svg class="ic"><use href="#i-lock"/></svg>Lock inbox on this device</button>
+        <p class="fb-note">This device is your feedback inbox and has admin tools. Feedback from friends lands here.</p>
+        <button type="button" class="link-btn" id="fbLock"><svg class="ic"><use href="#i-lock"/></svg>Lock inbox and admin tools on this device</button>
       </div>
     </section>
   </div>
@@ -887,7 +919,20 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <label class="check"><input type="checkbox" id="volMute"><span><b>Mute for me</b></span></label>
     <button type="button" class="btn small" id="volReset">Reset to 100%</button>
   </div>
+  <div class="pop-admin" id="volAdmin" hidden>
+    <span class="flabel"><svg class="ic"><use href="#i-crown"/></svg>Admin</span>
+    <button type="button" class="btn small" id="admVoiceKick">Disconnect from voice</button>
+    <button type="button" class="btn small" id="admMute">Mute for everyone</button>
+    <button type="button" class="btn small adm-danger" id="admKick">Remove from server</button>
+  </div>
 </div>
+<dialog id="confirmDlg" aria-labelledby="cfTitle">
+  <form method="dialog" class="cf">
+    <h2 id="cfTitle"></h2>
+    <p id="cfText"></p>
+    <div class="cf-btns"><button class="btn" value="cancel">Cancel</button><button class="btn cf-ok" value="ok" id="cfOk">Delete</button></div>
+  </form>
+</dialog>
 
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo" hidden>
   <div class="lb-bar">
@@ -1073,7 +1118,9 @@ const saveSettings = () => store.set('settings', settings);
 
 const S = {
   inRoom: false, leaving: false, room: '',
-  me: { name: '', joinedAt: 0, muted: false, deafened: false, sharing: false, vc: null },
+  me: { name: '', joinedAt: 0, muted: false, deafened: false, sharing: false, vc: null, serverMuted: false },
+  dels: new Map(), kicked: new Set(), serverMutes: new Set(),
+  adminNames: new Set((Array.isArray(store.get('adminNames', [])) ? store.get('adminNames', []) : []).filter((x) => typeof x === 'string')),
   chans: new Map(), view: { kind: 'text', id: 't-general' }, lastText: 't-general', attach: [],
   peer: null, lobbyPeer: null, lobbyConn: null, lobbyWaiter: null, roster: null,
   firstRoster: true, recovering: false,
@@ -1436,7 +1483,7 @@ async function setupMic(deviceId) {
   refreshDevices();
   return err;
 }
-const micLive = () => !!S.me.vc && !S.me.muted && !S.me.deafened && !S.noMic && (!settings.ptt || S.pttHeld);
+const micLive = () => !!S.me.vc && !S.me.muted && !S.me.serverMuted && !S.me.deafened && !S.noMic && (!settings.ptt || S.pttHeld);
 // Before joining, keep the track on so "Check mic" shows a level even with push to talk.
 function applyMicEnabled() { if (S.sendTrack) S.sendTrack.enabled = S.peer ? micLive() : !S.noMic; }
 
@@ -1467,6 +1514,7 @@ function showMpNote(text, good) {
 function micState() {
   if (S.micIssue) return { tone: 'bad', chip: S.micIssue === 'silent' ? 'Mic silent' : 'Mic not working' };
   if (!S.me.vc) return { tone: 'off', chip: 'Not in voice' };
+  if (S.me.serverMuted) return { tone: 'off', chip: 'Muted by admin' };
   if (S.me.deafened) return { tone: 'off', chip: 'Deafened' };
   if (S.me.muted) return { tone: 'off', chip: 'Muted' };
   if (settings.ptt) return { tone: S.pttHeld ? 'ok' : 'off', chip: S.pttHeld ? 'Talking' : 'Push to talk' };
@@ -1583,6 +1631,7 @@ function ensureChannel(kind, name, custom) {
   const nm = chanName(kind, name);
   if (!nm || !slug(nm)) return null;
   const id = (kind === 'text' ? 't-' : 'v-') + slug(nm);
+  if (S.dels.has('c:' + id)) return null;
   let c = S.chans.get(id);
   if (!c) {
     if (S.chans.size >= 40) return null;
@@ -1592,6 +1641,7 @@ function ensureChannel(kind, name, custom) {
   return c;
 }
 function resetChannels() {
+  S.dels = new Map();
   for (const c of S.chans.values()) for (const m of c.msgs) if (m.url) URL.revokeObjectURL(m.url);
   S.chans = new Map();
   for (const d of DEFAULT_CHANNELS) ensureChannel(d.kind, d.name, false);
@@ -1790,12 +1840,13 @@ function validRow(r) {
 function loadHistory() {
   const h = objOr(store.get(histKey(), null));
   S.histHadLocal = !!h.msgs;
+  if (Array.isArray(h.dels)) for (const d of h.dels.slice(-500)) if (Array.isArray(d) && typeof d[0] === 'string' && typeof d[1] === 'string') S.dels.set(d[0], d[1]);
   if (Array.isArray(h.chans)) for (const c of h.chans.slice(0, 30)) if (c && typeof c.name === 'string') ensureChannel(c.kind, c.name, true);
   for (const [chId, list] of Object.entries(objOr(h.msgs))) {
     const c = channelFromWire(chId, 'text');
     if (!c || !Array.isArray(list)) continue;
     const seen = new Set();
-    c.msgs = list.map(validRow).filter((r) => r && !seen.has(r[0]) && seen.add(r[0]))
+    c.msgs = list.map(validRow).filter((r) => r && !S.dels.has(r[0]) && !seen.has(r[0]) && seen.add(r[0]))
       .map((r) => textMsg(...r)).sort((a, b) => a.ts - b.ts).slice(-HIST_PER_CHAN);
   }
 }
@@ -1810,7 +1861,7 @@ function saveHistory() {
   const build = (keep) => {
     const msgs = {};
     for (const [ch, m] of rows.slice(-keep)) (msgs[ch] = msgs[ch] || []).push([m.id, m.ts, m.author.name, m.text]);
-    return { v: 1, chans: customChannels(), msgs, at: Date.now() };
+    return { v: 1, chans: customChannels(), msgs, dels: [...S.dels].slice(-500), at: Date.now() };
   };
   // If the browser is short on space, keep fewer old messages rather than none.
   if (!store.set(histKey(), build(HIST_TOTAL)) && !store.set(histKey(), build(400))) return;
@@ -1830,6 +1881,7 @@ function sendHistSince(p) {
   try { p.data.send({ t: 'hist-since', since }); } catch {}
 }
 function onHistSince(p, msg) {
+  if (S.dels.size) { try { p.data.send({ t: 'hist-dels', list: [...S.dels].slice(-500) }); } catch {} }
   const since = objOr(msg.since);
   for (const c of chansOf('text')) {
     const s = Number(since[c.id]) || 0;
@@ -1863,7 +1915,7 @@ function onHist(p, msg) {
   const fresh = [];
   for (const r of msg.msgs.slice(0, 50)) {
     const v = validRow(r);
-    if (v && !hasMsg(c, v[0])) { const m = textMsg(...v); c.msgs.push(m); fresh.push(m); }
+    if (v && !S.dels.has(v[0]) && !hasMsg(c, v[0])) { const m = textMsg(...v); c.msgs.push(m); fresh.push(m); }
   }
   if (!fresh.length) return;
   c.msgs.sort((a, b) => a.ts - b.ts);
@@ -1899,7 +1951,7 @@ function broadcast(msg) {
 const stateMsg = () => {
   const vc = S.me.vc && S.chans.get(S.me.vc);
   return {
-    t: 'state', name: S.me.name, muted: S.me.muted, deafened: S.me.deafened, sharing: S.me.sharing,
+    t: 'state', name: S.me.name, muted: S.me.muted || S.me.serverMuted, deafened: S.me.deafened, sharing: S.me.sharing,
     joinedAt: S.me.joinedAt, micOk: !S.noMic && !S.micIssue, vc: vc ? vc.id : null, vcName: vc ? vc.name : '',
     av: avAt(S.profileKey),
   };
@@ -1940,7 +1992,7 @@ function syncRouting() {
 }
 
 function connectTo(m, preexisting) {
-  if (!S.peer || m.id === S.peer.id) return;
+  if (!S.peer || m.id === S.peer.id || S.kicked.has(m.id)) return;
   const p = getPeer(m.id);
   p.name = p.name || cleanName(m.name);
   p.joinedAt = p.joinedAt || Number(m.joinedAt) || 0;
@@ -1962,6 +2014,7 @@ function attachData(p, conn) {
     fbSyncTo(p);
     sendAvList(p);
     sendHistSince(p);
+    sendChallenge(p);
     const list = customChannels();
     if (list.length) { try { conn.send({ t: 'channels', list: list.slice(0, 30) }); } catch {} }
     renderAll();
@@ -2050,7 +2103,7 @@ function ensureBoost(p) {
 function applyPeerVolume(p) {
   if (!p.audioEl) return;
   const v = Math.max(0, p.volume * settings.outputVol);
-  const silent = S.me.deafened || p.localMute || !inMyVC(p);
+  const silent = S.me.deafened || p.localMute || p.smByAdmin || !inMyVC(p);
   const boost = v > 1.004 && ensureBoost(p);
   if (boost) {
     p.audioEl.muted = true;
@@ -2113,6 +2166,7 @@ function onPeerMessage(p, msg) {
     const pk = foldName(p.name);
     if (Number(msg.av) > avAt(pk)) askAvatar(p, pk);
     if (avatars[pk]) avatars[pk].seen = Date.now();
+    if (p.isAdmin) rememberAdminName(pk);
     if (first && pk === S.profileKey) toast(`Someone else is in this server as ${p.name}. If that isn't you on another device, one of you should change name in Settings.`, 9000);
     if (first && !p.preexisting) { sysMsg(`${p.name} joined the server.`); }
     if (S.me.vc && prevVc !== p.vc && announce) {
@@ -2141,6 +2195,16 @@ function onPeerMessage(p, msg) {
     if (ensureChannel(msg.kind, msg.name, true)) { renderChannels(); scheduleHistSave(); }
   } else if (msg.t === 'av-list' || msg.t === 'av-req' || msg.t === 'av') {
     onAvMessage(p, msg);
+  } else if (msg.t === 'adm-chal') {
+    onAdminChallenge(p, msg);
+  } else if (msg.t === 'adm-proof') {
+    onAdminProof(p, msg);
+  } else if (msg.t === 'adm-voice-kick' || msg.t === 'adm-mute' || msg.t === 'adm-kick') {
+    onAdminCommand(p, msg);
+  } else if (msg.t === 'adm-del') {
+    acceptDel(msg.key, msg.sig);
+  } else if (msg.t === 'hist-dels' && Array.isArray(msg.list)) {
+    onHistDels(msg.list);
   } else if (msg.t === 'hist-since') {
     onHistSince(p, msg);
   } else if (msg.t === 'hist') {
@@ -2382,12 +2446,13 @@ function openMemberPeer() {
     });
     peer.on('connection', (conn) => {
       if (S.peer !== peer) return;
+      if (S.kicked.has(conn.peer)) { try { conn.close(); } catch {} return; }
       const p = getPeer(conn.peer);
       if (conn.metadata && conn.metadata.kind === 'files') { attachFiles(p, conn); return; }
       attachData(p, conn);
       renderAll();
     });
-    peer.on('call', (call) => { if (S.peer === peer) onIncomingCall(call); });
+    peer.on('call', (call) => { if (S.peer !== peer) return; if (S.kicked.has(call.peer)) { try { call.close(); } catch {} return; } onIncomingCall(call); });
     peer.on('disconnected', () => { if (S.peer === peer && !S.leaving) { updateStatus(); scheduleReconnect(peer); } });
     peer.on('error', (err) => {
       if (!settled) {
@@ -2748,6 +2813,7 @@ function teardown() {
   S.inRoom = false; S.stageFocus = null; S.pttHeld = false; S.recovering = false;
   S.mutedSince = 0; S.afkWarned = false; renderAfk(0);
   S.roomTag = ''; S.histHadLocal = false; S.resumed = false; clearTimeout(histTimer);
+  S.me.serverMuted = false; S.kicked = new Set(); S.serverMutes = new Set();
   S.me.vc = null;
   for (const a of S.attach) URL.revokeObjectURL(a.url);
   S.attach = [];
@@ -2892,6 +2958,13 @@ $('#asForm').addEventListener('submit', (e) => {
   $('#addServer').close();
   switchServer(room);
 });
+function chanDelButton(c) {
+  const x = document.createElement('button');
+  x.type = 'button'; x.className = 'chan-del'; x.innerHTML = iconSvg('trash');
+  x.title = 'Delete channel for everyone'; x.setAttribute('aria-label', `Delete ${c.name} for everyone`);
+  x.addEventListener('click', (e) => { e.stopPropagation(); adminDeleteChannel(c); });
+  return x;
+}
 function renderChannels() {
   if (!S.inRoom) return;
   $('#serverName').textContent = S.room;
@@ -2912,6 +2985,7 @@ function renderChannels() {
     }
     b.addEventListener('click', () => showText(c.id));
     li.appendChild(b); tl.appendChild(li);
+    if (amAdmin() && c.custom) li.appendChild(chanDelButton(c));
   }
   const vl = $('#voiceList');
   vl.textContent = ''; memberEls.clear();
@@ -2926,6 +3000,7 @@ function renderChannels() {
     if (members.some((m) => m.o.sharing)) { const lv = document.createElement('span'); lv.className = 'chan-live'; lv.textContent = 'LIVE'; b.appendChild(lv); }
     b.addEventListener('click', () => joinVoice(c.id));
     li.appendChild(b);
+    if (amAdmin() && c.custom) li.appendChild(chanDelButton(c));
     if (members.length) {
       const ul = document.createElement('ul'); ul.className = 'members';
       ul.setAttribute('aria-label', `In ${c.name}`);
@@ -2938,10 +3013,11 @@ function renderChannels() {
         paintAv(av, m.o.name);
         const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = m.o.name || 'Joining…';
         row.append(av, nm);
+        if (me ? amAdmin() : m.o.isAdmin) row.appendChild(crownBadge());
         if (m.o.sharing) { const lv = document.createElement('span'); lv.className = 'chan-live'; lv.textContent = 'LIVE'; row.appendChild(lv); }
         const micBad = me ? (S.noMic || !!S.micIssue) : !m.o.micOk;
         if (m.o.deafened) row.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
-        else if (m.o.muted || micBad) row.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
+        else if (m.o.muted || m.o.smByAdmin || micBad) row.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
         const item = document.createElement('li'); item.appendChild(row); ul.appendChild(item);
         memberEls.set(m.id, row);
       }
@@ -3064,7 +3140,9 @@ function updateTile(id) {
   if (!o) return;
   el.style.setProperty('--h', hue(o.name || id));
   paintAv(el.querySelector('.avatar'), o.name);
-  el.querySelector('.tile-name').textContent = o.name || 'Joining…';
+  const tn = el.querySelector('.tile-name');
+  tn.textContent = o.name || 'Joining…';
+  if (me ? amAdmin() : o.isAdmin) tn.appendChild(crownBadge());
   let sub = '';
   if (me) sub = S.micIssue === 'silent' ? 'You · mic silent' : (S.noMic || S.micIssue) ? 'You · mic not working' : settings.ptt ? 'You · push to talk' : 'You';
   else if (o.net === 'connecting') sub = 'Connecting…';
@@ -3087,6 +3165,7 @@ function updateTile(id) {
   }
   if (o.deafened) b.appendChild(tbadge('headphones-off', 'Deafened'));
   else if (me ? (S.noMic || S.micIssue) : !o.micOk) b.appendChild(tbadge('mic-off', 'Mic not working'));
+  else if (o.smByAdmin || (me && S.me.serverMuted)) b.appendChild(tbadge('mic-off', 'Muted by admin'));
   else if (o.muted) b.appendChild(tbadge('mic-off', 'Muted'));
   el.classList.toggle('dim', !me && o.net === 'failed');
   el.classList.toggle('speaking', !!o.speaking);
@@ -3137,12 +3216,13 @@ function setIcon(btn, icon, label) {
 function updateDock() {
   const mic = $('#micBtn');
   if (S.noMic) { setIcon(mic, 'mic-off', 'No mic'); mic.title = 'Your mic isn’t working. Press for help.'; }
+  else if (S.me.serverMuted) { setIcon(mic, 'mic-off', 'Muted by admin'); mic.title = 'The admin muted you for everyone'; }
   else {
     const off = S.me.muted || S.me.deafened;
     setIcon(mic, off ? 'mic-off' : 'mic', off ? 'Unmute' : 'Mute');
     mic.title = (off ? 'Unmute' : 'Mute yourself') + ' (M)';
   }
-  mic.classList.toggle('off', S.me.muted || S.me.deafened || S.noMic);
+  mic.classList.toggle('off', S.me.muted || S.me.deafened || S.noMic || S.me.serverMuted);
   mic.setAttribute('aria-pressed', String(S.me.muted || S.me.deafened));
 
   const deaf = $('#deafBtn');
@@ -3171,6 +3251,7 @@ function updateDock() {
 }
 function renderUser() {
   $('#meName').textContent = S.me.name;
+  if (amAdmin()) $('#meName').appendChild(crownBadge());
   paintAv($('#meAv'), S.me.name);
   const vs = $('#voiceStatus');
   const c = S.me.vc && S.chans.get(S.me.vc);
@@ -3198,7 +3279,7 @@ function fillText(el, text) {
 const isViewing = (id) => S.inRoom && S.view.kind === 'text' && S.view.id === id;
 function pushMsg(chId, msg) {
   const c = S.chans.get(chId) || S.chans.get(GENERAL);
-  if (msg.kind === 'text' && msg.id && hasMsg(c, msg.id)) return;
+  if (msg.kind === 'text' && msg.id && (S.dels.has(msg.id) || hasMsg(c, msg.id))) return;
   msg.ch = c.id;
   msg.ts = msg.ts || Date.now();
   c.msgs.push(msg);
@@ -3231,6 +3312,7 @@ function msgEl(msg, prev) {
   paintAv(av, msg.author.name);
   const head = document.createElement('div'); head.className = 'msg-head';
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.textContent = msg.author.name;
+  if (isAdminName(String(msg.author.id || '').slice(2))) nm.appendChild(crownBadge());
   const tm = document.createElement('time'); tm.className = 'msg-time';
   tm.textContent = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   head.append(nm, tm);
@@ -3239,6 +3321,13 @@ function msgEl(msg, prev) {
     const body = document.createElement('div'); body.className = 'msg-body';
     fillText(body, msg.text);
     li.appendChild(body);
+    if (amAdmin() && msg.id) {
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'msg-del'; del.innerHTML = iconSvg('trash');
+      del.title = 'Delete for everyone'; del.setAttribute('aria-label', `Delete ${msg.author.name}'s message for everyone`);
+      del.addEventListener('click', () => adminDeleteMessage(msg));
+      li.appendChild(del);
+    }
   } else {
     const box = document.createElement('div'); box.className = 'msg-media';
     msg.box = box;
@@ -3391,6 +3480,11 @@ $('#lightbox').addEventListener('click', (e) => { if (e.target === e.currentTarg
 /* ================= controls ================= */
 function toggleMute() {
   if (S.noMic) { openMicPanel(true); retryMic(); return; }
+  if (S.me.serverMuted) {
+    if (S.me.deafened) toggleDeafen();
+    else toast('The admin muted you for everyone. Only the admin can unmute you.', 5000);
+    return;
+  }
   if (S.me.deafened) {
     S.me.deafened = false; S.me.muted = false;
     for (const p of S.peers.values()) applyPeerVolume(p);
@@ -3481,7 +3575,7 @@ for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) ptt.addEv
 ptt.addEventListener('contextmenu', (e) => e.preventDefault());
 
 document.addEventListener('keydown', (e) => {
-  if (!S.inRoom || $('#settings').open || $('#feedback').open || $('#addServer').open || S.switching) return;
+  if (!S.inRoom || $('#settings').open || $('#feedback').open || $('#addServer').open || $('#confirmDlg').open || S.switching) return;
   if (e.key === 'Escape') {
     if (!$('#lightbox').hidden) { closeLightbox(); return; }
     if (!$('#serverMenu').hidden) { setMenu(false); return; }
@@ -3572,6 +3666,11 @@ function openVolume(id, anchor) {
   $('#volRange').value = String(Math.round(p.volume * 100));
   showPct($('#volOut'), p.volume);
   $('#volMute').checked = p.localMute;
+  $('#volAdmin').hidden = !amAdmin();
+  if (amAdmin()) {
+    $('#admVoiceKick').hidden = !p.vc;
+    $('#admMute').textContent = S.serverMutes.has(id) ? 'Unmute for everyone' : 'Mute for everyone';
+  }
   pop.hidden = false;
   const r = anchor.getBoundingClientRect();
   const w = pop.offsetWidth, h = pop.offsetHeight;
@@ -3633,6 +3732,11 @@ function applyName() {
   const n = cleanName($('#setName').value);
   if (!n || n === S.me.name) { $('#setName').value = S.me.name; return; }
   const oldKey = S.profileKey, newKey = foldName(n);
+  if (newKey === ADMIN_KEY && oldKey !== ADMIN_KEY && !amAdmin()) {
+    $('#setName').value = S.me.name;
+    toast(`${ADMIN_NAME} is the admin's name. Pick a different name.`, 5000);
+    return;
+  }
   if (newKey !== oldKey && [...S.peers.values()].some((p) => p.gotState && foldName(p.name) === newKey)) {
     $('#setName').value = S.me.name;
     toast(`${n} is already in this server. Pick a different name.`, 5000);
@@ -3697,7 +3801,7 @@ for (const r of document.querySelectorAll('input[name="quality"]')) {
 const FB_OWNER = { kty: 'EC', crv: 'P-256', x: 'G6mPwstZufmjDILuAPfqDvM-MK8yKLJWaBprpcTOFRo', y: 'XHSCYX207xk9jQ51mPGjf_c4ZlUgm4t_QrB-f65Jom4' };
 const FB = { bagMax: 200, ackMax: 1000, inboxMax: 500, sentMax: 100, maxAge: 60 * 864e5, maxText: 2000 };
 const FB_KINDS = { bug: 'Bug', idea: 'Idea', other: 'Other' };
-const fb = { bag: [], acked: new Set(), sent: [], inbox: [], ownerKey: null, pending: new Set() };
+const fb = { bag: [], acked: new Set(), sent: [], inbox: [], ownerKey: null, signKey: null, pending: new Set() };
 const fbId = () => toHex(crypto.getRandomValues(new Uint8Array(10)));
 const isFbId = (id) => typeof id === 'string' && /^[0-9a-f]{20}$/.test(id);
 const b64u = (buf) => { let s = ''; for (const b of new Uint8Array(buf)) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -3812,6 +3916,9 @@ async function fbUnlockOwner(code) {
     const out = await openFeedback(probe, key);
     if (!out || out.probe !== true) return false;
   } catch { return false; }
+  try {
+    fb.signKey = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: FB_OWNER.x, y: FB_OWNER.y, d: code }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  } catch { fb.signKey = null; }
   fb.ownerKey = key;
   store.set('fbOwner', code);
   for (const e of [...fb.bag]) {
@@ -3820,6 +3927,7 @@ async function fbUnlockOwner(code) {
     if (payload) fbDeliver(e, payload);
   }
   renderFeedback();
+  onAdminChanged();
   return true;
 }
 function browserSummary() {
@@ -3953,13 +4061,14 @@ $('#fbOwnerForm').addEventListener('submit', async (e) => {
   if (!ok) { err.textContent = "That isn't the owner code. Copy it again and paste it in full."; err.hidden = false; return; }
   $('#fbOwnerCode').value = '';
   renderFeedback();
-  toast(fb.inbox.length ? 'Inbox unlocked.' : 'Inbox unlocked. Feedback will collect here.', 4000);
+  toast('Inbox and admin tools unlocked on this device.', 4000);
 });
 $('#fbLock').addEventListener('click', () => {
-  fb.ownerKey = null;
+  fb.ownerKey = null; fb.signKey = null;
   store.set('fbOwner', null);
   renderFeedback();
-  toast('Inbox locked on this device. Your saved feedback stays here until you unlock it again.', 5000);
+  onAdminChanged();
+  toast('Inbox and admin tools locked on this device. Your saved feedback stays here until you unlock it again.', 5000);
 });
 $('#fbCopyAll').addEventListener('click', async () => {
   const text = [...fb.inbox].reverse().map((it) => {
@@ -3970,6 +4079,226 @@ $('#fbCopyAll').addEventListener('click', async () => {
 });
 fbLoad();
 renderFeedback();
+
+/* ================= admin =================
+   The admin is whoever has the owner code: Poseidon. The admin's app proves it to each friend's app
+   by signing a fresh random challenge with the owner key, so typing the name isn't enough to fake it.
+   Deletions are signed too, so friends' devices can pass them along and everyone can check them. */
+const ADMIN_NAME = 'Poseidon', ADMIN_KEY = foldName(ADMIN_NAME);
+const DEL_PREFIX = 'partyline-del|';
+const DEL_KEY_RE = /^(?:[0-9a-f]{16}|c:[tv]-[a-z0-9-]{1,40})$/;
+const amAdmin = () => !!fb.signKey;
+const isAdminName = (key) => !!key && (S.adminNames.has(key) || (amAdmin() && key === S.profileKey));
+let ownerVerifyKey = null;
+function ownerVerify() {
+  if (!ownerVerifyKey) ownerVerifyKey = crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: FB_OWNER.x, y: FB_OWNER.y }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+  return ownerVerifyKey;
+}
+async function verifyOwner(text, sig) {
+  if (typeof sig !== 'string' || sig.length !== 86 || !B64U_RE.test(sig)) return false;
+  try { return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, await ownerVerify(), unb64u(sig), new TextEncoder().encode(text)); }
+  catch { return false; }
+}
+async function signOwner(text) {
+  return b64u(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, fb.signKey, new TextEncoder().encode(text)));
+}
+function crownBadge() {
+  const s = document.createElement('span');
+  s.className = 'crown'; s.title = 'Admin'; s.setAttribute('role', 'img'); s.setAttribute('aria-label', 'Admin');
+  s.innerHTML = iconSvg('crown');
+  return s;
+}
+function rememberAdminName(key) {
+  if (!key || S.adminNames.has(key)) return;
+  S.adminNames.add(key);
+  store.set('adminNames', [...S.adminNames].slice(-10));
+}
+
+/* ---- proving who the admin is ---- */
+function sendChallenge(p) {
+  p.chalOut = toHex(crypto.getRandomValues(new Uint8Array(16)));
+  try { p.data.send({ t: 'adm-chal', n: p.chalOut }); } catch {}
+}
+async function sendAdminProof(p) {
+  if (!amAdmin() || !p.chalIn || !S.peer || !p.data || !p.data.open) return;
+  try {
+    const sig = await signOwner(`partyline-admin|${p.chalIn}|${S.peer.id}|${p.id}`);
+    p.data.send({ t: 'adm-proof', sig });
+  } catch {}
+}
+function onAdminChallenge(p, msg) {
+  if (typeof msg.n !== 'string' || !/^[0-9a-f]{32}$/.test(msg.n)) return;
+  p.chalIn = msg.n;
+  sendAdminProof(p);
+}
+function onAdminProof(p, msg) {
+  if (!p.chalOut || !S.peer) return;
+  const text = `partyline-admin|${p.chalOut}|${p.id}|${S.peer.id}`;
+  p.admReady = verifyOwner(text, msg.sig).then((ok) => {
+    if (!ok || S.peers.get(p.id) !== p) return;
+    p.isAdmin = true;
+    rememberAdminName(foldName(p.name));
+    renderAll();
+    const c = S.view.kind === 'text' && S.chans.get(S.view.id);
+    if (c) rerenderMessages(c);
+  });
+}
+// Runs when this device gains or loses the owner code.
+function onAdminChanged() {
+  if (amAdmin()) {
+    for (const p of S.peers.values()) sendAdminProof(p);
+    if (S.inRoom) rememberAdminName(S.profileKey);
+  }
+  syncOwnerField();
+  if (!S.inRoom) return;
+  renderAll();
+  const c = S.view.kind === 'text' && S.chans.get(S.view.id);
+  if (c) rerenderMessages(c);
+}
+
+/* ---- admin actions on people: disconnect from voice, mute for everyone, remove from server ---- */
+async function onAdminCommand(p, msg) {
+  if (p.admReady) await p.admReady;
+  if (!p.isAdmin || S.peers.get(p.id) !== p) return;
+  const target = typeof msg.target === 'string' ? msg.target : '';
+  const mine = !!S.peer && target === S.peer.id;
+  const admin = p.name || 'The admin';
+  if (msg.t === 'adm-voice-kick') {
+    if (mine && S.me.vc) {
+      leaveVoice();
+      toast(`${admin} disconnected you from voice.`, 6000);
+    }
+  } else if (msg.t === 'adm-mute') {
+    const on = !!msg.on;
+    if (mine) {
+      if (S.me.serverMuted === on) return;
+      S.me.serverMuted = on;
+      applyMicEnabled(); sendState(); updateDock(); updateTile('me'); renderChannels();
+      toast(on ? `${admin} muted you for everyone. Only the admin can unmute you.` : `${admin} unmuted you. You can talk again.`, 6000);
+    } else {
+      const t = S.peers.get(target);
+      if (t) { t.smByAdmin = on; applyPeerVolume(t); updateTile(t.id); renderChannels(); }
+    }
+  } else if (msg.t === 'adm-kick') {
+    if (mine) {
+      toast(`${admin} removed you from the server.`, 10000);
+      leaveRoom();
+    } else if (target) {
+      const t = S.peers.get(target);
+      S.kicked.add(target);
+      if (S.roster) S.roster.delete(target);
+      if (t) {
+        const nm = t.name;
+        removePeer(target, false);
+        if (nm) sysMsg(`${admin} removed ${nm} from the server.`, S.lastText);
+      }
+    }
+  }
+}
+function adminTarget() {
+  const id = $('#volPop').dataset.id;
+  const p = id && S.peers.get(id);
+  return amAdmin() && p ? p : null;
+}
+$('#admVoiceKick').addEventListener('click', () => {
+  const p = adminTarget(); if (!p) return;
+  broadcast({ t: 'adm-voice-kick', target: p.id });
+  closeVolume();
+  toast(`${p.name} was disconnected from voice.`, 4000);
+});
+$('#admMute').addEventListener('click', () => {
+  const p = adminTarget(); if (!p) return;
+  const on = !S.serverMutes.has(p.id);
+  if (on) S.serverMutes.add(p.id); else S.serverMutes.delete(p.id);
+  p.smByAdmin = on;
+  applyPeerVolume(p);
+  broadcast({ t: 'adm-mute', target: p.id, on });
+  closeVolume(); renderAll();
+  toast(on ? `${p.name} is muted for everyone.` : `${p.name} can talk again.`, 4000);
+});
+$('#admKick').addEventListener('click', async () => {
+  const p = adminTarget(); if (!p) return;
+  closeVolume();
+  const ok = await askConfirm(`Remove ${p.name} from the server?`,
+    'They are disconnected right away. They can come back if they still have the password, so change the password if you want to keep them out.', 'Remove');
+  if (!ok || S.peers.get(p.id) !== p) return;
+  broadcast({ t: 'adm-kick', target: p.id });
+  S.kicked.add(p.id);
+  if (S.roster) S.roster.delete(p.id);
+  const nm = p.name;
+  removePeer(p.id, false);
+  sysMsg(`You removed ${nm} from the server.`, S.lastText);
+});
+
+/* ---- deleting messages and channels for everyone ---- */
+async function acceptDel(key, sig) {
+  if (typeof key !== 'string' || !DEL_KEY_RE.test(key) || S.dels.has(key)) return false;
+  if (!(await verifyOwner(DEL_PREFIX + key, sig)) || S.dels.has(key)) return false;
+  applyDel(key, sig);
+  return true;
+}
+async function onHistDels(list) {
+  for (const it of list.slice(0, 600)) if (Array.isArray(it) && !S.dels.has(it[0])) await acceptDel(it[0], it[1]);
+}
+function applyDel(key, sig) {
+  S.dels.set(key, sig);
+  if (S.dels.size > 600) S.dels = new Map([...S.dels].slice(-500));
+  if (key.startsWith('c:')) removeChannel(key.slice(2)); else removeMessage(key);
+  scheduleHistSave();
+}
+function removeMessage(id) {
+  for (const c of S.chans.values()) {
+    const i = c.msgs.findIndex((m) => m.id === id);
+    if (i < 0) continue;
+    c.msgs.splice(i, 1);
+    if (isViewing(c.id)) rerenderMessages(c);
+  }
+}
+function removeChannel(chId) {
+  const c = S.chans.get(chId);
+  if (!c || !c.custom) return;
+  if (S.me.vc === chId) { leaveVoice(); toast(`${c.name} was deleted by the admin.`, 5000); }
+  S.chans.delete(chId);
+  if (S.lastText === chId) S.lastText = GENERAL;
+  if (S.inRoom && S.view.kind === 'text' && S.view.id === chId) showText(GENERAL);
+  else renderAll();
+}
+async function adminDelete(key, title, text, okLabel) {
+  if (!amAdmin()) return;
+  if (!(await askConfirm(title, text, okLabel))) return;
+  try {
+    const sig = await signOwner(DEL_PREFIX + key);
+    applyDel(key, sig);
+    broadcast({ t: 'adm-del', key, sig });
+  } catch {
+    toast("Couldn't delete that. Reload the page and try again.", 5000);
+  }
+}
+function adminDeleteMessage(msg) {
+  adminDelete(msg.id, 'Delete this message?', `${msg.author.name}'s message is removed for everyone in the server.`, 'Delete');
+}
+function adminDeleteChannel(c) {
+  const label = c.kind === 'text' ? `#${c.name}` : c.name;
+  adminDelete('c:' + c.id, `Delete ${label}?`,
+    c.kind === 'text' ? 'The channel and all its messages are removed for everyone.' : 'The voice channel is removed for everyone. Anyone in it is disconnected.', 'Delete channel');
+}
+
+/* ---- a small confirm box ---- */
+function askConfirm(title, text, okLabel) {
+  return new Promise((resolve) => {
+    const d = $('#confirmDlg');
+    $('#cfTitle').textContent = title; $('#cfText').textContent = text; $('#cfOk').textContent = okLabel;
+    d.returnValue = '';
+    d.addEventListener('close', () => resolve(d.returnValue === 'ok'), { once: true });
+    d.showModal();
+  });
+}
+
+/* ---- the name Poseidon is reserved for whoever has the owner code ---- */
+function syncOwnerField() {
+  const need = foldName($('#nameInput').value) === ADMIN_KEY && !amAdmin();
+  $('#ownerField').hidden = !need;
+}
 
 /* ================= join screen ================= */
 function showJoinError(text) { const el = $('#joinError'); el.textContent = text; el.hidden = !text; }
@@ -3996,6 +4325,7 @@ function showForm(name) {
   $('#joinBack').hidden = !profileList().length;
   if (typeof name === 'string') $('#nameInput').value = name;
   paintJoinAv();
+  syncOwnerField();
   setTimeout(() => ($('#nameInput').value ? $('#roomInput') : $('#nameInput')).focus(), 0);
 }
 function renderPicker() {
@@ -4058,6 +4388,12 @@ async function joinWith(name, room, opts) {
   }
 }
 function pickProfile(p, subEl) {
+  if (foldName(p.name) === ADMIN_KEY && !amAdmin()) {
+    showForm(p.name);
+    showJoinError(`Paste your owner code to continue as ${ADMIN_NAME} on this device.`);
+    setTimeout(() => $('#ownerCodeInput').focus(), 0);
+    return;
+  }
   const room = hashRoom() || p.lastRoom;
   if (!room) { showForm(p.name); return; }
   const rows = [...document.querySelectorAll('#qjList button')];
@@ -4070,7 +4406,7 @@ function pickProfile(p, subEl) {
 }
 $('#qjNew').addEventListener('click', () => { pendingAv = null; showForm(''); });
 $('#joinBack').addEventListener('click', () => { pendingAv = null; showJoinStart(); });
-$('#nameInput').addEventListener('input', paintJoinAv);
+$('#nameInput').addEventListener('input', () => { paintJoinAv(); syncOwnerField(); });
 $('#joinAvBtn').addEventListener('click', () => $('#joinAvFile').click());
 $('#joinAvFile').addEventListener('change', async (e) => {
   const f = e.target.files && e.target.files[0];
@@ -4100,6 +4436,12 @@ $('#joinForm').addEventListener('submit', async (e) => {
   if (!name) { showJoinError('Enter your name so your friends know who you are.'); $('#nameInput').focus(); return; }
   if (room.length < 3) { showJoinError('Server names need at least 3 letters or numbers.'); $('#roomInput').focus(); return; }
   $('#roomInput').value = room;
+  if (foldName(name) === ADMIN_KEY && !amAdmin()) {
+    const code = $('#ownerCodeInput').value.trim();
+    if (!code) { showJoinError(`${ADMIN_NAME} is the admin's name. Paste your owner code to use it, or pick another name.`); $('#ownerCodeInput').focus(); return; }
+    if (!(await fbUnlockOwner(code))) { showJoinError("That isn't the owner code. Copy it again and paste it in full."); $('#ownerCodeInput').select(); return; }
+    $('#ownerCodeInput').value = '';
+  }
   const btn = $('#enterBtn');
   await joinWith(name, room, {
     remember: $('#rememberMe').checked,
