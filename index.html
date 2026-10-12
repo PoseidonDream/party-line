@@ -125,12 +125,32 @@ select { appearance: auto; }
 .gate { display: grid; gap: 20px; }
 .quick { display: grid; gap: 18px; }
 .quick h2 { margin: 0; font: 800 28px/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
-.quick-who { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; background: var(--field); border: 1px solid var(--line); }
-.quick-who .mini-av { width: 48px; height: 48px; font-size: 20px; }
-.quick-text { min-width: 0; display: grid; gap: 2px; }
-.quick-text b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quick-text > span { color: var(--dim); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quick-text code { font: 600 13px var(--font-mono); color: var(--fg); }
+.quick-hint { margin: -8px 0 0; }
+.quick .link-btn { justify-self: center; }
+.profiles { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 380px; overflow-y: auto; }
+.profile { display: flex; align-items: center; gap: 6px; }
+.profile-go { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--field); text-align: left; }
+.profile-go:hover { border-color: var(--lamp); }
+.profile-go:disabled { opacity: .65; cursor: progress; }
+.profile-go .mini-av { width: 44px; height: 44px; font-size: 17px; }
+.profile-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.profile-text b { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-sub { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-arrow { display: grid; color: var(--dim); }
+.profile-arrow .ic { transform: rotate(-90deg); }
+.profile-x { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--dim); }
+.profile-x:hover { background: var(--panel-2); color: var(--danger); }
+.profile-x .ic { width: 16px; height: 16px; }
+.join-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.av-pick { display: flex; align-items: center; gap: 14px; }
+.av-btn { position: relative; flex: none; width: 64px; height: 64px; padding: 0; border: 0; border-radius: 50%; background: none; }
+.av-btn .mini-av { width: 64px; height: 64px; font-size: 24px; }
+.av-cam { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--lamp); color: var(--on-lamp); border: 2px solid var(--panel); }
+.av-cam .ic { width: 14px; height: 14px; }
+.av-pick-text { min-width: 0; display: grid; gap: 2px; justify-items: start; }
+.av-pick-text small { color: var(--dim); font-size: 13px; }
+.av-pick-text .link-btn { padding-left: 0; }
+.av-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .gate-head { display: flex; align-items: center; gap: 12px; }
 .gate-ic { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--lamp); color: var(--on-lamp); }
 .gate-text { margin: -8px 0 0; font-size: 15px; }
@@ -393,6 +413,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .mp-level { margin-top: 14px; max-width: 420px; }
 .pop-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .popover { width: 270px; }
+.mini-av.has-img, .avatar.has-img { background-size: cover; background-position: center; color: transparent; }
+.avatar.has-img .initials { visibility: hidden; }
 .count-pill { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 #feedback { width: min(600px, calc(100% - 32px)); }
 .fb-form { display: grid; gap: 14px; }
@@ -472,6 +494,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
     <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 8h8"/><path d="M8 12h5"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </defs>
 </svg>
@@ -501,17 +524,20 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       <button type="submit" class="btn primary" id="gateBtn">Unlock</button>
     </form>
     <div id="quickJoin" class="quick" hidden>
-      <h2>Welcome back</h2>
-      <div class="quick-who">
-        <span class="mini-av" id="qjAv" aria-hidden="true"></span>
-        <span class="quick-text"><b id="qjName"></b><span>Server <code id="qjRoom"></code></span></span>
-      </div>
+      <h2>Who's joining?</h2>
+      <p class="hint quick-hint" id="qjHint"></p>
+      <ul class="profiles" id="qjList"></ul>
       <p class="error" id="qjError" role="alert" hidden></p>
-      <button type="button" class="btn primary" id="qjGo">Enter server</button>
-      <button type="button" class="link-btn" id="qjEdit">Change name, server or mic</button>
+      <button type="button" class="btn" id="qjNew"><svg class="ic"><use href="#i-plus"/></svg>Someone new</button>
+      <button type="button" class="link-btn" id="qjForget"><svg class="ic"><use href="#i-lock"/></svg>Forget everything on this device</button>
     </div>
     <form id="joinForm" novalidate hidden>
-      <h2>Get on the line</h2>
+      <div class="join-head"><h2>Get on the line</h2><button type="button" class="link-btn" id="joinBack" hidden>Back to profiles</button></div>
+      <div class="av-pick">
+        <button type="button" class="av-btn" id="joinAvBtn" aria-describedby="joinAvLabel"><span class="mini-av" id="joinAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Profile picture</span></button>
+        <div class="av-pick-text"><b id="joinAvLabel">Add a picture</b><small>Optional. Friends see it next to your name.</small><button type="button" class="link-btn" id="joinAvRemove" hidden>Remove picture</button></div>
+        <input type="file" id="joinAvFile" accept="image/*" hidden>
+      </div>
       <label class="field">
         <span class="flabel">Your name</span>
         <input type="text" id="nameInput" maxlength="24" autocomplete="nickname" placeholder="e.g. Deniz">
@@ -533,10 +559,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <div class="meter" aria-hidden="true"><i></i></div>
         <p class="hint" id="micHint">Press Check mic and say something. The green bar should move.</p>
       </div>
-      <label class="check"><input type="checkbox" id="rememberMe" checked><span><b>Remember my name and server</b><small>Next time you'll just press Enter server, like the password.</small></span></label>
+      <label class="check"><input type="checkbox" id="rememberMe" checked><span><b>Save my profile on this device</b><small>Next time, pick your name to continue where you left off.</small></span></label>
       <p class="error" id="joinError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="enterBtn">Enter server</button>
-      <button type="button" class="link-btn" id="lockBtn"><svg class="ic"><use href="#i-lock"/></svg>Forget me on this device</button>
+      <button type="button" class="link-btn" id="lockBtn"><svg class="ic"><use href="#i-lock"/></svg>Forget everything on this device</button>
     </form>
     <p class="fineprint">Your voice and screen go straight to your friends' browsers. A free public server only helps you find each other. Use headphones to avoid echo.</p>
   </section>
@@ -743,7 +769,14 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       <button class="btn icon-btn" value="close" aria-label="Close settings"><svg class="ic"><use href="#i-x"/></svg></button>
     </div>
     <div class="set-body">
-      <label class="field"><span class="flabel">Display name</span><input type="text" id="setName" maxlength="24" autocomplete="nickname"></label>
+      <div class="av-pick">
+        <button type="button" class="av-btn" id="setAvBtn"><span class="mini-av" id="setAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Change profile picture</span></button>
+        <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Square photos look best.</small>
+          <div class="av-actions"><button type="button" class="btn small" id="setAvChange">Change picture</button><button type="button" class="btn small" id="setAvRemove">Remove</button></div>
+        </div>
+        <input type="file" id="setAvFile" accept="image/*" hidden>
+      </div>
+      <label class="field"><span class="flabel">Display name</span><input type="text" id="setName" maxlength="24" autocomplete="nickname"><small class="hint">Your name is your profile. Changing it moves your picture and saved spot to the new name.</small></label>
       <div class="field">
         <label class="flabel" for="setMic">Microphone</label>
         <select id="setMic"><option value="">System default</option></select>
@@ -973,7 +1006,9 @@ const DATA_OPTS = { reliable: true, serialization: 'json' };
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem('partyline:' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('partyline:' + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  set(k, v) { try { localStorage.setItem('partyline:' + k, JSON.stringify(v)); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem('partyline:' + k); } catch {} },
+  keys() { try { return Object.keys(localStorage).filter((k) => k.startsWith('partyline:')).map((k) => k.slice(10)); } catch { return []; } },
 };
 const savedSettings = store.get('settings', {}) || {};
 const settings = Object.assign({ noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1 }, savedSettings);
@@ -994,6 +1029,7 @@ const S = {
   firstRoster: true, recovering: false,
   peers: new Map(),
   rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
+  profileKey: '', saveProfile: false, histHadLocal: false, resumed: false,
   mutedSince: 0, afkWarned: false,
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
   screenStream: null, stageFocus: null,
@@ -1522,6 +1558,250 @@ function channelFromWire(id, kind, nameHint) {
   return c;
 }
 
+/* ================= profiles =================
+   Every name is a profile. On this device a profile remembers its last server and the text and voice
+   channel it was in there, so picking your name continues where you left off. Profile pictures are
+   shared with friends and cached on their devices, which is how a new device gets yours back. */
+const foldName = (n) => cleanName(n).toLowerCase().replace(/ı/g, 'i').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+const PROFILE_MAX = 12, AVATAR_MAX = 80, AV_SIZE = 160, AV_MAX_LEN = 40000;
+const AV_RE = /^data:image\/(?:webp|jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/;
+const objOr = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+function loadProfiles() { return objOr(store.get('profiles', null)); }
+function saveProfiles(all) { store.set('profiles', all); }
+function profileList() {
+  return Object.entries(loadProfiles())
+    .map(([key, v]) => ({ key, name: cleanName(v && v.name), lastRoom: cleanRoom(v && v.lastRoom), rooms: objOr(v && v.rooms), usedAt: Number(v && v.usedAt) || 0 }))
+    .filter((p) => p.name && foldName(p.name) === p.key)
+    .sort((a, b) => b.usedAt - a.usedAt);
+}
+function upsertProfile(name, patch) {
+  const key = foldName(name);
+  if (!key) return;
+  const all = loadProfiles();
+  all[key] = Object.assign({}, objOr(all[key]), { name }, patch);
+  const keys = Object.keys(all).sort((a, b) => (Number(all[b].usedAt) || 0) - (Number(all[a].usedAt) || 0));
+  for (const k of keys.slice(PROFILE_MAX)) delete all[k];
+  saveProfiles(all);
+}
+function removeProfile(key) { const all = loadProfiles(); delete all[key]; saveProfiles(all); }
+(() => {  // the older single "remember my name and server" becomes a profile
+  const old = store.get('me', null);
+  if (old && typeof old === 'object' && cleanName(old.name) && !Object.keys(loadProfiles()).length) {
+    upsertProfile(cleanName(old.name), { lastRoom: cleanRoom(old.room), usedAt: Date.now() });
+  }
+  if (old !== null) store.del('me');
+  store.del('name');
+})();
+function resumeFor(key, room) { return objOr(objOr(objOr(loadProfiles()[key]).rooms)[room]); }
+function saveResume() {
+  if (!S.inRoom || !S.saveProfile || !S.profileKey) return;
+  const rooms = objOr(objOr(loadProfiles()[S.profileKey]).rooms);
+  const vc = S.me.vc && S.chans.get(S.me.vc);
+  rooms[S.room] = { text: S.lastText, voice: S.me.vc || null, voiceName: vc ? vc.name : '', at: Date.now() };
+  const names = Object.keys(rooms).sort((a, b) => (Number(rooms[b].at) || 0) - (Number(rooms[a].at) || 0));
+  for (const r of names.slice(8)) delete rooms[r];
+  upsertProfile(S.me.name, { rooms, lastRoom: S.room, usedAt: Date.now() });
+}
+
+/* ---- profile pictures ---- */
+let avatars = objOr(store.get('avatars', null));
+function saveAvatars() {
+  const keys = Object.keys(avatars);
+  if (keys.length > AVATAR_MAX) {
+    keys.sort((a, b) => (Number(avatars[b].seen) || 0) - (Number(avatars[a].seen) || 0));
+    for (const k of keys.slice(AVATAR_MAX)) delete avatars[k];
+  }
+  store.set('avatars', avatars);
+}
+const avData = (key) => { const a = avatars[key]; return a && typeof a.data === 'string' && AV_RE.test(a.data) ? a.data : null; };
+const avAt = (key) => (avatars[key] && Number(avatars[key].at)) || 0;
+function setAvatar(key, name, data, at) {
+  if (!key) return;
+  avatars[key] = { name: cleanName(name), data: data || null, at, seen: Date.now() };
+  saveAvatars();
+  repaintAvatars(key);
+}
+function paintAv(el, name) {
+  const key = foldName(name || '');
+  el.dataset.avk = key; el.dataset.avn = name || '';
+  const label = el.querySelector('.initials') || el;
+  label.textContent = initials(name);
+  el.style.setProperty('--h', hue(name || '?'));
+  const data = key ? avData(key) : null;
+  el.classList.toggle('has-img', !!data);
+  el.style.backgroundImage = data ? `url("${data}")` : '';
+}
+function repaintAvatars(key) {
+  for (const el of document.querySelectorAll('[data-avk]')) if (el.dataset.avk === key) paintAv(el, el.dataset.avn);
+}
+// Crops the middle square of a photo and shrinks it to 160 px, so it's small enough to share instantly.
+async function makeAvatar(file) {
+  if (!file || !/^image\//.test(file.type) || file.size > 25 * 1048576) throw new Error('type');
+  let src = null, w = 0, h = 0, url = null;
+  try {
+    if (typeof createImageBitmap === 'function') { try { src = await createImageBitmap(file); w = src.width; h = src.height; } catch { src = null; } }
+    if (!src) { url = URL.createObjectURL(file); const img = new Image(); img.src = url; await img.decode(); src = img; w = img.naturalWidth; h = img.naturalHeight; }
+    if (!w || !h) throw new Error('empty');
+    const side = Math.min(w, h);
+    const c = document.createElement('canvas'); c.width = c.height = AV_SIZE;
+    const ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, (w - side) / 2, (h - side) / 2, side, side, 0, 0, AV_SIZE, AV_SIZE);
+    for (const [type, q] of [['image/webp', 0.86], ['image/jpeg', 0.86], ['image/jpeg', 0.7]]) {
+      const d = c.toDataURL(type, q);
+      if (d.startsWith('data:' + type) && d.length <= AV_MAX_LEN && AV_RE.test(d)) return d;
+    }
+    throw new Error('big');
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+    if (src && typeof src.close === 'function') src.close();
+  }
+}
+function sendAvList(p) {
+  const list = Object.entries(avatars).filter(([, a]) => a && a.at).slice(0, AVATAR_MAX).map(([k, a]) => [k, a.at]);
+  if (list.length) { try { p.data.send({ t: 'av-list', list }); } catch {} }
+}
+function askAvatar(p, key) {
+  if (!key || key.length > 40) return;
+  p.avAsked = p.avAsked || new Set();
+  if (p.avAsked.has(key)) return;
+  p.avAsked.add(key);
+  try { p.data.send({ t: 'av-req', k: key }); } catch {}
+}
+function onAvMessage(p, msg) {
+  if (msg.t === 'av-list' && Array.isArray(msg.list)) {
+    for (const it of msg.list.slice(0, AVATAR_MAX)) {
+      if (Array.isArray(it) && typeof it[0] === 'string' && Number(it[1]) > avAt(it[0])) askAvatar(p, it[0]);
+    }
+  } else if (msg.t === 'av-req' && typeof msg.k === 'string') {
+    const a = avatars[msg.k];
+    if (a && a.at) { try { p.data.send({ t: 'av', k: msg.k, name: a.name, at: a.at, data: avData(msg.k) }); } catch {} }
+  } else if (msg.t === 'av' && typeof msg.k === 'string' && msg.k.length <= 40) {
+    if (p.avAsked) p.avAsked.delete(msg.k);
+    const at = Number(msg.at);
+    if (!(at > avAt(msg.k)) || at > Date.now() + 864e5) return;
+    const data = msg.data === null ? null
+      : (typeof msg.data === 'string' && msg.data.length <= AV_MAX_LEN && AV_RE.test(msg.data) ? msg.data : undefined);
+    if (data === undefined) return;
+    const mine = msg.k === S.profileKey, hadMine = mine && !!avData(msg.k);
+    setAvatar(msg.k, cleanName(msg.name) || (avatars[msg.k] && avatars[msg.k].name) || '', data, at);
+    if (mine && S.inRoom) {
+      if (data && !hadMine) toast('Your profile picture came back from a friend’s device.', 5000);
+      sendState();
+    }
+  }
+}
+
+/* ---- saved chat history ----
+   Text messages are kept on this device for each server, and friends fill you in on what you
+   missed when you connect. Photos and videos aren't kept. */
+const HIST_PER_CHAN = 200, HIST_TOTAL = 1500, HIST_SERVERS = 6, HOUR = 3600e3;
+const MSG_ID_RE = /^[0-9a-f]{16}$/;
+const msgId = () => toHex(crypto.getRandomValues(new Uint8Array(8)));
+function synthId(name, ts, text) {   // for messages from older versions of the app, which had no id
+  let a = 0x811c9dc5, b = 0x01000193;
+  const s = `${name}|${ts}|${text}`;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 16777619) >>> 0; b = Math.imul(b ^ c, 2246822519) >>> 0; }
+  return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0');
+}
+const authorFor = (name) => ({ id: 'u:' + foldName(name), name });
+function textMsg(id, ts, name, text) { return { kind: 'text', id, ts, author: authorFor(name), text, self: foldName(name) === S.profileKey }; }
+const hasMsg = (c, id) => c.msgs.some((m) => m.id === id);
+const histKey = () => 'hist:' + S.roomTag;
+function validRow(r) {
+  if (!Array.isArray(r) || typeof r[0] !== 'string' || !MSG_ID_RE.test(r[0])) return null;
+  const ts = Number(r[1]), name = cleanName(r[2]), text = typeof r[3] === 'string' ? r[3].slice(0, 2000) : '';
+  if (!Number.isFinite(ts) || ts <= 0 || ts > Date.now() + 864e5 || !name || !text.trim()) return null;
+  return [r[0], ts, name, text];
+}
+function loadHistory() {
+  const h = objOr(store.get(histKey(), null));
+  S.histHadLocal = !!h.msgs;
+  if (Array.isArray(h.chans)) for (const c of h.chans.slice(0, 30)) if (c && typeof c.name === 'string') ensureChannel(c.kind, c.name, true);
+  for (const [chId, list] of Object.entries(objOr(h.msgs))) {
+    const c = channelFromWire(chId, 'text');
+    if (!c || !Array.isArray(list)) continue;
+    const seen = new Set();
+    c.msgs = list.map(validRow).filter((r) => r && !seen.has(r[0]) && seen.add(r[0]))
+      .map((r) => textMsg(...r)).sort((a, b) => a.ts - b.ts).slice(-HIST_PER_CHAN);
+  }
+}
+let histTimer = 0;
+function scheduleHistSave() { if (!S.roomTag) return; clearTimeout(histTimer); histTimer = setTimeout(saveHistory, 800); }
+function saveHistory() {
+  clearTimeout(histTimer); histTimer = 0;
+  if (!S.roomTag) return;
+  let rows = [];
+  for (const c of chansOf('text')) for (const m of c.msgs.filter((x) => x.kind === 'text' && x.id).slice(-HIST_PER_CHAN)) rows.push([c.id, m]);
+  rows.sort((a, b) => a[1].ts - b[1].ts);
+  const build = (keep) => {
+    const msgs = {};
+    for (const [ch, m] of rows.slice(-keep)) (msgs[ch] = msgs[ch] || []).push([m.id, m.ts, m.author.name, m.text]);
+    return { v: 1, chans: customChannels(), msgs, at: Date.now() };
+  };
+  // If the browser is short on space, keep fewer old messages rather than none.
+  if (!store.set(histKey(), build(HIST_TOTAL)) && !store.set(histKey(), build(400))) return;
+  const idx = objOr(store.get('histIndex', null));
+  idx[S.roomTag] = Date.now();
+  const tags = Object.keys(idx).sort((a, b) => idx[b] - idx[a]);
+  for (const t of tags.slice(HIST_SERVERS)) { store.del('hist:' + t); delete idx[t]; }
+  store.set('histIndex', idx);
+}
+function sendHistSince(p) {
+  const since = {};
+  for (const c of chansOf('text')) {
+    let last = 0;
+    for (const m of c.msgs) if (m.kind === 'text' && m.id && m.ts > last) last = m.ts;
+    since[c.id] = last;
+  }
+  try { p.data.send({ t: 'hist-since', since }); } catch {}
+}
+function onHistSince(p, msg) {
+  const since = objOr(msg.since);
+  for (const c of chansOf('text')) {
+    const s = Number(since[c.id]) || 0;
+    const list = c.msgs.filter((m) => m.kind === 'text' && m.id && m.ts > s - HOUR).slice(-HIST_PER_CHAN);
+    for (let i = 0; i < list.length; i += 25) {
+      const chunk = list.slice(i, i + 25).map((m) => [m.id, m.ts, m.author.name, m.text]);
+      try { p.data.send({ t: 'hist', ch: c.id, name: c.name, msgs: chunk }); } catch {}
+    }
+  }
+}
+function trimChannel(c) {
+  while (c.msgs.length > MAX_MSGS) {
+    const old = c.msgs.shift();
+    if (old.url && old.status !== 'sending') URL.revokeObjectURL(old.url);
+    if (old.el) old.el.remove();
+  }
+}
+function rerenderMessages(c) {
+  const list = $('#messages');
+  const stick = nearBottom(list), top = list.scrollTop;
+  list.textContent = '';
+  list.appendChild(chanIntro(c));
+  let prev = null;
+  for (const m of c.msgs) { list.appendChild(msgEl(m, prev)); prev = m; }
+  list.scrollTop = stick ? list.scrollHeight : top;
+}
+function onHist(p, msg) {
+  if (!Array.isArray(msg.msgs)) return;
+  const c = channelFromWire(msg.ch, 'text', typeof msg.name === 'string' ? msg.name : '');
+  if (!c) return;
+  const fresh = [];
+  for (const r of msg.msgs.slice(0, 50)) {
+    const v = validRow(r);
+    if (v && !hasMsg(c, v[0])) { const m = textMsg(...v); c.msgs.push(m); fresh.push(m); }
+  }
+  if (!fresh.length) return;
+  c.msgs.sort((a, b) => a.ts - b.ts);
+  trimChannel(c);
+  scheduleHistSave();
+  if (isViewing(c.id)) rerenderMessages(c);
+  else if (S.histHadLocal) {
+    const n = fresh.filter((m) => !m.self).length;
+    if (n) { c.unread += n; renderChannels(); updateBadges(); }
+  }
+}
+
 /* ================= peers ================= */
 function getPeer(id) {
   let p = S.peers.get(id);
@@ -1547,6 +1827,7 @@ const stateMsg = () => {
   return {
     t: 'state', name: S.me.name, muted: S.me.muted, deafened: S.me.deafened, sharing: S.me.sharing,
     joinedAt: S.me.joinedAt, micOk: !S.noMic && !S.micIssue, vc: vc ? vc.id : null, vcName: vc ? vc.name : '',
+    av: avAt(S.profileKey),
   };
 };
 function sendState(p) {
@@ -1605,6 +1886,8 @@ function attachData(p, conn) {
   const onOpen = () => {
     sendState(p);
     fbSyncTo(p);
+    sendAvList(p);
+    sendHistSince(p);
     const list = customChannels();
     if (list.length) { try { conn.send({ t: 'channels', list: list.slice(0, 30) }); } catch {} }
     renderAll();
@@ -1753,6 +2036,10 @@ function onPeerMessage(p, msg) {
     if (was && !p.sharing) dropRemoteScreen(p);
     const announce = !first || !p.preexisting;
     if (first) { const saved = friendVols[p.name.toLocaleLowerCase()]; if (typeof saved === 'number') p.volume = clampLevel(saved); }
+    const pk = foldName(p.name);
+    if (Number(msg.av) > avAt(pk)) askAvatar(p, pk);
+    if (avatars[pk]) avatars[pk].seen = Date.now();
+    if (first && pk === S.profileKey) toast(`Someone else is in this server as ${p.name}. If that isn't you on another device, one of you should change name in Settings.`, 9000);
     if (first && !p.preexisting) { sysMsg(`${p.name} joined the server.`); }
     if (S.me.vc && prevVc !== p.vc && announce) {
       if (p.vc === S.me.vc) chime('join');
@@ -1768,13 +2055,22 @@ function onPeerMessage(p, msg) {
   } else if (msg.t === 'chat') {
     const c = channelFromWire(msg.ch, 'text');
     if (c && typeof msg.text === 'string' && msg.text.trim()) {
-      pushMsg(c.id, { kind: 'text', author: { id: p.id, name: p.name || 'Guest' }, text: msg.text.slice(0, 2000), ts: Number(msg.ts) || Date.now() });
+      const text = msg.text.slice(0, 2000), name = p.name || 'Guest';
+      const ts = Number(msg.ts) > 0 && Number(msg.ts) < Date.now() + 864e5 ? Number(msg.ts) : Date.now();
+      const id = typeof msg.id === 'string' && MSG_ID_RE.test(msg.id) ? msg.id : synthId(name, ts, text);
+      pushMsg(c.id, textMsg(id, ts, name, text));
     }
   } else if (msg.t === 'channels' && Array.isArray(msg.list)) {
     for (const c of msg.list.slice(0, 30)) if (c && typeof c.name === 'string') ensureChannel(c.kind, c.name, true);
-    renderChannels();
+    renderChannels(); scheduleHistSave();
   } else if (msg.t === 'chan-add' && typeof msg.name === 'string') {
-    if (ensureChannel(msg.kind, msg.name, true)) renderChannels();
+    if (ensureChannel(msg.kind, msg.name, true)) { renderChannels(); scheduleHistSave(); }
+  } else if (msg.t === 'av-list' || msg.t === 'av-req' || msg.t === 'av') {
+    onAvMessage(p, msg);
+  } else if (msg.t === 'hist-since') {
+    onHistSince(p, msg);
+  } else if (msg.t === 'hist') {
+    onHist(p, msg);
   } else if (msg.t === 'afk') {
     const c = typeof msg.vc === 'string' && S.chans.get(msg.vc);
     if (c && c.kind === 'voice' && msg.vc === S.me.vc && p.vc === S.me.vc) sysMsg(`${p.name || 'Someone'} was disconnected from ${c.name} after 30 minutes muted.`);
@@ -1861,7 +2157,7 @@ function startRecv(p, m) {
   const tooBig = size > (kind === 'video' ? MAX_VIDEO : MAX_IMAGE) * 1.05;
   const c = channelFromWire(m.ch, 'text') || S.chans.get(GENERAL);
   const msg = {
-    kind: 'media', author: { id: p.id, name: p.name || 'Guest' }, ts: Number(m.ts) || Date.now(),
+    kind: 'media', author: authorFor(p.name || 'Guest'), ts: Number(m.ts) || Date.now(),
     file: { name: safeFileName(m.name), mime: okType ? mime : 'application/octet-stream', size, kind },
     url: null, progress: 0, status: okType && !tooBig ? 'receiving' : 'refused',
   };
@@ -2292,6 +2588,7 @@ function joinVoice(chId) {
   sendState();
   syncRouting();
   afkReset();
+  saveResume();
   showVoice();
 }
 function leaveVoice() {
@@ -2302,6 +2599,7 @@ function leaveVoice() {
   sendState();
   syncRouting();
   afkReset();
+  saveResume();
   if (S.view.kind === 'voice') showText(S.lastText);
 }
 function voiceMembers(chId) {
@@ -2318,8 +2616,15 @@ async function enterRoom(name, room) {
   S.roomTag = await roomTagFor(room);
   S.me.muted = false; S.me.deafened = false; S.me.sharing = false;
   resetChannels();
-  S.me.vc = LOBBY;   // like walking into the server and hopping straight into the Lobby
-  S.view = { kind: 'text', id: GENERAL }; S.lastText = GENERAL;
+  loadHistory();
+  // Continue where this profile left off in this server: same text channel, same voice channel.
+  const spot = resumeFor(S.profileKey, room);
+  const vcc = typeof spot.voice === 'string' && S.chans.get(spot.voice);
+  S.me.vc = !('voice' in spot) ? LOBBY : spot.voice === null ? null : (vcc && vcc.kind === 'voice' ? vcc.id : LOBBY);
+  const txc = typeof spot.text === 'string' && S.chans.get(spot.text);
+  const tx = txc && txc.kind === 'text' ? txc.id : GENERAL;
+  S.resumed = !!spot.at;
+  S.view = { kind: 'text', id: tx }; S.lastText = tx;
   audioCtx();
   if (!S.micStream || S.noMic || !S.sendTrack || S.sendTrack.readyState !== 'live') await setupMic(settings.micId);
   if (typeof window.Peer !== 'function') throw new Error("Couldn't load the connection library. Check your internet connection and reload the page.");
@@ -2343,14 +2648,17 @@ async function enterRoom(name, room) {
   S.inRoom = true;
   try { history.replaceState(null, '', '#' + room); } catch {}
   showRoom();
-  sysMsg(S.lobbyPeer && S.peers.size === 0
-    ? `You opened "${room}". Copy the invite and send it to your friends. You're in the Lobby voice channel.`
-    : `You joined "${room}". You're in the Lobby voice channel.`);
+  const vcNow = S.me.vc && S.chans.get(S.me.vc);
+  const where = vcNow ? `You're in ${vcNow.name}${S.resumed ? ', where you left off' : ''}.` : 'You\u2019re not in a voice channel. Click one on the left to talk.';
+  sysMsg(S.resumed ? `Welcome back, ${name}. ${where}`
+    : S.lobbyPeer && S.peers.size === 0 ? `You opened "${room}". Copy the invite and send it to your friends. ${where}`
+    : `You joined "${room}". ${where}`, S.lastText);
   chime('join');
 }
 
 function teardown() {
   S.leaving = true;
+  if (S.roomTag) saveHistory();
   stopShare(true);
   for (const id of [...S.peers.keys()]) removePeer(id, false);
   const lc = S.lobbyConn; S.lobbyConn = null; S.lobbyWaiter = null;
@@ -2366,6 +2674,7 @@ function teardown() {
   setLocalAnalyser(null); setRawAnalyser(null);
   S.inRoom = false; S.stageFocus = null; S.pttHeld = false; S.recovering = false;
   S.mutedSince = 0; S.afkWarned = false; renderAfk(0);
+  S.roomTag = ''; S.histHadLocal = false; S.resumed = false; clearTimeout(histTimer);
   S.me.vc = null;
   for (const a of S.attach) URL.revokeObjectURL(a.url);
   S.attach = [];
@@ -2392,6 +2701,7 @@ function leaveRoom() {
 }
 window.addEventListener('pagehide', () => {
   if (!S.inRoom) return;
+  saveHistory();
   broadcast({ t: 'bye' });
   try { S.lobbyPeer && S.lobbyPeer.destroy(); } catch {}
   try { S.peer && S.peer.destroy(); } catch {}
@@ -2481,8 +2791,8 @@ function renderChannels() {
         const row = document.createElement(me ? 'div' : 'button');
         row.className = 'member' + (me ? ' is-me' : '') + (m.o.speaking ? ' speaking' : '');
         if (!me) { row.type = 'button'; row.title = `Volume for ${m.o.name || 'this person'}`; row.addEventListener('click', () => openVolume(m.id, row)); }
-        const av = document.createElement('span'); av.className = 'mini-av';
-        av.style.setProperty('--h', hue(m.o.name || m.id)); av.textContent = initials(m.o.name); av.setAttribute('aria-hidden', 'true');
+        const av = document.createElement('span'); av.className = 'mini-av'; av.setAttribute('aria-hidden', 'true');
+        paintAv(av, m.o.name);
         const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = m.o.name || 'Joining…';
         row.append(av, nm);
         if (m.o.sharing) { const lv = document.createElement('span'); lv.className = 'chan-live'; lv.textContent = 'LIVE'; row.appendChild(lv); }
@@ -2508,7 +2818,7 @@ function renderView() {
     const c = S.chans.get(S.view.id);
     icon.textContent = '#';
     $('#viewTitle').textContent = c ? c.name : '';
-    $('#viewSub').textContent = 'Messages, photos and videos go straight to whoever is in the server right now.';
+    $('#viewSub').textContent = 'Messages are saved. Photos and videos are only shown live.';
   } else {
     const c = S.me.vc && S.chans.get(S.me.vc);
     icon.innerHTML = iconSvg('volume');
@@ -2530,6 +2840,7 @@ function showText(id) {
   $('#chatInput').placeholder = `Message #${c.name}`;
   setDrawer(false);
   renderAll();
+  saveResume();
 }
 function showVoice() {
   S.view = { kind: 'voice' };
@@ -2542,7 +2853,7 @@ function chanIntro(c) {
   const g = document.createElement('div'); g.className = 'glyph-big'; g.textContent = '#'; g.setAttribute('aria-hidden', 'true');
   const h = document.createElement('h2'); h.textContent = `Welcome to #${c.name}`;
   const p = document.createElement('p');
-  p.textContent = `This is the start of #${c.name}. Nothing here is saved anywhere, so friends who join later won't see what was sent before they arrived.`;
+  p.textContent = `This is the start of #${c.name}. Messages are saved on this device and your friends' devices. When you come back, friends who are online fill you in on anything you missed. Photos and videos aren't saved.`;
   li.append(g, h, p);
   return li;
 }
@@ -2609,7 +2920,7 @@ function updateTile(id) {
   const o = me ? S.me : S.peers.get(id);
   if (!o) return;
   el.style.setProperty('--h', hue(o.name || id));
-  el.querySelector('.initials').textContent = initials(o.name);
+  paintAv(el.querySelector('.avatar'), o.name);
   el.querySelector('.tile-name').textContent = o.name || 'Joining…';
   let sub = '';
   if (me) sub = S.micIssue === 'silent' ? 'You · mic silent' : (S.noMic || S.micIssue) ? 'You · mic not working' : settings.ptt ? 'You · push to talk' : 'You';
@@ -2717,8 +3028,7 @@ function updateDock() {
 }
 function renderUser() {
   $('#meName').textContent = S.me.name;
-  const av = $('#meAv');
-  av.textContent = initials(S.me.name); av.style.setProperty('--h', hue(S.me.name || 'me'));
+  paintAv($('#meAv'), S.me.name);
   const vs = $('#voiceStatus');
   const c = S.me.vc && S.chans.get(S.me.vc);
   vs.hidden = !c;
@@ -2726,7 +3036,7 @@ function renderUser() {
 }
 
 /* ================= chat ================= */
-const meAuthor = () => ({ id: 'me', name: S.me.name });
+const meAuthor = () => authorFor(S.me.name);
 function nearBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHeight < 120; }
 function fillText(el, text) {
   const re = /\bhttps?:\/\/[^\s<>"']+/gi;
@@ -2745,9 +3055,11 @@ function fillText(el, text) {
 const isViewing = (id) => S.inRoom && S.view.kind === 'text' && S.view.id === id;
 function pushMsg(chId, msg) {
   const c = S.chans.get(chId) || S.chans.get(GENERAL);
+  if (msg.kind === 'text' && msg.id && hasMsg(c, msg.id)) return;
   msg.ch = c.id;
   msg.ts = msg.ts || Date.now();
   c.msgs.push(msg);
+  if (msg.kind === 'text') scheduleHistSave();
   if (c.msgs.length > MAX_MSGS) {
     const old = c.msgs.shift();
     if (old.url && old.status !== 'sending') URL.revokeObjectURL(old.url);
@@ -2772,7 +3084,8 @@ function msgEl(msg, prev) {
   const cont = prev && prev.kind !== 'sys' && prev.author.id === msg.author.id && msg.ts - prev.ts < 5 * 60 * 1000;
   if (cont) li.classList.add('cont');
   li.style.setProperty('--h', hue(msg.author.name || msg.author.id));
-  const av = document.createElement('span'); av.className = 'mini-av'; av.textContent = initials(msg.author.name); av.setAttribute('aria-hidden', 'true');
+  const av = document.createElement('span'); av.className = 'mini-av'; av.setAttribute('aria-hidden', 'true');
+  paintAv(av, msg.author.name);
   const head = document.createElement('div'); head.className = 'msg-head';
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.textContent = msg.author.name;
   const tm = document.createElement('time'); tm.className = 'msg-time';
@@ -2902,9 +3215,9 @@ function sendChat() {
   if (!text && !files.length) return;
   const ch = S.view.kind === 'text' ? S.view.id : S.lastText;
   if (text) {
-    const ts = Date.now();
-    broadcast({ t: 'chat', ch, text, ts });
-    pushMsg(ch, { kind: 'text', author: meAuthor(), text, ts, self: true });
+    const ts = Date.now(), id = msgId();
+    broadcast({ t: 'chat', ch, text, ts, id });
+    pushMsg(ch, Object.assign(textMsg(id, ts, S.me.name, text), { self: true }));
   }
   input.value = ''; autoGrow(input);
   renderTray();
@@ -3004,6 +3317,7 @@ function wireNewChannel(kind, btn, form, input) {
     const c = ensureChannel(kind, input.value, true);
     if (!c) { toast(S.chans.size >= 40 ? 'This server already has the most channels it can hold.' : 'Channel names need at least one letter or number.'); return; }
     broadcast({ t: 'chan-add', kind, name: c.name });
+    scheduleHistSave();
     close();
     if (kind === 'text') showText(c.id); else joinVoice(c.id);
   });
@@ -3156,6 +3470,8 @@ document.addEventListener('pointerdown', (e) => {
 /* ================= settings ================= */
 function openSettings() {
   $('#setName').value = S.me.name;
+  paintAv($('#setAv'), S.me.name);
+  $('#setAvRemove').hidden = !avData(S.profileKey);
   syncLevelControls();
   syncNoiseControls();
   $('#setPtt').checked = !!settings.ptt;
@@ -3166,12 +3482,48 @@ function openSettings() {
 function applyName() {
   const n = cleanName($('#setName').value);
   if (!n || n === S.me.name) { $('#setName').value = S.me.name; return; }
+  const oldKey = S.profileKey, newKey = foldName(n);
+  if (newKey !== oldKey && [...S.peers.values()].some((p) => p.gotState && foldName(p.name) === newKey)) {
+    $('#setName').value = S.me.name;
+    toast(`${n} is already in this server. Pick a different name.`, 5000);
+    return;
+  }
   S.me.name = n;
-  const saved = store.get('me', null);
-  if (saved) store.set('me', Object.assign({}, saved, { name: n }));
+  if (newKey !== oldKey) {
+    // Your name is your profile: move the saved spot and picture over to the new name.
+    const all = loadProfiles();
+    if (S.saveProfile && all[oldKey]) { all[newKey] = Object.assign({}, all[oldKey], { name: n }); delete all[oldKey]; saveProfiles(all); }
+    const pic = avData(oldKey);
+    S.profileKey = newKey;
+    if (pic) setAvatar(newKey, n, pic, Date.now());
+  }
+  saveResume();
   if (S.roster && S.peer && S.roster.has(S.peer.id)) S.roster.get(S.peer.id).name = n;
-  sendState(); updateTile('me'); renderChannels();
+  sendState(); updateTile('me'); renderChannels(); paintAv($('#setAv'), n);
 }
+async function setMyAvatar(file) {
+  try {
+    const data = await makeAvatar(file);
+    setAvatar(S.profileKey, S.me.name, data, Date.now());
+    sendState();
+    $('#setAvRemove').hidden = false;
+    toast('Profile picture updated. Your friends see it now.', 3500);
+  } catch {
+    toast("That picture couldn't be used. Try a JPG or PNG photo.", 5000);
+  }
+}
+for (const id of ['#setAvBtn', '#setAvChange']) $(id).addEventListener('click', () => $('#setAvFile').click());
+$('#setAvFile').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (f) setMyAvatar(f);
+});
+$('#setAvRemove').addEventListener('click', () => {
+  setAvatar(S.profileKey, S.me.name, null, Date.now());
+  sendState();
+  $('#setAvRemove').hidden = true;
+  toast('Profile picture removed.', 3000);
+});
 $('#setName').addEventListener('change', applyName);
 $('#settings').addEventListener('close', applyName);
 $('#setMic').addEventListener('change', (e) => { settings.micId = e.target.value; saveSettings(); retryMic(); });
@@ -3471,54 +3823,113 @@ renderFeedback();
 
 /* ================= join screen ================= */
 function showJoinError(text) { const el = $('#joinError'); el.textContent = text; el.hidden = !text; }
-// Your name and server are remembered on this device (like the password), so next time it's one click.
-const savedMe = () => { const m = store.get('me', null); return m && typeof m === 'object' ? { name: cleanName(m.name), room: cleanRoom(m.room) } : null; };
+// Each profile on this device shows in "Who's joining?"; picking one continues where it left off.
 const hashRoom = () => { let h = ''; try { h = decodeURIComponent(location.hash.slice(1) || ''); } catch {} const r = cleanRoom(h); return r.length >= 3 ? r : ''; };
-function saveMe(name, room) { store.set('me', $('#rememberMe').checked ? { name, room } : null); }
-(() => {
-  const me = savedMe();
-  $('#nameInput').value = (me && me.name) || cleanName(store.get('name', ''));
-  $('#roomInput').value = hashRoom() || (me && me.room.length >= 3 ? me.room : '') || randomRoom();
-})();
-let quickRoom = '';
-function showJoinStart() {
-  if (!S.roomKey) { showGate(); return; }
-  const me = savedMe();
-  quickRoom = hashRoom() || (me ? me.room : '');
-  const quick = !!(me && me.name && quickRoom.length >= 3);
-  $('#gateForm').hidden = true;
-  $('#quickJoin').hidden = !quick;
-  $('#joinForm').hidden = quick;
-  $('#qjError').hidden = true;
-  if (quick) {
-    $('#qjName').textContent = me.name;
-    $('#qjRoom').textContent = quickRoom;
-    const av = $('#qjAv'); av.textContent = initials(me.name); av.style.setProperty('--h', hue(me.name));
-    setTimeout(() => $('#qjGo').focus(), 0);
-  } else if (!$('#nameInput').value) setTimeout(() => $('#nameInput').focus(), 0);
+let pendingAv = null;   // a picture chosen on the join screen, saved once the person enters
+$('#roomInput').value = hashRoom() || (profileList()[0] || {}).lastRoom || randomRoom();
+function paintJoinAv() {
+  const el = $('#joinAv');
+  const name = cleanName($('#nameInput').value);
+  if (pendingAv) {
+    delete el.dataset.avk;
+    el.textContent = '';
+    el.style.setProperty('--h', hue(name || '?'));
+    el.classList.add('has-img');
+    el.style.backgroundImage = `url("${pendingAv}")`;
+  } else paintAv(el, name);
+  $('#joinAvRemove').hidden = !pendingAv;
+  $('#joinAvLabel').textContent = pendingAv || avData(foldName(name)) ? 'Change picture' : 'Add a picture';
 }
 function showQjError(text) { const el = $('#qjError'); el.textContent = text; el.hidden = !text; }
-async function joinWith(name, room, btn, showErr) {
-  showErr('');
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Connecting…';
-  try { await enterRoom(name, room); saveMe(name, room); }
-  catch (err) { teardown(); showErr((err && err.message) || 'Something went wrong. Try again.'); }
-  finally { btn.disabled = false; btn.textContent = label; }
-}
-$('#qjGo').addEventListener('click', () => {
-  const me = savedMe();
-  if (!me || !me.name || quickRoom.length < 3) { showJoinStart(); return; }
-  $('#nameInput').value = me.name; $('#roomInput').value = quickRoom;
-  joinWith(me.name, quickRoom, $('#qjGo'), showQjError);
-});
-$('#qjEdit').addEventListener('click', () => {
-  const me = savedMe();
-  if (me && me.name) $('#nameInput').value = me.name;
-  if (quickRoom) $('#roomInput').value = quickRoom;
+function showForm(name) {
   $('#quickJoin').hidden = true; $('#joinForm').hidden = false;
-  $('#nameInput').focus();
+  $('#joinBack').hidden = !profileList().length;
+  if (typeof name === 'string') $('#nameInput').value = name;
+  paintJoinAv();
+  setTimeout(() => ($('#nameInput').value ? $('#roomInput') : $('#nameInput')).focus(), 0);
+}
+function renderPicker() {
+  const hash = hashRoom();
+  $('#qjHint').textContent = hash ? `Joining server ${hash}. Pick your profile.` : 'Pick your profile to continue where you left off.';
+  const ul = $('#qjList');
+  ul.textContent = '';
+  for (const p of profileList()) {
+    const li = document.createElement('li'); li.className = 'profile';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'profile-go';
+    const av = document.createElement('span'); av.className = 'mini-av'; av.setAttribute('aria-hidden', 'true'); paintAv(av, p.name);
+    const tx = document.createElement('span'); tx.className = 'profile-text';
+    const nm = document.createElement('b'); nm.textContent = p.name;
+    const sub = document.createElement('span'); sub.className = 'profile-sub';
+    const room = hash || p.lastRoom;
+    const r = objOr(p.rooms[room]);
+    sub.textContent = !room ? 'Pick a server' : `Server ${room}` + (r.voice && r.voiceName ? ` · in ${r.voiceName}` : '');
+    tx.append(nm, sub);
+    const go = document.createElement('span'); go.className = 'profile-arrow'; go.innerHTML = iconSvg('chevron');
+    b.append(av, tx, go);
+    b.addEventListener('click', () => pickProfile(p, sub));
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'profile-x'; x.innerHTML = iconSvg('x');
+    x.setAttribute('aria-label', `Remove ${p.name} from this device`); x.title = 'Remove from this device';
+    x.addEventListener('click', () => {
+      const saved = loadProfiles()[p.key];
+      removeProfile(p.key);
+      showJoinStart();
+      toast(`${p.name} was removed from this device.`, 6000, { label: 'Undo', fn: () => { const all = loadProfiles(); all[p.key] = saved; saveProfiles(all); showJoinStart(); } });
+    });
+    li.append(b, x);
+    ul.appendChild(li);
+  }
+}
+function showJoinStart() {
+  if (!S.roomKey) { showGate(); return; }
+  const picker = profileList().length > 0;
+  $('#gateForm').hidden = true;
+  $('#qjError').hidden = true;
+  if (picker) {
+    $('#quickJoin').hidden = false; $('#joinForm').hidden = true;
+    renderPicker();
+    setTimeout(() => { const b = $('#qjList button'); if (b) b.focus(); }, 0);
+  } else showForm();
+}
+async function joinWith(name, room, opts) {
+  opts.showErr('');
+  opts.busy(true);
+  S.profileKey = foldName(name);
+  S.saveProfile = !!opts.remember;
+  if (pendingAv) { setAvatar(S.profileKey, name, pendingAv, Date.now()); pendingAv = null; }
+  try {
+    await enterRoom(name, room);
+    saveResume();
+  } catch (err) {
+    teardown();
+    opts.showErr((err && err.message) || 'Something went wrong. Try again.');
+  } finally {
+    opts.busy(false);
+  }
+}
+function pickProfile(p, subEl) {
+  const room = hashRoom() || p.lastRoom;
+  if (!room) { showForm(p.name); return; }
+  const rows = [...document.querySelectorAll('#qjList button')];
+  const before = subEl.textContent;
+  joinWith(p.name, room, {
+    remember: true,
+    busy: (on) => { for (const r of rows) r.disabled = on; subEl.textContent = on ? 'Connecting…' : before; },
+    showErr: showQjError,
+  });
+}
+$('#qjNew').addEventListener('click', () => { pendingAv = null; showForm(''); });
+$('#joinBack').addEventListener('click', () => { pendingAv = null; showJoinStart(); });
+$('#nameInput').addEventListener('input', paintJoinAv);
+$('#joinAvBtn').addEventListener('click', () => $('#joinAvFile').click());
+$('#joinAvFile').addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try { pendingAv = await makeAvatar(f); } catch { toast("That picture couldn't be used. Try a JPG or PNG photo.", 5000); }
+  paintJoinAv();
 });
+$('#joinAvRemove').addEventListener('click', () => { pendingAv = null; paintJoinAv(); });
 $('#diceBtn').addEventListener('click', () => { $('#roomInput').value = randomRoom(); });
 $('#roomInput').addEventListener('blur', (e) => { const c = cleanRoom(e.target.value); if (c) e.target.value = c; });
 $('#joinMic').addEventListener('change', (e) => {
@@ -3539,7 +3950,12 @@ $('#joinForm').addEventListener('submit', async (e) => {
   if (!name) { showJoinError('Enter your name so your friends know who you are.'); $('#nameInput').focus(); return; }
   if (room.length < 3) { showJoinError('Server names need at least 3 letters or numbers.'); $('#roomInput').focus(); return; }
   $('#roomInput').value = room;
-  await joinWith(name, room, $('#enterBtn'), showJoinError);
+  const btn = $('#enterBtn');
+  await joinWith(name, room, {
+    remember: $('#rememberMe').checked,
+    busy: (on) => { btn.disabled = on; btn.textContent = on ? 'Connecting…' : 'Enter server'; },
+    showErr: showJoinError,
+  });
 });
 
 function showGate(msg) {
@@ -3579,12 +3995,16 @@ $('#gateForm').addEventListener('submit', async (e) => {
     btn.disabled = false; btn.textContent = 'Unlock';
   }
 });
-$('#lockBtn').addEventListener('click', () => {
-  store.set('gate', null); store.set('me', null); store.set('name', null);
-  S.roomKey = null;
+function forgetDevice() {
+  const drop = new Set(['gate', 'me', 'name', 'profiles', 'avatars', 'histIndex']);
+  for (const k of store.keys()) if (drop.has(k) || k.startsWith('hist:')) store.del(k);
+  avatars = {};
+  S.roomKey = null; pendingAv = null;
   $('#nameInput').value = '';
-  showGate('Forgotten. This device will ask for the password, your name and the server again.');
-});
+  showGate('Forgotten. This device no longer has the password, profiles, pictures or chat history.');
+}
+$('#lockBtn').addEventListener('click', forgetDevice);
+$('#qjForget').addEventListener('click', forgetDevice);
 (() => {
   const saved = store.get('gate', null);
   if (saved && saved.v === GATE.verifier && typeof saved.k === 'string' && saved.k.length === 64) unlock(saved.k);
