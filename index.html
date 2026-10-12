@@ -169,8 +169,27 @@ select { appearance: auto; }
 /* ---------- room: server layout ----------
    Layout: channel sidebar on the left (server name, text channels, voice channels with who is in each),
    the open channel fills the rest, and your own mic and headphone controls sit bottom-left. */
-.app { height: 100%; display: grid; grid-template-columns: 272px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "side main" "user main"; }
-.side { grid-area: side; min-height: 0; display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line); }
+.app { height: 100%; display: grid; grid-template-columns: 344px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "side main" "user main"; }
+.side { grid-area: side; min-height: 0; display: grid; grid-template-columns: 72px minmax(0, 1fr); background: var(--panel); border-right: 1px solid var(--line); }
+.side-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.rail { min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; background: var(--field); border-right: 1px solid var(--line); overflow-y: auto; }
+.rail-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; justify-items: center; }
+.rail-item { position: relative; }
+.rail-item::before { content: ""; position: absolute; left: -12px; top: 50%; width: 4px; height: 0; border-radius: 0 4px 4px 0; background: var(--fg); transform: translateY(-50%); transition: height .15s; }
+.rail-item:hover::before { height: 18px; }
+.rail-item.current::before { height: 40px; }
+.rail-btn { width: 48px; height: 48px; border: 0; border-radius: 50%; display: grid; place-items: center; background: hsl(var(--h, 30) var(--av-s) var(--av-l)); color: var(--av-fg); font: 800 17px/1 var(--font-display); letter-spacing: .04em; transition: border-radius .15s; }
+.rail-btn:hover, .rail-btn[aria-current="true"] { border-radius: 16px; }
+.rail-btn[aria-current="true"] { box-shadow: 0 0 0 2px var(--lamp); }
+.rail-btn:disabled { cursor: progress; }
+.rail-sep { width: 32px; height: 2px; flex: none; border-radius: 1px; background: var(--line); }
+.rail-add { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 1px dashed var(--dim); border-radius: 50%; background: var(--panel); color: var(--ok); transition: border-radius .15s; }
+.rail-add:hover { border-radius: 16px; border-style: solid; border-color: transparent; background: var(--ok); color: var(--on-ok); }
+.switching { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding-inline: 16px; background: var(--scrim); }
+.switch-card { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); font-weight: 600; }
+.spinner { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--lamp); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#addServer { width: min(440px, calc(100% - 32px)); }
 .main { grid-area: main; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
 .user-area { grid-area: user; display: grid; gap: 6px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--field); border-right: 1px solid var(--line); border-top: 1px solid var(--line); }
 
@@ -376,7 +395,7 @@ button.member:hover { background: var(--panel-2); color: var(--fg); }
 .drawer-scrim { position: fixed; inset: 0; z-index: 39; background: var(--scrim); }
 @media (max-width: 860px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main" "user"; }
-  .side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: min(88vw, 320px); padding-top: env(safe-area-inset-top, 0px); transform: translateX(-102%); transition: transform .2s ease; box-shadow: var(--shadow); }
+  .side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: min(92vw, 380px); padding-top: env(safe-area-inset-top, 0px); transform: translateX(-102%); transition: transform .2s ease; box-shadow: var(--shadow); }
   .app.drawer-open .side { transform: none; }
   .drawer-btn { display: grid; margin-left: -8px; }
   .user-area { border-right: 0; }
@@ -571,6 +590,12 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 <!-- ================= ROOM (a server with text and voice channels) ================= -->
 <main id="room" class="app" hidden>
   <aside class="side" id="side" aria-label="Server">
+    <nav class="rail" aria-label="Your servers">
+      <ul class="rail-list" id="railList"></ul>
+      <span class="rail-sep" aria-hidden="true"></span>
+      <button type="button" class="rail-add" id="railAdd" title="Join or create a server" aria-label="Join or create a server"><svg class="ic"><use href="#i-plus"/></svg></button>
+    </nav>
+    <div class="side-main">
     <header class="server-head">
       <button type="button" class="server-btn" id="serverBtn" aria-expanded="false" aria-controls="serverMenu"><span id="serverName"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
       <div class="menu" id="serverMenu" hidden>
@@ -578,7 +603,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <button type="button" id="mFeedback"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
         <button type="button" id="mMic"><svg class="ic"><use href="#i-mic"/></svg>Mic check</button>
         <button type="button" id="mSettings"><svg class="ic"><use href="#i-sliders"/></svg>Settings</button>
-        <button type="button" id="mLeave" class="danger"><svg class="ic"><use href="#i-leave"/></svg>Leave server</button>
+        <button type="button" id="mLeave"><svg class="ic"><use href="#i-leave"/></svg>Leave server</button>
+        <button type="button" id="mForget" class="danger"><svg class="ic"><use href="#i-x"/></svg>Remove from my servers</button>
       </div>
     </header>
     <p class="conn-line" aria-live="polite"><span class="dot" id="statusDot"></span><span id="statusText">Connected</span><span aria-hidden="true">·</span><span id="countText">Just you</span></p>
@@ -600,6 +626,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <ul class="chan-list" id="voiceList"></ul>
       </section>
     </nav>
+    </div>
   </aside>
   <div class="drawer-scrim" id="drawerScrim" hidden></div>
 
@@ -709,6 +736,29 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     </div>
   </footer>
 </main>
+
+<!-- ================= ADD SERVER ================= -->
+<dialog id="addServer" aria-labelledby="asTitle">
+  <form id="asForm" novalidate>
+    <div class="set-head">
+      <h2 id="asTitle">Join a server</h2>
+      <button type="button" class="btn icon-btn" id="asClose" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="set-body">
+      <div class="field">
+        <label class="flabel" for="asName">Server name</label>
+        <div class="row">
+          <input type="text" id="asName" class="input" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button type="button" class="btn icon-btn" id="asDice" title="New random server name" aria-label="New random server name"><svg class="ic"><use href="#i-dice"/></svg></button>
+        </div>
+        <p class="hint">Type the server name your friends use, or make up a new one to start your own.</p>
+      </div>
+      <p class="error" id="asError" role="alert" hidden></p>
+      <button type="submit" class="btn primary">Go to server</button>
+    </div>
+  </form>
+</dialog>
+<div class="switching" id="switching" hidden><div class="switch-card" role="status"><span class="spinner" aria-hidden="true"></span><span id="switchText">Switching…</span></div></div>
 
 <!-- ================= FEEDBACK ================= -->
 <dialog id="feedback" aria-labelledby="fbTitle">
@@ -1029,7 +1079,7 @@ const S = {
   firstRoster: true, recovering: false,
   peers: new Map(),
   rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
-  profileKey: '', saveProfile: false, histHadLocal: false, resumed: false,
+  profileKey: '', saveProfile: false, histHadLocal: false, resumed: false, sessionServers: [], switching: false,
   mutedSince: 0, afkWarned: false,
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
   screenStream: null, stageFocus: null,
@@ -1593,14 +1643,38 @@ function removeProfile(key) { const all = loadProfiles(); delete all[key]; saveP
   store.del('name');
 })();
 function resumeFor(key, room) { return objOr(objOr(objOr(loadProfiles()[key]).rooms)[room]); }
+const SERVERS_MAX = 12;
+// The servers this profile has been in, in the order they were first joined (shown in the server bar).
+function serversOf(prof) {
+  const rooms = objOr(prof.rooms);
+  const list = Array.isArray(prof.servers) ? prof.servers : Object.keys(rooms).sort((a, b) => (Number(objOr(rooms[a]).at) || 0) - (Number(objOr(rooms[b]).at) || 0));
+  const out = [];
+  for (const r of list) { const c = cleanRoom(r); if (c.length >= 3 && !out.includes(c)) out.push(c); }
+  return out;
+}
 function saveResume() {
   if (!S.inRoom || !S.saveProfile || !S.profileKey) return;
-  const rooms = objOr(objOr(loadProfiles()[S.profileKey]).rooms);
-  const vc = S.me.vc && S.chans.get(S.me.vc);
-  rooms[S.room] = { text: S.lastText, voice: S.me.vc || null, voiceName: vc ? vc.name : '', at: Date.now() };
-  const names = Object.keys(rooms).sort((a, b) => (Number(rooms[b].at) || 0) - (Number(rooms[a].at) || 0));
-  for (const r of names.slice(8)) delete rooms[r];
-  upsertProfile(S.me.name, { rooms, lastRoom: S.room, usedAt: Date.now() });
+  const prof = objOr(loadProfiles()[S.profileKey]);
+  const rooms = objOr(prof.rooms);
+  let servers = serversOf(prof);
+  const tc = S.chans.get(S.lastText);
+  rooms[S.room] = { text: S.lastText, textName: tc ? tc.name : '', at: Date.now() };
+  if (!servers.includes(S.room)) servers.push(S.room);
+  if (servers.length > SERVERS_MAX) {
+    const keep = new Set([...servers].sort((a, b) => (Number(objOr(rooms[b]).at) || 0) - (Number(objOr(rooms[a]).at) || 0)).slice(0, SERVERS_MAX));
+    servers = servers.filter((r) => keep.has(r));
+  }
+  for (const r of Object.keys(rooms)) if (!servers.includes(r)) delete rooms[r];
+  upsertProfile(S.me.name, { rooms, servers, lastRoom: S.room, usedAt: Date.now() });
+}
+function forgetServer(room) {
+  const all = loadProfiles();
+  const prof = all[S.profileKey];
+  if (!prof) return;
+  prof.servers = serversOf(prof).filter((r) => r !== room);
+  const rooms = objOr(prof.rooms); delete rooms[room]; prof.rooms = rooms;
+  if (prof.lastRoom === room) prof.lastRoom = [...prof.servers].sort((a, b) => (Number(objOr(rooms[b]).at) || 0) - (Number(objOr(rooms[a]).at) || 0))[0] || '';
+  saveProfiles(all);
 }
 
 /* ---- profile pictures ---- */
@@ -2617,10 +2691,9 @@ async function enterRoom(name, room) {
   S.me.muted = false; S.me.deafened = false; S.me.sharing = false;
   resetChannels();
   loadHistory();
-  // Continue where this profile left off in this server: same text channel, same voice channel.
+  // Continue where this profile left off in this server: the same text channel.
   const spot = resumeFor(S.profileKey, room);
-  const vcc = typeof spot.voice === 'string' && S.chans.get(spot.voice);
-  S.me.vc = !('voice' in spot) ? LOBBY : spot.voice === null ? null : (vcc && vcc.kind === 'voice' ? vcc.id : LOBBY);
+  S.me.vc = null;   // entering a server doesn't join voice; people click a voice channel when they want to talk
   const txc = typeof spot.text === 'string' && S.chans.get(spot.text);
   const tx = txc && txc.kind === 'text' ? txc.id : GENERAL;
   S.resumed = !!spot.at;
@@ -2648,11 +2721,11 @@ async function enterRoom(name, room) {
   S.inRoom = true;
   try { history.replaceState(null, '', '#' + room); } catch {}
   showRoom();
-  const vcNow = S.me.vc && S.chans.get(S.me.vc);
-  const where = vcNow ? `You're in ${vcNow.name}${S.resumed ? ', where you left off' : ''}.` : 'You\u2019re not in a voice channel. Click one on the left to talk.';
-  sysMsg(S.resumed ? `Welcome back, ${name}. ${where}`
-    : S.lobbyPeer && S.peers.size === 0 ? `You opened "${room}". Copy the invite and send it to your friends. ${where}`
-    : `You joined "${room}". ${where}`, S.lastText);
+  if (!S.saveProfile && !S.sessionServers.includes(room)) S.sessionServers.push(room);
+  const talk = 'Click a voice channel on the left when you want to talk.';
+  sysMsg(S.resumed ? `Welcome back, ${name}. ${talk}`
+    : S.lobbyPeer && S.peers.size === 0 ? `You opened "${room}". Copy the invite and send it to your friends. ${talk}`
+    : `You joined "${room}". ${talk}`, S.lastText);
   chime('join');
 }
 
@@ -2750,9 +2823,79 @@ function chanButton(c, iconHtml) {
   b.append(ic, nm);
   return b;
 }
+function myServers() {
+  const list = S.saveProfile && S.profileKey ? serversOf(objOr(loadProfiles()[S.profileKey])) : [...S.sessionServers];
+  if (S.room && !list.includes(S.room)) list.push(S.room);
+  return list;
+}
+function serverInitials(room) {
+  const words = room.split('-').filter((w) => /[a-z]/.test(w));
+  const w = words.length ? words : [room];
+  return (w[0][0] + (w[1] ? w[1][0] : (w[0][1] || ''))).toUpperCase();
+}
+function renderRail() {
+  const ul = $('#railList');
+  ul.textContent = '';
+  for (const room of myServers()) {
+    const cur = room === S.room;
+    const li = document.createElement('li'); li.className = 'rail-item' + (cur ? ' current' : '');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'rail-btn'; b.textContent = serverInitials(room);
+    b.style.setProperty('--h', hue(room));
+    b.title = cur ? `${room} (you're here)` : `Go to ${room}`;
+    b.setAttribute('aria-label', `Server ${room}`);
+    if (cur) b.setAttribute('aria-current', 'true');
+    b.disabled = S.switching;
+    b.addEventListener('click', () => switchServer(room));
+    li.appendChild(b); ul.appendChild(li);
+  }
+}
+// Moves you to another server: leaves this one, then enters the other with the same profile.
+async function switchServer(room) {
+  room = cleanRoom(room);
+  if (room.length < 3 || S.switching) return;
+  if (room === S.room && S.inRoom) { setDrawer(false); return; }
+  S.switching = true;
+  const name = S.me.name, remember = S.saveProfile;
+  $('#switchText').textContent = `Going to ${room}…`;
+  $('#switching').hidden = false;
+  closeVolume(); setMenu(false); setDrawer(false);
+  broadcast({ t: 'bye' });
+  S.leaving = true;
+  await sleep(200);
+  teardown();
+  let failed = '';
+  await joinWith(name, room, { remember, busy: () => {}, showErr: (t) => { if (t) failed = t; } });
+  $('#switching').hidden = true;
+  S.switching = false;
+  if (failed) {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+    document.title = 'Party Line';
+    $('#room').hidden = true; $('#join').hidden = false;
+    showJoinStart();
+    if (!$('#quickJoin').hidden) showQjError(failed); else showJoinError(failed);
+  } else renderRail();
+}
+function openAddServer() {
+  $('#asName').value = ''; $('#asError').hidden = true;
+  setDrawer(false);
+  $('#addServer').showModal();
+  setTimeout(() => $('#asName').focus(), 0);
+}
+$('#railAdd').addEventListener('click', openAddServer);
+$('#asClose').addEventListener('click', () => $('#addServer').close());
+$('#asDice').addEventListener('click', () => { $('#asName').value = randomRoom(); $('#asName').focus(); });
+$('#asForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const room = cleanRoom($('#asName').value);
+  if (room.length < 3) { const er = $('#asError'); er.textContent = 'Server names need at least 3 letters or numbers.'; er.hidden = false; $('#asName').focus(); return; }
+  $('#addServer').close();
+  switchServer(room);
+});
 function renderChannels() {
   if (!S.inRoom) return;
   $('#serverName').textContent = S.room;
+  renderRail();
   const tl = $('#textList');
   tl.textContent = '';
   for (const c of chansOf('text')) {
@@ -3297,6 +3440,13 @@ $('#mInvite').addEventListener('click', () => { setMenu(false); copyInvite(); })
 $('#mMic').addEventListener('click', () => { setMenu(false); setDrawer(false); openMicPanel(true); });
 $('#mSettings').addEventListener('click', () => { setMenu(false); openSettings(); });
 $('#mLeave').addEventListener('click', () => { setMenu(false); leaveRoom(); });
+$('#mForget').addEventListener('click', () => {
+  setMenu(false);
+  const room = S.room;
+  if (S.saveProfile) forgetServer(room); else S.sessionServers = S.sessionServers.filter((r) => r !== room);
+  leaveRoom();
+  toast(`${room} was removed from your servers. You can join it again any time with its name.`, 5000);
+});
 document.addEventListener('pointerdown', (e) => {
   if (!$('#serverMenu').hidden && !e.target.closest('.server-head')) setMenu(false);
 });
@@ -3331,7 +3481,7 @@ for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) ptt.addEv
 ptt.addEventListener('contextmenu', (e) => e.preventDefault());
 
 document.addEventListener('keydown', (e) => {
-  if (!S.inRoom || $('#settings').open || $('#feedback').open) return;
+  if (!S.inRoom || $('#settings').open || $('#feedback').open || $('#addServer').open || S.switching) return;
   if (e.key === 'Escape') {
     if (!$('#lightbox').hidden) { closeLightbox(); return; }
     if (!$('#serverMenu').hidden) { setMenu(false); return; }
@@ -3862,7 +4012,7 @@ function renderPicker() {
     const sub = document.createElement('span'); sub.className = 'profile-sub';
     const room = hash || p.lastRoom;
     const r = objOr(p.rooms[room]);
-    sub.textContent = !room ? 'Pick a server' : `Server ${room}` + (r.voice && r.voiceName ? ` · in ${r.voiceName}` : '');
+    sub.textContent = !room ? 'Pick a server' : `Server ${room}` + (r.textName ? ` · #${r.textName}` : '');
     tx.append(nm, sub);
     const go = document.createElement('span'); go.className = 'profile-arrow'; go.innerHTML = iconSvg('chevron');
     b.append(av, tx, go);
