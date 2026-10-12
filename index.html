@@ -426,6 +426,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .fb-owner[open] summary { margin-bottom: 12px; }
 .fb-owner-on { display: grid; gap: 6px; justify-items: start; }
 .fb-owner-on .link-btn { justify-self: start; padding-left: 0; }
+.afk-bar { width: calc(100% - 32px); max-width: 780px; margin: 12px auto 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--lamp); background: var(--panel); }
+.afk-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--lamp); color: var(--on-lamp); }
+.afk-text { flex: 1 1 220px; min-width: 0; font-weight: 600; }
+.afk-text b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--lamp-ink); }
 .toasts { position: fixed; z-index: 50; top: calc(env(safe-area-inset-top, 0px) + 64px); right: 16px; display: grid; gap: 8px; width: min(360px, calc(100% - 32px)); pointer-events: none; }
 .toast { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 14px; animation: toast-in .2s ease-out; }
 .toast span { flex: 1; }
@@ -467,6 +471,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path d="M2 2l20 20"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
     <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 8h8"/><path d="M8 12h5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </defs>
 </svg>
@@ -605,6 +610,11 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       </div>
       <button type="button" class="btn small icon-btn" id="mpClose" aria-label="Hide mic check" title="Hide"><svg class="ic"><use href="#i-x"/></svg></button>
     </section>
+    <div class="afk-bar" id="afkBar" role="status" hidden>
+      <span class="afk-ic" aria-hidden="true"><svg class="ic"><use href="#i-clock"/></svg></span>
+      <span class="afk-text" id="afkText"></span>
+      <button type="button" class="btn small" id="afkUnmute">Unmute</button>
+    </div>
     <div class="notice-row" id="audioUnlockRow" hidden><button type="button" class="btn" id="audioUnlock"><svg class="ic"><use href="#i-volume"/></svg>Turn on sound</button></div>
 
     <div class="view-text" id="viewText">
@@ -777,6 +787,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
           <dt><kbd>Space</kbd></dt><dd>Talk, when push to talk is on</dd>
         </dl>
       </div>
+      <p class="hint">Stay muted or deafened in a voice channel for 30 minutes and you're disconnected from voice. You get a warning 5 minutes before. Sharing your screen pauses the timer.</p>
     </div>
   </form>
 </dialog>
@@ -983,6 +994,7 @@ const S = {
   firstRoster: true, recovering: false,
   peers: new Map(),
   rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
+  mutedSince: 0, afkWarned: false,
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
   screenStream: null, stageFocus: null,
   pttHeld: false, chatOpen: true, unread: 0,
@@ -1763,6 +1775,9 @@ function onPeerMessage(p, msg) {
     renderChannels();
   } else if (msg.t === 'chan-add' && typeof msg.name === 'string') {
     if (ensureChannel(msg.kind, msg.name, true)) renderChannels();
+  } else if (msg.t === 'afk') {
+    const c = typeof msg.vc === 'string' && S.chans.get(msg.vc);
+    if (c && c.kind === 'voice' && msg.vc === S.me.vc && p.vc === S.me.vc) sysMsg(`${p.name || 'Someone'} was disconnected from ${c.name} after 30 minutes muted.`);
   } else if (msg.t === 'fb-sync') {
     onFbSync(p, msg);
   } else if (msg.t === 'fb-item') {
@@ -2216,6 +2231,56 @@ function dropRemoteScreen(p) {
 }
 function clearRemoteScreen(p) { dropRemoteScreen(p); renderStage(); renderTiles(); renderChannels(); }
 
+/* ================= away from voice =================
+   Muted or deafened in a voice channel for 30 minutes: a warning shows at 25 minutes, then you're
+   disconnected from voice. Each person's own app keeps this rule. Sharing your screen pauses it. */
+const AFK_LIMIT = 30 * 60 * 1000, AFK_WARN = 5 * 60 * 1000;
+const afkMuted = () => !!S.me.vc && (S.me.muted || S.me.deafened) && !S.me.sharing;
+function afkReset() {
+  S.mutedSince = afkMuted() ? Date.now() : 0;
+  S.afkWarned = false;
+  renderAfk(AFK_LIMIT);
+}
+function afkTick() {
+  if (!S.inRoom) return;
+  if (!afkMuted()) { if (S.mutedSince || S.afkWarned) { S.mutedSince = 0; S.afkWarned = false; renderAfk(0); } return; }
+  const now = Date.now();
+  if (!S.mutedSince) S.mutedSince = now;
+  const left = S.mutedSince + AFK_LIMIT - now;
+  if (left <= 0) { afkKick(); return; }
+  if (left <= AFK_WARN && !S.afkWarned) {
+    S.afkWarned = true;
+    chime('off');
+    if (document.hidden) toast('You\u2019ve been muted for 25 minutes. Unmute to stay in voice.', 10000);
+  }
+  renderAfk(left);
+}
+function renderAfk(left) {
+  const bar = $('#afkBar');
+  const show = S.inRoom && S.afkWarned && left > 0 && afkMuted();
+  bar.hidden = !show;
+  if (!show) return;
+  const c = S.chans.get(S.me.vc);
+  const secs = Math.ceil(left / 1000);
+  const mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, '0');
+  const t = $('#afkText');
+  t.textContent = `You've been ${S.me.deafened ? 'deafened' : 'muted'} for a while. You'll be disconnected from ${c ? c.name : 'voice'} in `;
+  const b = document.createElement('b'); b.textContent = `${mm}:${ss}`;
+  t.append(b, ' unless you unmute.');
+  $('#afkUnmute').textContent = S.me.deafened ? 'Undeafen' : 'Unmute';
+}
+function afkKick() {
+  const id = S.me.vc, c = S.chans.get(id);
+  const name = c ? c.name : 'voice';
+  broadcast({ t: 'afk', vc: id });
+  leaveVoice();
+  S.mutedSince = 0; S.afkWarned = false; renderAfk(0);
+  sysMsg(`You were disconnected from ${name} after 30 minutes muted. Click a voice channel to rejoin.`);
+  toast(`You were disconnected from ${name} after 30 minutes muted.`, 15000, { label: 'Rejoin', fn: () => joinVoice(id) });
+}
+$('#afkUnmute').addEventListener('click', () => { if (S.me.muted || S.me.deafened) toggleMute(); });
+setInterval(afkTick, 1000);
+
 /* ================= voice channels ================= */
 function joinVoice(chId) {
   const c = S.chans.get(chId);
@@ -2226,6 +2291,7 @@ function joinVoice(chId) {
   chime('join');
   sendState();
   syncRouting();
+  afkReset();
   showVoice();
 }
 function leaveVoice() {
@@ -2235,6 +2301,7 @@ function leaveVoice() {
   chime('leave');
   sendState();
   syncRouting();
+  afkReset();
   if (S.view.kind === 'voice') showText(S.lastText);
 }
 function voiceMembers(chId) {
@@ -2298,6 +2365,7 @@ function teardown() {
   S.micIssue = null; S.micPanelOpen = false; clearTimeout(S.micFixedTimer);
   setLocalAnalyser(null); setRawAnalyser(null);
   S.inRoom = false; S.stageFocus = null; S.pttHeld = false; S.recovering = false;
+  S.mutedSince = 0; S.afkWarned = false; renderAfk(0);
   S.me.vc = null;
   for (const a of S.attach) URL.revokeObjectURL(a.url);
   S.attach = [];
@@ -2875,13 +2943,13 @@ function toggleMute() {
     S.me.muted = !S.me.muted;
     chime(S.me.muted ? 'off' : 'on');
   }
-  applyMicEnabled(); sendState(); updateDock(); updateTile('me'); renderChannels();
+  applyMicEnabled(); sendState(); updateDock(); updateTile('me'); renderChannels(); afkReset();
 }
 function toggleDeafen() {
   S.me.deafened = !S.me.deafened;
   if (!S.me.deafened) chime('on');
   for (const p of S.peers.values()) applyPeerVolume(p);
-  applyMicEnabled(); sendState(); updateDock(); updateTile('me'); renderStage(); renderChannels();
+  applyMicEnabled(); sendState(); updateDock(); updateTile('me'); renderStage(); renderChannels(); afkReset();
 }
 function setPtt(held) {
   if (S.pttHeld === held) return;
