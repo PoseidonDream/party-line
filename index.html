@@ -393,6 +393,39 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .mp-level { margin-top: 14px; max-width: 420px; }
 .pop-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .popover { width: 270px; }
+.count-pill { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+#feedback { width: min(600px, calc(100% - 32px)); }
+.fb-form { display: grid; gap: 14px; }
+.fb-kinds { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.fb-kind { position: relative; }
+.fb-kind input { position: absolute; opacity: 0; pointer-events: none; }
+.fb-kind span { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 600; cursor: pointer; }
+.fb-kind input:checked + span { background: var(--lamp); color: var(--on-lamp); border-color: transparent; }
+.fb-kind input:focus-visible + span { outline: 2px solid var(--lamp); outline-offset: 2px; }
+.fb-text { width: 100%; min-height: 120px; resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); line-height: 1.45; }
+.fb-note { margin: 0; font-size: 13px; color: var(--dim); }
+.fb-note.good { color: var(--ok); font-weight: 600; }
+.fb-section { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.fb-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fb-section-head h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.fb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 360px; overflow-y: auto; }
+.fb-item { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--field); border: 1px solid var(--line); }
+.fb-item.new { border-color: var(--lamp); }
+.fb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--dim); }
+.fb-meta b { color: var(--fg); font-size: 13px; }
+.fb-pill { font: 700 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; padding: 4px 6px; border-radius: 5px; background: var(--panel-2); color: var(--fg); }
+.fb-pill.bug { background: var(--danger); color: var(--on-danger); }
+.fb-pill.idea { background: var(--lamp); color: var(--on-lamp); }
+.fb-body { font-size: 14.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-status { font-size: 12px; font-weight: 600; color: var(--dim); }
+.fb-status.done { color: var(--ok); }
+.fb-del { justify-self: start; padding-left: 0; }
+.fb-empty { margin: 0; color: var(--dim); font-size: 14px; }
+.fb-owner summary { cursor: pointer; color: var(--dim); font-size: 13px; }
+.fb-owner summary:hover { color: var(--fg); }
+.fb-owner[open] summary { margin-bottom: 12px; }
+.fb-owner-on { display: grid; gap: 6px; justify-items: start; }
+.fb-owner-on .link-btn { justify-self: start; padding-left: 0; }
 .toasts { position: fixed; z-index: 50; top: calc(env(safe-area-inset-top, 0px) + 64px); right: 16px; display: grid; gap: 8px; width: min(360px, calc(100% - 32px)); pointer-events: none; }
 .toast { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 14px; animation: toast-in .2s ease-out; }
 .toast span { flex: 1; }
@@ -433,6 +466,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path d="M2 2l20 20"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 8h8"/><path d="M8 12h5"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </defs>
 </svg>
@@ -510,6 +544,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       <button type="button" class="server-btn" id="serverBtn" aria-expanded="false" aria-controls="serverMenu"><span id="serverName"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
       <div class="menu" id="serverMenu" hidden>
         <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite</button>
+        <button type="button" id="mFeedback"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
         <button type="button" id="mMic"><svg class="ic"><use href="#i-mic"/></svg>Mic check</button>
         <button type="button" id="mSettings"><svg class="ic"><use href="#i-sliders"/></svg>Settings</button>
         <button type="button" id="mLeave" class="danger"><svg class="ic"><use href="#i-leave"/></svg>Leave server</button>
@@ -543,7 +578,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       <span class="view-icon" id="viewIcon" aria-hidden="true">#</span>
       <h1 class="view-title" id="viewTitle">general</h1>
       <span class="view-sub" id="viewSub"></span>
-      <div class="head-actions"><button type="button" class="btn small" id="copyInvite" title="Copy invite"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button></div>
+      <div class="head-actions">
+        <button type="button" class="btn small" id="copyInvite" title="Copy invite"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
+        <button type="button" class="btn small" id="feedbackBtn" title="Send feedback"><svg class="ic"><use href="#i-feedback"/></svg><span class="hide-sm">Feedback</span><span class="count-pill" id="fbCount" hidden></span></button>
+      </div>
     </header>
 
     <section class="micpanel" id="micPanel" aria-labelledby="mpTitle" hidden>
@@ -635,6 +673,57 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     </div>
   </footer>
 </main>
+
+<!-- ================= FEEDBACK ================= -->
+<dialog id="feedback" aria-labelledby="fbTitle">
+  <div class="set-head">
+    <h2 id="fbTitle">Feedback</h2>
+    <button type="button" class="btn icon-btn" id="fbClose" aria-label="Close feedback"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="set-body">
+    <form id="fbForm" class="fb-form" novalidate>
+      <fieldset class="fb-kinds">
+        <legend class="sr">Kind of feedback</legend>
+        <label class="fb-kind"><input type="radio" name="fbKind" value="bug" checked><span>Bug</span></label>
+        <label class="fb-kind"><input type="radio" name="fbKind" value="idea"><span>Idea</span></label>
+        <label class="fb-kind"><input type="radio" name="fbKind" value="other"><span>Other</span></label>
+      </fieldset>
+      <label class="sr" for="fbText">Your message</label>
+      <textarea id="fbText" class="fb-text" maxlength="2000"></textarea>
+      <label class="check"><input type="checkbox" id="fbAnon"><span><b>Send without my name</b></span></label>
+      <p class="fb-note" id="fbFine"></p>
+      <p class="error" id="fbError" role="alert" hidden></p>
+      <p class="fb-note good" id="fbDone" role="status" hidden></p>
+      <button type="submit" class="btn primary" id="fbSend">Send feedback</button>
+    </form>
+    <section class="fb-section" id="fbInboxSec" hidden>
+      <div class="fb-section-head"><h3 id="fbInboxTitle">Inbox</h3><button type="button" class="btn small" id="fbCopyAll"><svg class="ic"><use href="#i-copy"/></svg>Copy all</button></div>
+      <p class="fb-empty" id="fbInboxEmpty">No feedback yet. It collects here as friends send it. If you're offline when someone sends feedback, a friend's device carries it to you next time you're online together.</p>
+      <ol class="fb-list" id="fbInbox"></ol>
+    </section>
+    <section class="fb-section" id="fbSentSec" hidden>
+      <div class="fb-section-head"><h3>Sent by you</h3></div>
+      <ol class="fb-list" id="fbSent"></ol>
+    </section>
+    <section class="fb-section">
+      <details class="fb-owner" id="fbOwnerBox">
+        <summary>Owner? Unlock your inbox</summary>
+        <form id="fbOwnerForm" class="fb-form" novalidate>
+          <label class="flabel" for="fbOwnerCode">Owner code</label>
+          <div class="row">
+            <input type="password" id="fbOwnerCode" class="input" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button type="submit" class="btn" id="fbOwnerBtn">Unlock inbox</button>
+          </div>
+          <p class="error" id="fbOwnerError" role="alert" hidden></p>
+        </form>
+      </details>
+      <div class="fb-owner-on" id="fbOwnerOn" hidden>
+        <p class="fb-note">This device is your feedback inbox. Feedback from friends lands here.</p>
+        <button type="button" class="link-btn" id="fbLock"><svg class="ic"><use href="#i-lock"/></svg>Lock inbox on this device</button>
+      </div>
+    </section>
+  </div>
+</dialog>
 
 <!-- ================= SETTINGS ================= -->
 <dialog id="settings" aria-labelledby="setTitle">
@@ -1503,6 +1592,7 @@ function attachData(p, conn) {
   if (old && old !== conn) { try { old.close(); } catch {} }
   const onOpen = () => {
     sendState(p);
+    fbSyncTo(p);
     const list = customChannels();
     if (list.length) { try { conn.send({ t: 'channels', list: list.slice(0, 30) }); } catch {} }
     renderAll();
@@ -1673,6 +1763,12 @@ function onPeerMessage(p, msg) {
     renderChannels();
   } else if (msg.t === 'chan-add' && typeof msg.name === 'string') {
     if (ensureChannel(msg.kind, msg.name, true)) renderChannels();
+  } else if (msg.t === 'fb-sync') {
+    onFbSync(p, msg);
+  } else if (msg.t === 'fb-item') {
+    fbReceive(msg.env, p);
+  } else if (msg.t === 'fb-ack' && Array.isArray(msg.ids)) {
+    fbLearnAcks(msg.ids.slice(0, 1000), p);
   } else if (msg.t === 'bye') {
     removePeer(p.id, true);
   }
@@ -2853,7 +2949,7 @@ for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) ptt.addEv
 ptt.addEventListener('contextmenu', (e) => e.preventDefault());
 
 document.addEventListener('keydown', (e) => {
-  if (!S.inRoom || $('#settings').open) return;
+  if (!S.inRoom || $('#settings').open || $('#feedback').open) return;
   if (e.key === 'Escape') {
     if (!$('#lightbox').hidden) { closeLightbox(); return; }
     if (!$('#serverMenu').hidden) { setMenu(false); return; }
@@ -3022,6 +3118,288 @@ $('#setPtt').addEventListener('change', (e) => {
 for (const r of document.querySelectorAll('input[name="quality"]')) {
   r.addEventListener('change', () => { if (r.checked) { settings.quality = r.value; saveSettings(); } });
 }
+
+/* ================= feedback =================
+   Feedback is locked on the sender's device with the owner's public key, then passed from device
+   to device by friends until it reaches a device that has the owner code. Only that code can open
+   it, and the code is not in this page. Delivered feedback is acknowledged so friends' devices
+   stop carrying it, and the sender sees "Delivered". */
+const FB_OWNER = { kty: 'EC', crv: 'P-256', x: 'G6mPwstZufmjDILuAPfqDvM-MK8yKLJWaBprpcTOFRo', y: 'XHSCYX207xk9jQ51mPGjf_c4ZlUgm4t_QrB-f65Jom4' };
+const FB = { bagMax: 200, ackMax: 1000, inboxMax: 500, sentMax: 100, maxAge: 60 * 864e5, maxText: 2000 };
+const FB_KINDS = { bug: 'Bug', idea: 'Idea', other: 'Other' };
+const fb = { bag: [], acked: new Set(), sent: [], inbox: [], ownerKey: null, pending: new Set() };
+const fbId = () => toHex(crypto.getRandomValues(new Uint8Array(10)));
+const isFbId = (id) => typeof id === 'string' && /^[0-9a-f]{20}$/.test(id);
+const b64u = (buf) => { let s = ''; for (const b of new Uint8Array(buf)) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = (s) => { const t = s.replace(/-/g, '+').replace(/_/g, '/'); const bin = atob(t + '='.repeat((4 - (t.length % 4)) % 4)); return Uint8Array.from(bin, (c) => c.charCodeAt(0)); };
+const B64U_RE = /^[\w-]+$/;
+function validEnv(e) {
+  if (!e || typeof e !== 'object' || !isFbId(e.id) || !Number.isFinite(e.ts) || e.ts > Date.now() + 864e5) return null;
+  if (typeof e.epk !== 'string' || e.epk.length !== 87 || !B64U_RE.test(e.epk)) return null;
+  if (typeof e.iv !== 'string' || e.iv.length !== 16 || !B64U_RE.test(e.iv)) return null;
+  if (typeof e.ct !== 'string' || e.ct.length < 24 || e.ct.length > 12000 || !B64U_RE.test(e.ct)) return null;
+  return { id: e.id, ts: e.ts, epk: e.epk, iv: e.iv, ct: e.ct };
+}
+async function sealFeedback(payload, id) {
+  const pub = await crypto.subtle.importKey('jwk', FB_OWNER, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const eph = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'ECDH', public: pub }, eph.privateKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(id) }, key, new TextEncoder().encode(JSON.stringify(payload)));
+  const epk = await crypto.subtle.exportKey('raw', eph.publicKey);
+  return { id, ts: Date.now(), epk: b64u(epk), iv: b64u(iv), ct: b64u(ct) };
+}
+async function openFeedback(env, priv) {
+  const epk = await crypto.subtle.importKey('raw', unb64u(env.epk), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const key = await crypto.subtle.deriveKey({ name: 'ECDH', public: epk }, priv, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64u(env.iv), additionalData: new TextEncoder().encode(env.id) }, key, unb64u(env.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function fbSave() {
+  store.set('fbBag', fb.bag); store.set('fbAcked', [...fb.acked]);
+  store.set('fbSent', fb.sent); store.set('fbInbox', fb.inbox);
+}
+function fbTrim() {
+  const now = Date.now();
+  fb.bag = fb.bag.filter((e) => now - e.ts < FB.maxAge).sort((a, b) => a.ts - b.ts).slice(-FB.bagMax);
+  if (fb.acked.size > FB.ackMax) fb.acked = new Set([...fb.acked].slice(-FB.ackMax));
+  fb.sent = fb.sent.slice(-FB.sentMax);
+  fb.inbox = fb.inbox.slice(-FB.inboxMax);
+}
+function fbLoad() {
+  const arr = (k) => { const v = store.get(k, []); return Array.isArray(v) ? v : []; };
+  fb.bag = arr('fbBag').map(validEnv).filter(Boolean);
+  fb.acked = new Set(arr('fbAcked').filter(isFbId));
+  fb.sent = arr('fbSent').filter((s) => s && isFbId(s.id));
+  fb.inbox = arr('fbInbox').filter((s) => s && isFbId(s.id));
+  fbTrim();
+  const code = store.get('fbOwner', null);
+  if (typeof code === 'string') fbUnlockOwner(code).then((ok) => { if (!ok) store.set('fbOwner', null); });
+}
+function fbBroadcast(msg, except) {
+  for (const p of S.peers.values()) if (p !== except && p.data && p.data.open) { try { p.data.send(msg); } catch {} }
+}
+function fbSyncTo(p) {
+  if (!p.data || !p.data.open) return;
+  try { p.data.send({ t: 'fb-sync', have: fb.bag.map((e) => e.id), acked: [...fb.acked].slice(-300) }); } catch {}
+}
+function fbLearnAcks(ids, from) {
+  const fresh = [];
+  for (const id of ids) if (isFbId(id) && !fb.acked.has(id)) { fb.acked.add(id); fresh.push(id); }
+  if (!fresh.length) return;
+  const set = new Set(fresh);
+  fb.bag = fb.bag.filter((e) => !set.has(e.id));
+  for (const s of fb.sent) if (set.has(s.id)) s.delivered = true;
+  fbTrim(); fbSave(); renderFeedback();
+  fbBroadcast({ t: 'fb-ack', ids: fresh }, from);
+}
+function onFbSync(p, msg) {
+  if (Array.isArray(msg.acked)) fbLearnAcks(msg.acked.slice(0, 1000), p);
+  const have = new Set(Array.isArray(msg.have) ? msg.have.slice(0, 1000) : []);
+  for (const e of fb.bag) if (!have.has(e.id)) { try { p.data.send({ t: 'fb-item', env: e }); } catch {} }
+}
+const knownFb = (id) => fb.acked.has(id) || fb.pending.has(id) || fb.bag.some((x) => x.id === id) || fb.inbox.some((x) => x.id === id);
+async function fbReceive(env, from) {
+  const e = validEnv(env);
+  if (!e || knownFb(e.id) || Date.now() - e.ts > FB.maxAge) return;
+  if (fb.ownerKey) {
+    fb.pending.add(e.id);
+    let payload = null;
+    try { payload = await openFeedback(e, fb.ownerKey); } catch {}
+    fb.pending.delete(e.id);
+    if (payload) { fbDeliver(e, payload); return; }
+    if (knownFb(e.id)) return;
+  }
+  fb.bag.push(e); fbTrim(); fbSave();
+  fbBroadcast({ t: 'fb-item', env: e }, from);
+}
+// Runs on the owner's device when a piece of feedback unlocks.
+function fbDeliver(e, payload) {
+  if (!fb.inbox.some((x) => x.id === e.id)) {
+    const kind = FB_KINDS[payload.kind] ? payload.kind : 'other';
+    const item = {
+      id: e.id, ts: e.ts, kind, unread: true,
+      text: String(payload.text || '').slice(0, FB.maxText),
+      name: cleanName(payload.name), server: cleanRoom(payload.server), browser: String(payload.browser || '').slice(0, 60),
+    };
+    fb.inbox.push(item);
+    const mine = fb.sent.some((s) => s.id === e.id);
+    if (!mine && !$('#feedback').open) toast(`New ${FB_KINDS[kind].toLowerCase()} feedback from ${item.name || 'someone'}.`, 7000, { label: 'Open', fn: openFeedbackDialog });
+  }
+  fb.acked.add(e.id);
+  fb.bag = fb.bag.filter((x) => x.id !== e.id);
+  for (const s of fb.sent) if (s.id === e.id) s.delivered = true;
+  fbTrim(); fbSave(); renderFeedback();
+  fbBroadcast({ t: 'fb-ack', ids: [e.id] });
+}
+async function fbUnlockOwner(code) {
+  code = String(code || '').replace(/\s+/g, '');
+  if (!/^[\w-]{43}$/.test(code) || !(window.crypto && crypto.subtle)) return false;
+  let key;
+  try {
+    key = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: FB_OWNER.x, y: FB_OWNER.y, d: code }, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']);
+    const probe = await sealFeedback({ probe: true }, fbId());
+    const out = await openFeedback(probe, key);
+    if (!out || out.probe !== true) return false;
+  } catch { return false; }
+  fb.ownerKey = key;
+  store.set('fbOwner', code);
+  for (const e of [...fb.bag]) {
+    let payload = null;
+    try { payload = await openFeedback(e, key); } catch {}
+    if (payload) fbDeliver(e, payload);
+  }
+  renderFeedback();
+  return true;
+}
+function browserSummary() {
+  const ua = navigator.userAgent || '';
+  const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  const v = (ua.match(/(?:Edg|OPR|Firefox|Chrome|Version)\/(\d+)/) || [])[1];
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad|iPod/.test(ua) ? 'iPhone/iPad' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'unknown system';
+  return `${b}${v ? ' ' + v : ''} on ${os}`;
+}
+async function sendFeedback(kind, text, anon) {
+  const id = fbId();
+  const payload = { v: 1, kind, text, name: anon ? '' : S.me.name, server: S.room, browser: browserSummary() };
+  const env = await sealFeedback(payload, id);
+  fb.sent.push({ id, ts: env.ts, kind, text, anon: !!anon, delivered: false });
+  if (fb.ownerKey) { fbDeliver(env, payload); return; }
+  fb.bag.push(env); fbTrim(); fbSave(); renderFeedback();
+  fbBroadcast({ t: 'fb-item', env });
+}
+
+/* ---- feedback dialog ---- */
+const fbTime = (ts) => new Date(ts).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const FB_PLACEHOLDER = {
+  bug: 'What happened, and what did you expect to happen?',
+  idea: 'What would make Party Line better?',
+  other: 'Anything you want the owner to know.',
+};
+function fbKind() { const r = document.querySelector('input[name="fbKind"]:checked'); return r ? r.value : 'other'; }
+function fbItemEl(it, owner) {
+  const li = document.createElement('li');
+  li.className = 'fb-item' + (owner && it.unread ? ' new' : '');
+  const meta = document.createElement('div'); meta.className = 'fb-meta';
+  const pill = document.createElement('span'); pill.className = 'fb-pill ' + it.kind; pill.textContent = FB_KINDS[it.kind] || 'Other';
+  meta.appendChild(pill);
+  if (owner) { const who = document.createElement('b'); who.textContent = it.name || 'Anonymous'; meta.appendChild(who); }
+  const when = document.createElement('span'); when.textContent = fbTime(it.ts); meta.appendChild(when);
+  if (owner && it.server) { const sv = document.createElement('span'); sv.textContent = `Server ${it.server}`; meta.appendChild(sv); }
+  if (owner && it.browser) { const br = document.createElement('span'); br.textContent = it.browser; meta.appendChild(br); }
+  const body = document.createElement('div'); body.className = 'fb-body'; body.textContent = it.text;
+  li.append(meta, body);
+  if (owner) {
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'link-btn fb-del'; del.textContent = 'Delete';
+    del.addEventListener('click', () => {
+      const idx = fb.inbox.indexOf(it);
+      if (idx < 0) return;
+      fb.inbox.splice(idx, 1); fbSave(); renderFeedback();
+      toast('Feedback deleted.', 5000, { label: 'Undo', fn: () => { fb.inbox.splice(Math.min(idx, fb.inbox.length), 0, it); fbSave(); renderFeedback(); } });
+    });
+    li.appendChild(del);
+  } else {
+    const st = document.createElement('span');
+    st.className = 'fb-status' + (it.delivered ? ' done' : '');
+    st.textContent = it.delivered ? 'Delivered to the owner' : 'Waiting to reach the owner';
+    li.appendChild(st);
+  }
+  return li;
+}
+function renderFeedback() {
+  const owner = !!fb.ownerKey;
+  const unread = owner ? fb.inbox.filter((x) => x.unread).length : 0;
+  const count = $('#fbCount');
+  count.hidden = !unread; count.textContent = unread > 99 ? '99+' : String(unread);
+  $('#feedbackBtn').title = owner ? (unread ? `Feedback inbox: ${unread} new` : 'Feedback inbox') : 'Send feedback';
+  if (!$('#feedback').open) return;
+  $('#fbInboxSec').hidden = !owner;
+  $('#fbOwnerBox').hidden = owner; $('#fbOwnerOn').hidden = !owner;
+  if (owner) {
+    $('#fbInboxTitle').textContent = fb.inbox.length ? `Inbox (${fb.inbox.length})` : 'Inbox';
+    $('#fbInboxEmpty').hidden = fb.inbox.length > 0;
+    $('#fbCopyAll').hidden = !fb.inbox.length;
+    const list = $('#fbInbox'); list.textContent = '';
+    for (const it of [...fb.inbox].reverse()) list.appendChild(fbItemEl(it, true));
+  }
+  const mine = owner ? [] : [...fb.sent].reverse();
+  $('#fbSentSec').hidden = !mine.length;
+  const sl = $('#fbSent'); sl.textContent = '';
+  for (const it of mine) sl.appendChild(fbItemEl(it, false));
+}
+function syncFbForm() {
+  $('#fbText').placeholder = FB_PLACEHOLDER[fbKind()];
+  $('#fbFine').textContent = `Only the owner can read this. It's locked on your device and passed along by friends' devices until it reaches them. Your browser (${browserSummary()}) and server name are included to help fix bugs.`;
+}
+function openFeedbackDialog() {
+  setMenu(false);
+  $('#fbError').hidden = true; $('#fbDone').hidden = true; $('#fbOwnerError').hidden = true;
+  syncFbForm();
+  const d = $('#feedback');
+  if (!d.open) d.showModal();
+  renderFeedback();
+  if (!fb.ownerKey) setTimeout(() => $('#fbText').focus(), 0);
+}
+$('#feedbackBtn').addEventListener('click', openFeedbackDialog);
+$('#mFeedback').addEventListener('click', openFeedbackDialog);
+$('#fbClose').addEventListener('click', () => $('#feedback').close());
+$('#feedback').addEventListener('close', () => {
+  let changed = false;
+  for (const it of fb.inbox) if (it.unread) { it.unread = false; changed = true; }
+  if (changed) fbSave();
+  renderFeedback();
+});
+for (const r of document.querySelectorAll('input[name="fbKind"]')) r.addEventListener('change', syncFbForm);
+$('#fbForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = $('#fbError'), done = $('#fbDone');
+  err.hidden = true; done.hidden = true;
+  const text = $('#fbText').value.trim().slice(0, FB.maxText);
+  if (text.length < 3) { err.textContent = 'Write a few words so the owner knows what you mean.'; err.hidden = false; $('#fbText').focus(); return; }
+  if (!(window.crypto && crypto.subtle)) { err.textContent = "This browser can't lock feedback. Open the https link in Chrome, Edge or Firefox."; err.hidden = false; return; }
+  const btn = $('#fbSend');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await sendFeedback(fbKind(), text, $('#fbAnon').checked);
+    $('#fbText').value = '';
+    done.textContent = fb.ownerKey ? 'Added to your inbox.'
+      : 'Sent. Thank you! It reaches the owner next time they’re online with you, or with a friend who has it.';
+    done.hidden = false;
+    renderFeedback();
+  } catch {
+    err.textContent = "Couldn't send your feedback. Reload the page and try again."; err.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send feedback';
+  }
+});
+$('#fbOwnerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('#fbOwnerBtn'), err = $('#fbOwnerError');
+  err.hidden = true;
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const ok = await fbUnlockOwner($('#fbOwnerCode').value);
+  btn.disabled = false; btn.textContent = 'Unlock inbox';
+  if (!ok) { err.textContent = "That isn't the owner code. Copy it again and paste it in full."; err.hidden = false; return; }
+  $('#fbOwnerCode').value = '';
+  renderFeedback();
+  toast(fb.inbox.length ? 'Inbox unlocked.' : 'Inbox unlocked. Feedback will collect here.', 4000);
+});
+$('#fbLock').addEventListener('click', () => {
+  fb.ownerKey = null;
+  store.set('fbOwner', null);
+  renderFeedback();
+  toast('Inbox locked on this device. Your saved feedback stays here until you unlock it again.', 5000);
+});
+$('#fbCopyAll').addEventListener('click', async () => {
+  const text = [...fb.inbox].reverse().map((it) => {
+    const head = [`[${FB_KINDS[it.kind]}]`, it.name || 'Anonymous', fbTime(it.ts), it.server && `server ${it.server}`, it.browser].filter(Boolean).join(' · ');
+    return `${head}\n${it.text}`;
+  }).join('\n\n');
+  toast((await copyText(text)) ? `Copied ${fb.inbox.length} feedback ${fb.inbox.length === 1 ? 'message' : 'messages'}.` : "Couldn't copy. Select the text and copy it yourself.", 4000);
+});
+fbLoad();
+renderFeedback();
 
 /* ================= join screen ================= */
 function showJoinError(text) { const el = $('#joinError'); el.textContent = text; el.hidden = !text; }
