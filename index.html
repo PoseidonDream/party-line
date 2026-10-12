@@ -434,6 +434,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .popover { width: 270px; }
 .mini-av.has-img, .avatar.has-img { background-size: cover; background-position: center; color: transparent; }
 .avatar.has-img .initials { visibility: hidden; }
+.idcode { flex: none; display: inline-block; margin-left: 5px; padding: 2px 5px; border-radius: 5px; border: 1px solid var(--line); font: 600 10px/1.2 var(--font-mono); letter-spacing: .04em; color: var(--dim); vertical-align: 1px; }
+.idcode.warn { border-color: var(--danger); color: var(--danger); }
+.pop-id { margin: 0; font-size: 12px; line-height: 1.4; color: var(--dim); }
+.pop-id.warn { color: var(--danger); font-weight: 600; }
 .crown { display: inline-grid; place-items: center; margin-left: 5px; color: var(--lamp-ink); vertical-align: -2px; flex: none; }
 .crown .ic { width: 14px; height: 14px; }
 .pop-admin { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
@@ -921,6 +925,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
   </div>
   <div class="pop-admin" id="volAdmin" hidden>
     <span class="flabel"><svg class="ic"><use href="#i-crown"/></svg>Admin</span>
+    <p class="pop-id" id="admId"></p>
     <button type="button" class="btn small" id="admVoiceKick">Disconnect from voice</button>
     <button type="button" class="btn small" id="admMute">Mute for everyone</button>
     <button type="button" class="btn small adm-danger" id="admKick">Remove from server</button>
@@ -1126,6 +1131,7 @@ const S = {
   firstRoster: true, recovering: false,
   peers: new Map(),
   rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
+  sessionIdKeys: {}, myCode: '',
   profileKey: '', saveProfile: false, histHadLocal: false, resumed: false, sessionServers: [], switching: false,
   mutedSince: 0, afkWarned: false,
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
@@ -2153,7 +2159,9 @@ function onPeerMessage(p, msg) {
   if (!msg || typeof msg !== 'object') return;
   if (msg.t === 'state') {
     const first = !p.gotState; p.gotState = true;
+    const prevName = p.name;
     p.name = cleanName(msg.name) || p.name || 'Guest';
+    if (p.idCode && prevName && prevName !== p.name) noteIdSeen(p);
     p.muted = !!msg.muted; p.deafened = !!msg.deafened; p.micOk = msg.micOk !== false;
     if (Number.isFinite(msg.joinedAt)) p.joinedAt = msg.joinedAt;
     const prevVc = p.vc;
@@ -2186,7 +2194,9 @@ function onPeerMessage(p, msg) {
       const text = msg.text.slice(0, 2000), name = p.name || 'Guest';
       const ts = Number(msg.ts) > 0 && Number(msg.ts) < Date.now() + 864e5 ? Number(msg.ts) : Date.now();
       const id = typeof msg.id === 'string' && MSG_ID_RE.test(msg.id) ? msg.id : synthId(name, ts, text);
-      pushMsg(c.id, textMsg(id, ts, name, text));
+      const m = textMsg(id, ts, name, text);
+      if (amAdmin() && p.idCode) { m.code = p.idCode; m.codeNew = !!p.idNew; }
+      pushMsg(c.id, m);
     }
   } else if (msg.t === 'channels' && Array.isArray(msg.list)) {
     for (const c of msg.list.slice(0, 30)) if (c && typeof c.name === 'string') ensureChannel(c.kind, c.name, true);
@@ -2197,6 +2207,8 @@ function onPeerMessage(p, msg) {
     onAvMessage(p, msg);
   } else if (msg.t === 'adm-chal') {
     onAdminChallenge(p, msg);
+  } else if (msg.t === 'id-proof') {
+    onIdProof(p, msg);
   } else if (msg.t === 'adm-proof') {
     onAdminProof(p, msg);
   } else if (msg.t === 'adm-voice-kick' || msg.t === 'adm-mute' || msg.t === 'adm-kick') {
@@ -2786,6 +2798,7 @@ async function enterRoom(name, room) {
   S.inRoom = true;
   try { history.replaceState(null, '', '#' + room); } catch {}
   showRoom();
+  refreshMyCode();
   if (!S.saveProfile && !S.sessionServers.includes(room)) S.sessionServers.push(room);
   const talk = 'Click a voice channel on the left when you want to talk.';
   sysMsg(S.resumed ? `Welcome back, ${name}. ${talk}`
@@ -3014,6 +3027,8 @@ function renderChannels() {
         const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = m.o.name || 'Joining…';
         row.append(av, nm);
         if (me ? amAdmin() : m.o.isAdmin) row.appendChild(crownBadge());
+        if (amAdmin() && m.id !== 'me' && m.o.idCode) row.appendChild(idBadge(m.o.idCode, m.o.idNew, m.o.idNew ? 'New ID code for this name' : 'ID code (only the admin sees this)'));
+        if (amAdmin() && me && S.myCode) row.appendChild(idBadge(S.myCode, false, 'Your ID code'));
         if (m.o.sharing) { const lv = document.createElement('span'); lv.className = 'chan-live'; lv.textContent = 'LIVE'; row.appendChild(lv); }
         const micBad = me ? (S.noMic || !!S.micIssue) : !m.o.micOk;
         if (m.o.deafened) row.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
@@ -3312,6 +3327,7 @@ function msgEl(msg, prev) {
   paintAv(av, msg.author.name);
   const head = document.createElement('div'); head.className = 'msg-head';
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.textContent = msg.author.name;
+  if (amAdmin() && msg.code) nm.appendChild(idBadge(msg.code, msg.codeNew));
   if (isAdminName(String(msg.author.id || '').slice(2))) nm.appendChild(crownBadge());
   const tm = document.createElement('time'); tm.className = 'msg-time';
   tm.textContent = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -3449,7 +3465,7 @@ function sendChat() {
   if (text) {
     const ts = Date.now(), id = msgId();
     broadcast({ t: 'chat', ch, text, ts, id });
-    pushMsg(ch, Object.assign(textMsg(id, ts, S.me.name, text), { self: true }));
+    pushMsg(ch, Object.assign(textMsg(id, ts, S.me.name, text), { self: true, code: amAdmin() ? S.myCode : '' }));
   }
   input.value = ''; autoGrow(input);
   renderTray();
@@ -3670,6 +3686,7 @@ function openVolume(id, anchor) {
   if (amAdmin()) {
     $('#admVoiceKick').hidden = !p.vc;
     $('#admMute').textContent = S.serverMutes.has(id) ? 'Unmute for everyone' : 'Mute for everyone';
+    const idl = $('#admId'); idl.textContent = idStatusText(p); idl.classList.toggle('warn', !!p.idNew);
   }
   pop.hidden = false;
   const r = anchor.getBoundingClientRect();
@@ -3748,6 +3765,10 @@ function applyName() {
     const all = loadProfiles();
     if (S.saveProfile && all[oldKey]) { all[newKey] = Object.assign({}, all[oldKey], { name: n }); delete all[oldKey]; saveProfiles(all); }
     const pic = avData(oldKey);
+    const ids = objOr(store.get('idKeys', null));
+    if (ids[oldKey]) { ids[newKey] = ids[oldKey]; delete ids[oldKey]; store.set('idKeys', ids); }
+    if (S.sessionIdKeys[oldKey]) { S.sessionIdKeys[newKey] = S.sessionIdKeys[oldKey]; delete S.sessionIdKeys[oldKey]; }
+    idCache.delete(oldKey);
     S.profileKey = newKey;
     if (pic) setAvatar(newKey, n, pic, Date.now());
   }
@@ -4138,6 +4159,7 @@ function onAdminProof(p, msg) {
     if (!ok || S.peers.get(p.id) !== p) return;
     p.isAdmin = true;
     rememberAdminName(foldName(p.name));
+    sendIdProof(p);
     renderAll();
     const c = S.view.kind === 'text' && S.chans.get(S.view.id);
     if (c) rerenderMessages(c);
@@ -4148,7 +4170,8 @@ function onAdminChanged() {
   if (amAdmin()) {
     for (const p of S.peers.values()) sendAdminProof(p);
     if (S.inRoom) rememberAdminName(S.profileKey);
-  }
+    refreshMyCode();
+  } else S.myCode = '';
   syncOwnerField();
   if (!S.inRoom) return;
   renderAll();
@@ -4298,6 +4321,107 @@ function askConfirm(title, text, okLabel) {
 function syncOwnerField() {
   const need = foldName($('#nameInput').value) === ADMIN_KEY && !amAdmin();
   $('#ownerField').hidden = !need;
+}
+
+/* ================= ID codes (admin only) =================
+   Each profile on each device has its own secret key. Its short code (like K7Q-F29) is shown only to
+   the admin: a person's app proves its key to the admin's app by signing the admin's fresh challenge,
+   and only after it has checked the admin is real. Typing someone's name can't copy their code.
+   The admin's app remembers which codes it has seen for each name, to spot a new device or an impostor. */
+const ID_PREFIX = 'partyline-id|';
+const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+async function idCodeOf(raw) {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', raw));
+  let val = 0, bits = 0, out = '';
+  for (const b of h) {
+    val = ((val << 8) | b) & 0xffff; bits += 8;
+    while (bits >= 5 && out.length < 6) { out += B32[(val >>> (bits - 5)) & 31]; bits -= 5; }
+    if (out.length >= 6) break;
+  }
+  return out.slice(0, 3) + '-' + out.slice(3);
+}
+const idCache = new Map();   // profile name key -> Promise<{ priv, pub64, code }>
+function myIdentity() {
+  const key = S.profileKey;
+  if (!key) return Promise.resolve(null);
+  if (!idCache.has(key)) {
+    idCache.set(key, (async () => {
+      const all = objOr(store.get('idKeys', null));
+      let jwk = all[key] || S.sessionIdKeys[key];
+      if (!jwk || typeof jwk.d !== 'string') {
+        const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+        const full = await crypto.subtle.exportKey('jwk', kp.privateKey);
+        jwk = { x: full.x, y: full.y, d: full.d };
+        if (S.saveProfile) { all[key] = jwk; store.set('idKeys', all); } else S.sessionIdKeys[key] = jwk;
+      }
+      const priv = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y, d: jwk.d }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+      const pub = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y }, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
+      const raw = await crypto.subtle.exportKey('raw', pub);
+      return { priv, pub64: b64u(raw), code: await idCodeOf(raw) };
+    })().catch((e) => { idCache.delete(key); throw e; }));
+  }
+  return idCache.get(key);
+}
+// Sent only to someone whose app has already proven it's the admin.
+async function sendIdProof(p) {
+  if (!p.isAdmin || !p.chalIn || !S.peer || !p.data || !p.data.open) return;
+  try {
+    const id = await myIdentity();
+    if (!id) return;
+    const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, id.priv, new TextEncoder().encode(`${ID_PREFIX}${p.chalIn}|${S.peer.id}|${p.id}`));
+    p.data.send({ t: 'id-proof', pub: id.pub64, sig: b64u(sig) });
+  } catch {}
+}
+// Runs on the admin's device.
+async function onIdProof(p, msg) {
+  if (!amAdmin() || !p.chalOut || !S.peer) return;
+  if (typeof msg.pub !== 'string' || msg.pub.length !== 87 || !B64U_RE.test(msg.pub)) return;
+  if (typeof msg.sig !== 'string' || msg.sig.length !== 86 || !B64U_RE.test(msg.sig)) return;
+  try {
+    const raw = unb64u(msg.pub);
+    const pub = await crypto.subtle.importKey('raw', raw, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, unb64u(msg.sig), new TextEncoder().encode(`${ID_PREFIX}${p.chalOut}|${p.id}|${S.peer.id}`));
+    if (!ok || S.peers.get(p.id) !== p) return;
+    p.idCode = await idCodeOf(raw);
+    noteIdSeen(p);
+    renderAll();
+  } catch {}
+}
+// The admin's record of which codes showed up under which names.
+function noteIdSeen(p) {
+  if (!p.idCode || !p.name) return;
+  const seen = objOr(store.get('idSeen', null));
+  const nk = foldName(p.name);
+  const forName = objOr(seen[nk]);
+  p.idNew = Object.keys(forName).length > 0 && !forName[p.idCode];
+  p.idAlso = Object.entries(seen).filter(([n, codes]) => n !== nk && objOr(codes)[p.idCode]).map(([n]) => n).slice(0, 5);
+  p.idFirst = !Object.keys(forName).length;
+  forName[p.idCode] = Date.now();
+  seen[nk] = forName;
+  const names = Object.keys(seen);
+  if (names.length > 200) {
+    const last = (n) => Math.max(0, ...Object.values(objOr(seen[n])).map(Number));
+    names.sort((a, b) => last(b) - last(a));
+    for (const n of names.slice(200)) delete seen[n];
+  }
+  store.set('idSeen', seen);
+}
+function idBadge(code, warn, title) {
+  const s = document.createElement('span');
+  s.className = 'idcode' + (warn ? ' warn' : '');
+  s.textContent = code;
+  s.title = title || 'ID code (only the admin sees this)';
+  return s;
+}
+function idStatusText(p) {
+  if (!p.idCode) return 'ID code: waiting for their app to answer…';
+  if (p.idNew) return `ID code ${p.idCode}. New code for ${p.name}: a different device, or someone else using this name.`;
+  const also = p.idAlso && p.idAlso.length ? ` Also seen as ${p.idAlso.join(', ')}.` : '';
+  return `ID code ${p.idCode}. ${p.idFirst ? 'First time you see this name.' : 'Same code as before for this name.'}${also}`;
+}
+async function refreshMyCode() {
+  if (!amAdmin() || !S.inRoom) return;
+  try { const id = await myIdentity(); if (id && id.code !== S.myCode) { S.myCode = id.code; renderAll(); } } catch {}
 }
 
 /* ================= join screen ================= */
@@ -4488,7 +4612,7 @@ $('#gateForm').addEventListener('submit', async (e) => {
   }
 });
 function forgetDevice() {
-  const drop = new Set(['gate', 'me', 'name', 'profiles', 'avatars', 'histIndex']);
+  const drop = new Set(['gate', 'me', 'name', 'profiles', 'avatars', 'histIndex', 'idKeys', 'idSeen']);
   for (const k of store.keys()) if (drop.has(k) || k.startsWith('hist:')) store.del(k);
   avatars = {};
   S.roomKey = null; pendingAv = null;
