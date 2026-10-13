@@ -187,14 +187,60 @@ select { appearance: auto; }
 .rail-btn.rail-home[aria-current="true"] { background: var(--lamp); color: var(--on-lamp); }
 .app.home .server-head, .app.home .conn-line, .app.home .channels, .app.home #copyInvite { display: none; }
 .side-home { display: none; }
-.app.home .side-home { display: grid; gap: 10px; align-content: start; padding: 16px; }
-.side-home-head { font: 800 23px/1 var(--font-display); text-transform: uppercase; letter-spacing: .03em; padding: 4px 0 6px; }
-.side-home-text { margin: 0; color: var(--dim); font-size: 14px; }
-.side-home .btn { justify-self: start; }
-.view-home { flex: 1; min-height: 0; overflow-y: auto; padding-block: clamp(20px, 6vh, 56px); padding-inline: 16px; }
-.home-card { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
-.home-card h2 { margin: 0; font: 800 clamp(30px, 4.5vw, 44px)/1.05 var(--font-display); text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
-.home-lede, .home-empty { margin: 0; color: var(--dim); }
+.app.home .side-home { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2px; padding: 12px 8px 16px; overflow-y: auto; }
+.nav-item { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--dim); font-size: 16px; font-weight: 600; text-align: left; }
+.nav-item:hover, .nav-item[aria-current="true"] { background: var(--panel-2); color: var(--fg); }
+.nav-item .ic { width: 22px; height: 22px; }
+.nav-item .count-pill { margin-left: auto; }
+.dm-head { margin-top: 14px; }
+.cat-label { color: var(--dim); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.dm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.dm-item { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--dim); font-size: 15px; font-weight: 500; text-align: left; --dot-ring: var(--panel); }
+.dm-item:hover, .dm-item[aria-current="true"] { background: var(--panel-2); color: var(--fg); --dot-ring: var(--panel-2); }
+.dm-item.unread { color: var(--fg); font-weight: 700; }
+.dm-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-home-text { margin: 4px 10px 0; color: var(--dim); font-size: 13px; }
+.av-wrap { position: relative; flex: none; display: inline-grid; }
+.av-wrap .mini-av { width: 32px; height: 32px; font-size: 13px; }
+.status-dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: var(--dim); box-shadow: 0 0 0 3px var(--dot-ring, var(--panel)); }
+.status-dot.on { background: var(--ok); }
+.rail-badge { position: absolute; right: -5px; bottom: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--danger); color: var(--on-danger); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; box-shadow: 0 0 0 3px var(--field); pointer-events: none; }
+.rail-item.joined::before { height: 8px; }
+.view-home { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.friends-page, .dm-page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--line); }
+.tab { height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--dim); font-size: 14px; font-weight: 600; }
+.tab:hover, .tab[aria-selected="true"] { background: var(--panel-2); color: var(--fg); }
+.tab-add { background: var(--ok); color: var(--on-ok); }
+.tab-add:hover { background: var(--ok); color: var(--on-ok); filter: brightness(1.06); }
+.tab-add[aria-selected="true"] { background: transparent; color: var(--ok); }
+.fr-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 8px clamp(16px, 2.5vw, 28px) 32px; }
+.fr-scroll > * { max-width: 760px; }
+.fr-section-title { margin: 16px 0 6px; color: var(--dim); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.fr-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.fr-row { display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 0 8px; border-top: 1px solid var(--line); border-radius: 8px; --dot-ring: var(--bg); }
+.fr-row:hover { background: var(--panel); --dot-ring: var(--panel); }
+.fr-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.fr-text b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-text span { font-size: 13px; color: var(--dim); }
+.fr-actions { display: flex; gap: 8px; }
+.fr-act { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.fr-act:hover { border-color: var(--dim); }
+.fr-act.ok:hover { color: var(--ok); border-color: var(--ok); }
+.fr-act.no:hover { color: var(--danger); border-color: var(--danger); }
+.fr-act .ic { width: 18px; height: 18px; }
+.fr-empty { margin: 0; padding: 10px 8px; color: var(--dim); }
+.fr-add { padding-top: 16px; }
+.fr-add h2 { margin: 0 0 6px; font: 800 26px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
+.fr-add-text { margin: 0 0 14px; color: var(--dim); max-width: 62ch; }
+.fr-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.fr-add-row .input { flex: 1 1 220px; min-width: 0; height: 46px; }
+.fr-add-row .btn.primary { width: auto; height: 46px; padding: 0 18px; font-size: 15px; }
+.fr-note { margin: 10px 0 0; color: var(--ok); font-weight: 600; }
+.fr-note.bad { color: var(--danger); }
+.home-servers-box { margin-top: 28px; padding-top: 4px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.home-servers-box .fr-section-title { margin-bottom: 0; }
+.home-empty { margin: 0; color: var(--dim); }
 .home-servers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .home-server { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); text-align: left; }
 .home-server:hover { border-color: var(--lamp); }
@@ -202,7 +248,13 @@ select { appearance: auto; }
 .home-server-text { min-width: 0; display: grid; gap: 2px; }
 .home-server-text b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-server-text span { font-size: 13px; color: var(--dim); }
-.home-card .btn.primary { justify-self: start; width: auto; padding: 0 18px; }
+.home-servers-box > .btn { justify-self: start; }
+.dm-intro { --dot-ring: var(--bg); }
+.dm-intro .av-wrap { margin-bottom: 12px; }
+.dm-intro .av-wrap .mini-av { width: 72px; height: 72px; font-size: 28px; }
+.dm-intro .status-dot { width: 18px; height: 18px; right: 1px; bottom: 1px; box-shadow: 0 0 0 4px var(--bg); }
+.dm-pending { grid-column: 2; font-size: 12px; color: var(--dim); font-style: italic; }
+.pop-friend { width: 100%; margin-top: 10px; }
 .join-invite { margin: -8px 0 0; color: var(--lamp-ink); font-weight: 600; }
 .rail-sep { width: 32px; height: 2px; flex: none; border-radius: 1px; background: var(--line); }
 .rail-add { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 1px dashed var(--dim); border-radius: 50%; background: var(--panel); color: var(--ok); transition: border-radius .15s; }
@@ -568,6 +620,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-user-x" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></symbol>
+    <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
   </defs>
 </svg>
 
@@ -642,7 +698,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 <main id="room" class="app" hidden>
   <aside class="side" id="side" aria-label="Server">
     <nav class="rail" aria-label="Your servers">
-      <div class="rail-item" id="railHomeItem"><button type="button" class="rail-btn rail-home" id="railHome" title="Home" aria-label="Home"><svg class="ic"><use href="#i-home"/></svg></button></div>
+      <div class="rail-item" id="railHomeItem"><button type="button" class="rail-btn rail-home" id="railHome" title="Home: friends and private chats" aria-label="Home"><svg class="ic"><use href="#i-home"/></svg></button><span class="rail-badge" id="railHomeBadge" hidden></span></div>
       <span class="rail-sep" aria-hidden="true"></span>
       <ul class="rail-list" id="railList"></ul>
       <span class="rail-sep" aria-hidden="true"></span>
@@ -650,9 +706,10 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     </nav>
     <div class="side-main">
     <div class="side-home" id="sideHome">
-      <div class="side-home-head">Home</div>
-      <p class="side-home-text">Your servers are in the bar on the left. Use + to join a server by name, or to start a new one.</p>
-      <button type="button" class="btn small" id="sideHomeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
+      <button type="button" class="nav-item" id="navFriends"><svg class="ic"><use href="#i-users"/></svg><span>Friends</span><span class="count-pill" id="pendingCount" hidden></span></button>
+      <div class="cat-head dm-head"><span class="cat-label">Private chats</span><button type="button" class="cat-add" id="dmNew" aria-label="Start a private chat" title="Start a private chat"><svg class="ic"><use href="#i-plus"/></svg></button></div>
+      <ul class="dm-list" id="dmList" aria-label="Private chats"></ul>
+      <p class="side-home-text" id="dmEmpty">Chats with your friends show up here. Add a friend, then press the chat button next to their name.</p>
     </div>
     <header class="server-head">
       <button type="button" class="server-btn" id="serverBtn" aria-expanded="false" aria-controls="serverMenu"><span id="serverName"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
@@ -746,12 +803,44 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     </div>
 
     <div class="view-home" id="viewHome" hidden>
-      <div class="home-card">
-        <h2 id="homeTitle">Welcome</h2>
-        <p class="home-lede">Pick one of your servers, or join a new one. Friends join a server by typing the same name, or by opening your invite link.</p>
-        <ul class="home-servers" id="homeServers"></ul>
-        <p class="home-empty" id="homeEmpty">No servers yet. Join one with the button below. If you've used this name on another device, your other servers show up here after you enter a server where a friend is online.</p>
-        <button type="button" class="btn primary" id="homeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
+      <div class="friends-page" id="friendsPage">
+        <div class="tabs" role="tablist" aria-label="Friends">
+          <button type="button" class="tab" role="tab" data-tab="online">Online</button>
+          <button type="button" class="tab" role="tab" data-tab="all">All</button>
+          <button type="button" class="tab" role="tab" data-tab="pending">Pending<span class="count-pill" id="pendingCount2" hidden></span></button>
+          <button type="button" class="tab tab-add" role="tab" data-tab="add">Add friend</button>
+        </div>
+        <div class="fr-scroll">
+          <form class="fr-add" id="frAddForm" hidden>
+            <h2>Add friend</h2>
+            <p class="fr-add-text">Type the name your friend uses in Party Line. They get your request the next time you're both online, and once they accept you can chat in private.</p>
+            <div class="fr-add-row">
+              <label class="sr" for="frAddName">Friend's name</label>
+              <input type="text" id="frAddName" class="input" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Their name">
+              <button type="submit" class="btn primary"><svg class="ic"><use href="#i-user-plus"/></svg>Send friend request</button>
+            </div>
+            <p class="fr-note" id="frAddNote" role="status" hidden></p>
+          </form>
+          <div id="frBody"></div>
+          <section class="home-servers-box" aria-labelledby="homeServersTitle">
+            <h3 class="fr-section-title" id="homeServersTitle">Your servers</h3>
+            <ul class="home-servers" id="homeServers"></ul>
+            <p class="home-empty" id="homeEmpty">No servers yet. If you've used this name on another device, your other servers show up after you enter a server where a friend is online.</p>
+            <button type="button" class="btn" id="homeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
+          </section>
+        </div>
+      </div>
+      <div class="dm-page" id="dmPage" hidden>
+        <ol class="messages" id="dmMessages" aria-live="polite"></ol>
+        <form class="composer" id="dmForm">
+          <div class="composer-box">
+            <div class="composer-row">
+              <label for="dmInput" class="sr">Private message</label>
+              <textarea id="dmInput" rows="1" maxlength="2000" placeholder="Message"></textarea>
+              <button type="submit" class="ub" aria-label="Send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
     <div class="view-voice" id="viewVoice" hidden>
@@ -955,6 +1044,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <label class="check"><input type="checkbox" id="volMute"><span><b>Mute for me</b></span></label>
     <button type="button" class="btn small" id="volReset">Reset to 100%</button>
   </div>
+  <button type="button" class="btn small pop-friend" id="volFriend" hidden>Add friend</button>
   <div class="pop-admin" id="volAdmin" hidden>
     <span class="flabel"><svg class="ic"><use href="#i-crown"/></svg>Admin</span>
     <p class="pop-id" id="admId"></p>
@@ -1163,7 +1253,7 @@ const S = {
   firstRoster: true, recovering: false,
   peers: new Map(),
   rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
-  inApp: false,
+  inApp: false, homeView: false,
   profileKey: '', saveProfile: false, histHadLocal: false, resumed: false, sessionServers: [], switching: false,
   mutedSince: 0, afkWarned: false,
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
@@ -1274,7 +1364,7 @@ function chime(kind) {
   if (S.me.deafened) return;
   try {
     const c = audioCtx(); const t0 = c.currentTime + 0.01;
-    const notes = { join: [523.25, 783.99], leave: [659.25, 392], on: [880], off: [440] }[kind] || [600];
+    const notes = { join: [523.25, 783.99], leave: [659.25, 392], on: [880], off: [440], msg: [987.77, 1318.51] }[kind] || [600];
     notes.forEach((f, i) => {
       const o = c.createOscillator(), g = c.createGain();
       const st = t0 + i * 0.09;
@@ -2870,7 +2960,7 @@ function leaveVoice() {
   syncRouting();
   afkReset();
   saveResume();
-  if (S.view.kind === 'voice') showText(S.lastText);
+  if (S.view.kind === 'voice') setTextView(S.lastText);
 }
 function voiceMembers(chId) {
   const list = [];
@@ -2966,6 +3056,8 @@ function leaveRoom() {
   }, 200);
 }
 window.addEventListener('pagehide', () => {
+  if (dm.saveTimer) dmWrite();
+  try { dm.peer && dm.peer.destroy(); } catch {}
   if (!S.inRoom) return;
   saveHistory();
   broadcast({ t: 'bye' });
@@ -2973,10 +3065,12 @@ window.addEventListener('pagehide', () => {
   try { S.peer && S.peer.destroy(); } catch {}
 });
 
+window.addEventListener('pageshow', (e) => { if (e.persisted && S.inApp && S.profileKey) startInbox(); });
+
 /* ================= rendering: room ================= */
 function showRoom() {
   $('#join').hidden = true; $('#room').hidden = false;
-  $('#room').classList.remove('home'); $('#viewHome').hidden = true;
+  clearHome();
   S.micPanelOpen = !!S.micIssue; S.micPanelAuto = true; $('#mpNote').hidden = true;
   showText(S.view.id || GENERAL);
   updateStatus(); renderMicStatus();
@@ -2998,11 +3092,19 @@ function updateCount() {
   for (const p of S.peers.values()) if (p.gotState) n++;
   $('#countText').textContent = n === 1 ? 'Just you' : `${n} in the server`;
 }
-function updateBadges() {
+function serverUnread() {
   let total = 0;
-  for (const c of S.chans.values()) if (c.kind === 'text') total += c.unread;
-  $('#drawerBadge').hidden = !total;
-  if (S.inRoom) document.title = (total ? `(${total}) ` : '') + `${S.room} · Party Line`;
+  if (S.inRoom) for (const c of S.chans.values()) if (c.kind === 'text') total += c.unread;
+  return total;
+}
+function updateBadges() {
+  const total = serverUnread(), dmN = dmBadgeCount();
+  $('#drawerBadge').hidden = !(total + dmN);
+  const hb = $('#railHomeBadge');
+  hb.hidden = !dmN; hb.textContent = dmN > 99 ? '99+' : String(dmN);
+  if (!S.inApp) return;
+  const n = total + dmN;
+  document.title = (n ? `(${n}) ` : '') + (S.inRoom && !S.homeView ? `${S.room} · Party Line` : 'Party Line');
 }
 
 const memberEls = new Map();
@@ -3028,30 +3130,34 @@ function serverInitials(room) {
   return (w[0][0] + (w[1] ? w[1][0] : (w[0][1] || ''))).toUpperCase();
 }
 function renderRail() {
-  const home = !S.inRoom;
+  const home = !S.inRoom || S.homeView;
   $('#railHomeItem').classList.toggle('current', home);
   if (home) $('#railHome').setAttribute('aria-current', 'true'); else $('#railHome').removeAttribute('aria-current');
   const ul = $('#railList');
   ul.textContent = '';
   for (const room of myServers()) {
-    const cur = room === S.room;
-    const li = document.createElement('li'); li.className = 'rail-item' + (cur ? ' current' : '');
+    const here = S.inRoom && room === S.room;
+    const cur = here && !S.homeView;
+    const li = document.createElement('li'); li.className = 'rail-item' + (cur ? ' current' : here ? ' joined' : '');
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'rail-btn'; b.textContent = serverInitials(room);
     b.style.setProperty('--h', hue(room));
-    b.title = cur ? `${room} (you're here)` : `Go to ${room}`;
+    b.title = cur ? `${room} (you're here)` : here ? `Back to ${room}` : `Go to ${room}`;
     b.setAttribute('aria-label', `Server ${room}`);
     if (cur) b.setAttribute('aria-current', 'true');
     b.disabled = S.switching;
     b.addEventListener('click', () => switchServer(room));
-    li.appendChild(b); ul.appendChild(li);
+    li.appendChild(b);
+    const unread = here && S.homeView ? serverUnread() : 0;
+    if (unread) { const badge = document.createElement('span'); badge.className = 'rail-badge'; badge.textContent = unread > 99 ? '99+' : String(unread); badge.setAttribute('aria-label', `${unread} unread`); li.appendChild(badge); }
+    ul.appendChild(li);
   }
 }
 // Goes to a server: leaves the one you're in (if any), then enters the other with the same profile.
 async function switchServer(room) {
   room = cleanRoom(room);
   if (room.length < 3 || S.switching) return;
-  if (room === S.room && S.inRoom) { setDrawer(false); return; }
+  if (room === S.room && S.inRoom) { setDrawer(false); exitHome(); return; }
   S.switching = true;
   $('#switchText').textContent = `Going to ${room}…`;
   $('#switching').hidden = false;
@@ -3158,7 +3264,7 @@ function renderChannels() {
   renderUser();
 }
 function renderView() {
-  if (!S.inRoom) return;
+  if (!S.inRoom || S.homeView) return;
   const text = S.view.kind === 'text';
   $('#viewText').hidden = !text; $('#viewVoice').hidden = text; $('#viewHome').hidden = true;
   const icon = $('#viewIcon');
@@ -3176,6 +3282,7 @@ function renderView() {
   }
 }
 function showText(id) {
+  clearHome();
   const c = S.chans.get(id) || S.chans.get(GENERAL);
   S.view = { kind: 'text', id: c.id }; S.lastText = c.id;
   c.unread = 0;
@@ -3191,6 +3298,7 @@ function showText(id) {
   saveResume();
 }
 function showVoice() {
+  clearHome();
   S.view = { kind: 'voice' };
   setDrawer(false);
   renderAll();
@@ -3405,7 +3513,7 @@ function fillText(el, text) {
   }
   if (last < text.length) el.append(text.slice(last));
 }
-const isViewing = (id) => S.inRoom && S.view.kind === 'text' && S.view.id === id;
+const isViewing = (id) => S.inRoom && !S.homeView && S.view.kind === 'text' && S.view.id === id;
 function pushMsg(chId, msg) {
   const c = S.chans.get(chId) || S.chans.get(GENERAL);
   if (msg.kind === 'text' && msg.id && (S.dels.has(msg.id) || hasMsg(c, msg.id))) return;
@@ -3705,6 +3813,7 @@ for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) ptt.addEv
 ptt.addEventListener('contextmenu', (e) => e.preventDefault());
 
 document.addEventListener('keydown', (e) => {
+  if (!S.inRoom && S.inApp && e.key === 'Escape' && !$('#confirmDlg').open && !$('#addServer').open && !$('#settings').open) { setDrawer(false); return; }
   if (!S.inRoom || $('#settings').open || $('#feedback').open || $('#addServer').open || $('#confirmDlg').open || S.switching) return;
   if (e.key === 'Escape') {
     if (!$('#lightbox').hidden) { closeLightbox(); return; }
@@ -3796,6 +3905,7 @@ function openVolume(id, anchor) {
   $('#volRange').value = String(Math.round(p.volume * 100));
   showPct($('#volOut'), p.volume);
   $('#volMute').checked = p.localMute;
+  syncFriendButton(p);
   $('#volAdmin').hidden = !amAdmin();
   if (amAdmin()) {
     $('#admVoiceKick').hidden = !p.vc;
@@ -4393,7 +4503,7 @@ function removeChannel(chId) {
   if (S.me.vc === chId) { leaveVoice(); toast(`${c.name} was deleted by the admin.`, 5000); }
   S.chans.delete(chId);
   if (S.lastText === chId) S.lastText = GENERAL;
-  if (S.inRoom && S.view.kind === 'text' && S.view.id === chId) showText(GENERAL);
+  if (S.inRoom && S.view.kind === 'text' && S.view.id === chId) setTextView(GENERAL);
   else renderAll();
 }
 async function adminDelete(key, title, text, okLabel) {
@@ -4488,26 +4598,614 @@ function idLine(name) {
   return code ? `ID code ${code}. The same on every device that uses the name ${name}.` : 'ID code: working it out…';
 }
 
-/* ================= home =================
-   After you pick your profile you land here, not in a server. Your servers are in the bar on the left;
-   the + button joins a server by name or starts a new one. */
-function showHome() {
-  S.inApp = true;
-  $('#join').hidden = true; $('#room').hidden = false;
-  $('#room').classList.add('home');
-  try { history.replaceState(null, '', location.pathname + location.search); } catch {}
-  document.title = 'Party Line';
+/* ================= friends and private chats =================
+   Every name has a personal address made from the name and the password, so only people with the
+   password can find it. Your app keeps it open while you're in the app, on Home or in a server.
+   Friend requests and messages go straight between your devices and your friend's devices; nobody
+   else carries them. A message to a friend who's offline waits on your device until you're both online.
+   Up to three devices can use the same name at once; they share friends and chats with each other.
+   The admin's name only counts once the other side proves it has the owner code. */
+const DM = { slots: 3, retryMs: 45000, maxMsgs: 300, maxConns: 40, maxIncoming: 50 };
+const dm = { peer: null, slot: -1, gen: 0, conns: new Set(), friends: {}, convs: {}, view: 'friends', tab: 'online', open: '', saveTimer: 0, retryTimer: 0, ids: new Map() };
+const FR_STATES = ['friend', 'out', 'in', 'ignored', 'removed', 'none'];
+
+/* ---- storage, kept per profile ---- */
+const frKey = () => 'friends:' + S.profileKey, dmKey = () => 'dms:' + S.profileKey;
+function dmLoad() {
+  dm.friends = {}; dm.convs = {};
+  for (const [k, f] of Object.entries(objOr(store.get(frKey(), null)))) {
+    if (f && FR_STATES.includes(f.state) && cleanName(f.name) && foldName(f.name) === k) dm.friends[k] = { name: cleanName(f.name), state: f.state, at: Number(f.at) || 0 };
+  }
+  for (const [k, c] of Object.entries(objOr(objOr(store.get(dmKey(), null)).convs))) {
+    if (!c || !Array.isArray(c.msgs)) continue;
+    const msgs = c.msgs.filter((m) => m && MSG_ID_RE.test(m.id) && Number.isFinite(m.ts) && typeof m.text === 'string' && cleanName(m.from))
+      .map((m) => ({ id: m.id, ts: m.ts, from: cleanName(m.from), text: m.text.slice(0, 2000), pending: !!m.pending }));
+    dm.convs[k] = { name: cleanName(c.name) || k, msgs: msgs.slice(-DM.maxMsgs), read: Number(c.read) || 0 };
+  }
+}
+function dmWrite() {
+  clearTimeout(dm.saveTimer); dm.saveTimer = 0;
+  if (!S.profileKey || !S.saveProfile) return;
+  store.set(frKey(), dm.friends);
+  store.set(dmKey(), { convs: dm.convs });
+}
+function dmSave() { clearTimeout(dm.saveTimer); dm.saveTimer = setTimeout(dmWrite, 400); }
+const relFor = (key) => { const s = dm.friends[key] ? dm.friends[key].state : 'none'; return s === 'ignored' ? 'none' : s; };
+const readyConns = (key) => [...dm.conns].filter((c) => c.open && c.ready && (!key || c.dmKey === key));
+const isOnline = (key) => readyConns(key).length > 0;
+
+/* ---- personal addresses ---- */
+function inboxIds(key) {
+  const k = S.roomKey + '|' + key;
+  if (!dm.ids.has(k)) {
+    dm.ids.set(k, crypto.subtle.digest('SHA-256', new TextEncoder().encode(S.roomKey + ':inbox:' + key))
+      .then((d) => Array.from({ length: DM.slots }, (_, i) => `${PREFIX}u-${toHex(d).slice(0, 28)}-${i}`)));
+  }
+  return dm.ids.get(k);
+}
+async function startInbox() {
+  stopInbox();
+  if (!S.profileKey || !S.roomKey || typeof window.Peer !== 'function') return;
+  dmLoad();
+  const gen = dm.gen;
+  renderDmAll();
+  const ids = await inboxIds(S.profileKey);
+  for (let slot = 0; slot < DM.slots; slot++) {
+    if (gen !== dm.gen) return;
+    const r = await openInbox(ids[slot], gen);
+    if (r === 'ok') { dm.slot = slot; break; }
+    if (r !== 'taken') break;
+  }
+  if (gen !== dm.gen) return;
+  if (!dm.peer) { dm.retryTimer = setTimeout(() => { if (gen === dm.gen) startInbox(); }, 30000); renderDmAll(); return; }
+  dmConnectAll();
+  dm.retryTimer = setInterval(dmConnectAll, DM.retryMs);
+  renderDmAll();
+}
+function stopInbox() {
+  dm.gen++;
+  clearInterval(dm.retryTimer); clearTimeout(dm.retryTimer);
+  if (dm.saveTimer) dmWrite();
+  for (const c of dm.conns) { try { c.close(); } catch {} }
+  dm.conns.clear();
+  const p = dm.peer; dm.peer = null; dm.slot = -1;
+  try { p && p.destroy(); } catch {}
+}
+function openInbox(id, gen) {
+  return new Promise((resolve) => {
+    let done = false;
+    const peer = new Peer(id, PEER_OPTS);
+    const finish = (r) => { if (done) return; done = true; clearTimeout(t); if (r !== 'ok') { try { peer.destroy(); } catch {} } resolve(r); };
+    const t = setTimeout(() => finish('timeout'), 12000);
+    peer.on('open', () => {
+      if (done) return;
+      if (gen !== dm.gen) { finish('stale'); return; }
+      dm.peer = peer;
+      finish('ok');
+    });
+    peer.on('connection', (conn) => {
+      if (dm.peer !== peer || !conn.metadata || conn.metadata.kind !== 'dm' || dm.conns.size >= DM.maxConns) { try { conn.close(); } catch {} return; }
+      attachDmConn(conn, '', false);
+    });
+    peer.on('error', (err) => {
+      if (!done) { finish(err && err.type === 'unavailable-id' ? 'taken' : 'error'); return; }
+      if (dm.peer !== peer || !err || err.type !== 'peer-unavailable') return;
+      const m = /peer\s+(\S+)/i.exec(err.message || '');
+      if (m) for (const c of [...dm.conns]) if (c.peer === m[1] && !c.open) dropDmConn(c);
+    });
+    peer.on('disconnected', () => setTimeout(() => {
+      if (dm.peer === peer && peer.disconnected && !peer.destroyed) { try { peer.reconnect(); } catch {} }
+    }, 3000));
+  });
+}
+// Reaches out to friends, people with a pending request, and your own other devices.
+async function dmConnectAll() {
+  const peer = dm.peer;
+  if (!peer || peer.destroyed) return;
+  if (peer.disconnected) { try { peer.reconnect(); } catch {} return; }
+  const keys = new Set([S.profileKey]);
+  for (const [k, f] of Object.entries(dm.friends)) if (f.state === 'friend' || f.state === 'out' || f.state === 'in') keys.add(k);
+  for (const k of keys) {
+    const ids = await inboxIds(k);
+    if (dm.peer !== peer || peer.disconnected) return;
+    ids.forEach((id, slot) => {
+      if (k === S.profileKey && slot === dm.slot) return;
+      if ([...dm.conns].some((c) => c.peer === id)) return;
+      if (dm.conns.size >= DM.maxConns) return;
+      const conn = peer.connect(id, { reliable: true, serialization: 'json', metadata: { kind: 'dm' } });
+      if (conn) attachDmConn(conn, k, true);
+    });
+  }
+}
+function attachDmConn(conn, key, outbound) {
+  dm.conns.add(conn);
+  conn.dmKey = key; conn.dmOut = outbound;
+  const t = setTimeout(() => { if (!conn.open) dropDmConn(conn); }, 15000);
+  const hello = () => { clearTimeout(t); try { conn.send({ t: 'hello', name: S.me.name }); } catch {} };
+  if (conn.open) hello(); else conn.on('open', hello);
+  conn.on('data', (msg) => { try { onDmData(conn, msg); } catch (e) { console.warn('[dm]', e); } });
+  conn.on('close', () => dropDmConn(conn));
+  conn.on('error', () => {});
+}
+function dropDmConn(conn) {
+  const had = dm.conns.delete(conn);
+  try { conn.close(); } catch {}
+  if (had && conn.ready) renderDmAll();
+}
+/* When two devices dial each other at the same moment there are two links between them.
+   Both sides apply the same rule, so they close the same one. */
+function dropDuplicate(conn) {
+  const me = dm.peer && dm.peer.id;
+  const other = [...dm.conns].find((c) => c !== conn && c.peer === conn.peer && c.ready);
+  if (!other || !me) return false;
+  const loses = (c) => (c.dmOut ? me > c.peer : me < c.peer);
+  // Same direction twice means the other side reconnected: the older link is the stale one.
+  const loser = conn.dmOut === other.dmOut ? other : loses(conn) ? conn : other;
+  dropDmConn(loser);
+  return loser === conn;
+}
+
+/* ---- what arrives on a personal link ---- */
+function onDmData(conn, msg) {
+  if (!msg || typeof msg !== 'object' || !S.profileKey || !dm.conns.has(conn)) return;
+  if (msg.t === 'hello' && !conn.ready && !conn.helloName) {
+    const name = cleanName(msg.name), key = foldName(name);
+    if (!key || (conn.dmKey && conn.dmKey !== key)) { dropDmConn(conn); return; }
+    conn.dmKey = key; conn.helloName = name;
+    if (key === ADMIN_KEY) {   // the admin's name needs proof
+      conn.chal = toHex(crypto.getRandomValues(new Uint8Array(16)));
+      try { conn.send({ t: 'dm-chal', n: conn.chal }); } catch {}
+      conn.chalTimer = setTimeout(() => { if (!conn.ready) dropDmConn(conn); }, 15000);
+      return;
+    }
+    dmReady(conn);
+    return;
+  }
+  if (msg.t === 'dm-chal') {
+    if (typeof msg.n !== 'string' || !/^[0-9a-f]{32}$/.test(msg.n) || !amAdmin() || S.profileKey !== ADMIN_KEY || !dm.peer) return;
+    const mine = dm.peer.id;
+    signOwner(`partyline-dm|${msg.n}|${mine}|${conn.peer}`).then((sig) => { try { conn.send({ t: 'dm-proof', sig }); } catch {} }).catch(() => {});
+    return;
+  }
+  if (msg.t === 'dm-proof') {
+    if (!conn.chal || conn.ready || !dm.peer) return;
+    verifyOwner(`partyline-dm|${conn.chal}|${conn.peer}|${dm.peer.id}`, msg.sig).then((ok) => {
+      clearTimeout(conn.chalTimer);
+      if (ok && dm.conns.has(conn)) dmReady(conn); else dropDmConn(conn);
+    });
+    return;
+  }
+  if (!conn.ready) {   // anything sent while the admin's proof is being checked waits for it
+    if (conn.chal && (conn.queue = conn.queue || []).length < 50) conn.queue.push(msg);
+    return;
+  }
+  const key = conn.dmKey, self = key === S.profileKey;
+  if (msg.t === 'rel' && !self) onRel(conn, key, msg.rel);
+  else if (msg.t === 'fr-sync' && self) onFrSync(msg.fr);
+  else if (msg.t === 'dm') onDmMsg(conn, key, self, msg);
+  else if (msg.t === 'dm-ack' && !self) markDelivered(key, msg.id);
+  else if (msg.t === 'dm-since') onDmSince(conn, key, self, msg);
+  else if (msg.t === 'dm-batch') onDmBatch(conn, key, self, msg);
+  else if (msg.t === 'dm-read' && self) onDmRead(msg.reads);
+}
+function dmReady(conn) {
+  const key = conn.dmKey, name = conn.helloName;
+  conn.ready = true;
+  if (dropDuplicate(conn)) return;
+  if (key === S.profileKey) {
+    try { conn.send({ t: 'fr-sync', fr: dm.friends }); } catch {}
+    const convs = {};
+    for (const [k, c] of Object.entries(dm.convs)) convs[k] = c.msgs.length ? c.msgs[c.msgs.length - 1].ts : 0;
+    try { conn.send({ t: 'dm-since', convs }); } catch {}
+    const reads = {};
+    for (const [k, c] of Object.entries(dm.convs)) if (c.read) reads[k] = c.read;
+    try { conn.send({ t: 'dm-read', reads }); } catch {}
+  } else {
+    if (dm.friends[key] && dm.friends[key].name !== name) { dm.friends[key].name = name; dmSave(); }
+    try { conn.send({ t: 'rel', rel: relFor(key) }); } catch {}
+  }
+  renderDmAll();
+  const queued = conn.queue || [];
+  conn.queue = null;
+  for (const m of queued) onDmData(conn, m);
+}
+
+/* ---- friend requests: each side says how it sees the other, and both settle on the same answer ---- */
+function setFriend(key, name, state) {
+  dm.friends[key] = { name: cleanName(name) || key, state, at: Date.now() };
+  dmSave();
+  for (const c of readyConns(S.profileKey)) { try { c.send({ t: 'fr-sync', fr: { [key]: dm.friends[key] } }); } catch {} }
+  renderDmAll();
+}
+function pushRel(key) { for (const c of readyConns(key)) { try { c.send({ t: 'rel', rel: relFor(key) }); } catch {} } }
+function onRel(conn, key, theirs) {
+  const f = dm.friends[key];
+  const mine = f ? f.state : 'none', name = conn.helloName || (f && f.name) || key;
+  let next = mine;
+  if (theirs === 'out') { if (mine === 'out' || mine === 'friend') next = 'friend'; else if (mine === 'none' || mine === 'removed') next = 'in'; }
+  else if (theirs === 'friend') { if (mine === 'out' || mine === 'in' || mine === 'none') next = 'friend'; }
+  else if (theirs === 'removed') { if (mine === 'friend' || mine === 'out') next = 'none'; }
+  else if (theirs === 'none') { if (mine === 'in') next = 'none'; }
+  if (next === 'in' && Object.values(dm.friends).filter((x) => x.state === 'in').length >= DM.maxIncoming) next = mine;
+  if (next !== mine) {
+    setFriend(key, name, next);
+    if (next === 'friend' && mine === 'out') { chime('msg'); toast(`${name} accepted your friend request.`, 6000, { label: 'Message', fn: () => openDm(key) }); }
+    else if (next === 'in') { chime('msg'); toast(`${name} sent you a friend request.`, 8000, { label: 'View', fn: () => openFriends('pending') }); }
+    try { conn.send({ t: 'rel', rel: relFor(key) }); } catch {}
+  }
+  if (relFor(key) === 'friend') { sendPending(conn, key); askSince(conn, key); }
+}
+function onFrSync(fr) {
+  let changed = false;
+  for (const [k, f] of Object.entries(objOr(fr))) {
+    if (!f || !FR_STATES.includes(f.state) || foldName(f.name) !== k || k === S.profileKey) continue;
+    const at = Number(f.at) || 0, cur = dm.friends[k];
+    if (!cur || at > cur.at) { dm.friends[k] = { name: cleanName(f.name), state: f.state, at }; changed = true; }
+  }
+  if (changed) { dmSave(); renderDmAll(); dmConnectAll(); }
+}
+function addFriend(raw) {
+  const name = cleanName(raw), key = foldName(name);
+  if (!key) return { ok: false, text: 'Type the name your friend uses.' };
+  if (key === S.profileKey) return { ok: false, text: 'That’s your own name.' };
+  const f = dm.friends[key];
+  if (f && f.state === 'friend') return { ok: false, text: `${f.name} is already your friend.` };
+  if (f && f.state === 'in') { setFriend(key, f.name, 'friend'); pushRel(key); return { ok: true, text: `You and ${f.name} are now friends.` }; }
+  if (f && f.state === 'out') return { ok: false, text: `You already sent ${f.name} a request.` };
+  setFriend(key, name, 'out');
+  pushRel(key);
+  dmConnectAll();
+  return { ok: true, text: `Friend request sent to ${name}. If they’re not online right now, they get it when they are.` };
+}
+function acceptFriend(key) { const f = dm.friends[key]; if (!f) return; setFriend(key, f.name, 'friend'); pushRel(key); toast(`You and ${f.name} are now friends.`, 4000); }
+function ignoreFriend(key) { const f = dm.friends[key]; if (!f) return; setFriend(key, f.name, 'ignored'); }
+function cancelFriend(key) { const f = dm.friends[key]; if (!f) return; setFriend(key, f.name, 'none'); pushRel(key); }
+async function removeFriend(key) {
+  const f = dm.friends[key]; if (!f) return;
+  if (!(await askConfirm(`Remove ${f.name} as a friend?`, 'Your chat history stays on this device, but you can’t message each other until one of you adds the other again.', 'Remove friend'))) return;
+  setFriend(key, f.name, 'removed'); pushRel(key);
+}
+
+/* ---- messages ---- */
+function convOf(key) {
+  if (!dm.convs[key]) dm.convs[key] = { name: (dm.friends[key] && dm.friends[key].name) || key, msgs: [], read: 0 };
+  return dm.convs[key];
+}
+function validDmRow(r, allowed) {
+  if (!Array.isArray(r) || typeof r[0] !== 'string' || !MSG_ID_RE.test(r[0])) return null;
+  const ts = Number(r[1]), from = cleanName(r[2]), text = typeof r[3] === 'string' ? r[3].slice(0, 2000) : '';
+  if (!Number.isFinite(ts) || ts <= 0 || ts > Date.now() + 864e5 || !from || !allowed.has(foldName(from)) || !text.trim()) return null;
+  return { id: r[0], ts, from, text };
+}
+// Adds messages to a chat; returns how many of them are new and from the other person.
+function addDmMsgs(key, list) {
+  const conv = convOf(key);
+  let fromThem = 0, added = 0;
+  for (const m of list) {
+    if (conv.msgs.some((x) => x.id === m.id)) continue;
+    conv.msgs.push({ id: m.id, ts: m.ts, from: m.from, text: m.text, pending: false });
+    added++;
+    if (foldName(m.from) !== S.profileKey) fromThem++;
+  }
+  if (!added) return 0;
+  conv.msgs.sort((a, b) => a.ts - b.ts);
+  if (conv.msgs.length > DM.maxMsgs) conv.msgs = conv.msgs.slice(-DM.maxMsgs);
+  dmSave();
+  if (viewingDm(key)) markRead(key);
+  return fromThem;
+}
+const viewingDm = (key) => S.inApp && S.homeView && dm.view === 'dm' && dm.open === key && document.visibilityState === 'visible';
+function sendDm(key, text) {
+  if (relFor(key) !== 'friend') return;
+  const conv = convOf(key);
+  const m = { id: msgId(), ts: Date.now(), from: S.me.name, text, pending: true };
+  conv.msgs.push(m);
+  if (conv.msgs.length > DM.maxMsgs) conv.msgs = conv.msgs.slice(-DM.maxMsgs);
+  conv.read = m.ts;
+  dmSave();
+  const wire = { t: 'dm', id: m.id, ts: m.ts, from: m.from, to: key, text: m.text };
+  for (const c of readyConns()) if (c.dmKey === key || c.dmKey === S.profileKey) { try { c.send(wire); } catch {} }
   renderHome();
 }
+function sendPending(conn, key) {
+  const conv = dm.convs[key];
+  if (!conv) return;
+  for (const m of conv.msgs) if (m.pending && foldName(m.from) === S.profileKey) { try { conn.send({ t: 'dm', id: m.id, ts: m.ts, from: m.from, to: key, text: m.text }); } catch {} }
+}
+function markDelivered(key, id) {
+  const conv = dm.convs[key];
+  const m = conv && conv.msgs.find((x) => x.id === id);
+  if (m && m.pending) { m.pending = false; dmSave(); if (viewingDm(key)) renderDmPage(); }
+}
+function onDmMsg(conn, key, self, msg) {
+  if (typeof msg.id !== 'string' || !MSG_ID_RE.test(msg.id)) return;
+  const conv = self ? (typeof msg.to === 'string' ? msg.to : '') : key;
+  if (!conv || conv === S.profileKey || relFor(conv) !== 'friend') return;
+  const row = validDmRow([msg.id, msg.ts, msg.from, msg.text], new Set([S.profileKey, conv]));
+  if (!row) return;
+  if (!self) { try { conn.send({ t: 'dm-ack', id: row.id }); } catch {} }
+  const n = addDmMsgs(conv, [row]);
+  renderDmAll();
+  if (n && !viewingDm(conv)) notifyDm(conv, row.from, row.text);
+}
+function askSince(conn, key) {
+  const conv = dm.convs[key];
+  const last = conv && conv.msgs.length ? conv.msgs[conv.msgs.length - 1].ts : 0;
+  try { conn.send({ t: 'dm-since', since: last }); } catch {}
+}
+function sendBatches(conn, conv, since) {
+  const c = dm.convs[conv];
+  if (!c) return;
+  const list = c.msgs.filter((m) => m.ts > since - 3600e3);
+  for (let i = 0; i < list.length; i += 25) {
+    try { conn.send({ t: 'dm-batch', conv, msgs: list.slice(i, i + 25).map((m) => [m.id, m.ts, m.from, m.text]) }); } catch {}
+  }
+}
+// A friend asks for your shared chat; your own other device asks for every chat.
+function onDmSince(conn, key, self, msg) {
+  if (self) {
+    const have = objOr(msg.convs);
+    for (const k of Object.keys(dm.convs)) if (relFor(k) === 'friend') sendBatches(conn, k, Number(have[k]) || 0);
+  } else if (relFor(key) === 'friend') sendBatches(conn, key, Number(msg.since) || 0);
+}
+function onDmBatch(conn, key, self, msg) {
+  const conv = self ? (typeof msg.conv === 'string' ? msg.conv : '') : key;
+  if (!conv || conv === S.profileKey || !Array.isArray(msg.msgs) || relFor(conv) !== 'friend') return;
+  const allowed = new Set([S.profileKey, conv]);
+  const rows = msg.msgs.slice(0, 50).map((r) => validDmRow(r, allowed)).filter(Boolean);
+  if (!self) for (const r of rows) if (foldName(r.from) === S.profileKey) markDelivered(conv, r.id);
+  const n = addDmMsgs(conv, rows);
+  renderDmAll();
+  if (n && !viewingDm(conv)) chime('msg');
+}
+// Reading a chat on one of your devices marks it read on the others.
+function markRead(key) {
+  const conv = convOf(key);
+  conv.read = Date.now();
+  dmSave();
+  for (const c of readyConns(S.profileKey)) { try { c.send({ t: 'dm-read', reads: { [key]: conv.read } }); } catch {} }
+}
+function onDmRead(reads) {
+  let changed = false;
+  for (const [k, v] of Object.entries(objOr(reads))) {
+    const conv = dm.convs[k], at = Number(v);
+    if (conv && Number.isFinite(at) && at > conv.read && at < Date.now() + 864e5) { conv.read = at; changed = true; }
+  }
+  if (changed) { dmSave(); renderDmAll(); }
+}
+function notifyDm(key, from, text) {
+  chime('msg');
+  toast(`${from}: ${text.length > 80 ? text.slice(0, 80) + '…' : text}`, 7000, { label: 'Open', fn: () => openDm(key) });
+}
+const unreadIn = (conv) => conv.msgs.filter((m) => m.ts > conv.read && foldName(m.from) !== S.profileKey).length;
+function dmBadgeCount() {
+  if (!S.inApp) return 0;
+  let n = Object.values(dm.friends).filter((f) => f.state === 'in').length;
+  for (const [k, c] of Object.entries(dm.convs)) if (relFor(k) === 'friend') n += unreadIn(c);
+  return n;
+}
+
+/* ---- screens ---- */
+function openDm(key) {
+  if (relFor(key) !== 'friend') { openFriends('all'); return; }
+  dm.view = 'dm'; dm.open = key;
+  markRead(key);
+  showHome();
+  setTimeout(() => $('#dmInput').focus(), 0);
+}
+function openFriends(tab) {
+  dm.view = 'friends';
+  if (tab) dm.tab = tab;
+  showHome();
+}
+function renderDmAll() {
+  if (!S.inApp) return;
+  updateBadges();
+  if (S.homeView) renderHome();
+  const pop = $('#volPop');
+  if (!pop.hidden && pop.dataset.id) syncFriendButton(S.peers.get(pop.dataset.id));
+}
+function avWithDot(name, key) {
+  const w = document.createElement('span'); w.className = 'av-wrap';
+  const av = document.createElement('span'); av.className = 'mini-av'; av.setAttribute('aria-hidden', 'true'); paintAv(av, name);
+  const on = isOnline(key);
+  const dot = document.createElement('span'); dot.className = 'status-dot' + (on ? ' on' : '');
+  dot.setAttribute('role', 'img'); dot.setAttribute('aria-label', on ? 'Online' : 'Offline'); dot.title = on ? 'Online' : 'Offline';
+  w.append(av, dot);
+  return w;
+}
+function renderDmSide() {
+  const pending = Object.values(dm.friends).filter((f) => f.state === 'in').length;
+  const nav = $('#navFriends');
+  if (dm.view === 'friends') nav.setAttribute('aria-current', 'true'); else nav.removeAttribute('aria-current');
+  for (const id of ['#pendingCount', '#pendingCount2']) { const el = $(id); el.hidden = !pending; el.textContent = String(pending); }
+  const list = Object.entries(dm.convs).filter(([k, c]) => relFor(k) === 'friend' && c.msgs.length)
+    .sort((a, b) => b[1].msgs[b[1].msgs.length - 1].ts - a[1].msgs[a[1].msgs.length - 1].ts);
+  if (dm.view === 'dm' && dm.open && relFor(dm.open) === 'friend' && !list.some(([k]) => k === dm.open)) list.unshift([dm.open, convOf(dm.open)]);
+  const ul = $('#dmList'); ul.textContent = '';
+  $('#dmEmpty').hidden = list.length > 0;
+  for (const [k, c] of list) {
+    const f = dm.friends[k];
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.type = 'button';
+    const unread = unreadIn(c);
+    b.className = 'dm-item' + (unread ? ' unread' : '');
+    if (dm.view === 'dm' && dm.open === k) b.setAttribute('aria-current', 'true');
+    const nm = document.createElement('span'); nm.className = 'dm-name'; nm.textContent = f.name;
+    b.append(avWithDot(f.name, k), nm);
+    if (unread) { const pill = document.createElement('span'); pill.className = 'count-pill'; pill.textContent = unread > 99 ? '99+' : String(unread); pill.setAttribute('aria-label', `${unread} unread`); b.appendChild(pill); }
+    b.addEventListener('click', () => openDm(k));
+    li.appendChild(b); ul.appendChild(li);
+  }
+}
+function frAction(icon, label, cls, fn) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'fr-act' + (cls ? ' ' + cls : ''); b.innerHTML = iconSvg(icon);
+  b.title = label; b.setAttribute('aria-label', label);
+  b.addEventListener('click', fn);
+  return b;
+}
+function frRow(key, f, sub, actions) {
+  const li = document.createElement('li'); li.className = 'fr-row';
+  const tx = document.createElement('span'); tx.className = 'fr-text';
+  const nm = document.createElement('b'); nm.textContent = f.name;
+  const st = document.createElement('span'); st.textContent = sub;
+  tx.append(nm, st);
+  const acts = document.createElement('span'); acts.className = 'fr-actions';
+  acts.append(...actions);
+  li.append(avWithDot(f.name, key), tx, acts);
+  return li;
+}
+function renderFriendsPage() {
+  const friends = Object.entries(dm.friends).filter(([, f]) => f.state === 'friend').sort((a, b) => a[1].name.localeCompare(b[1].name));
+  const online = friends.filter(([k]) => isOnline(k));
+  $('#viewIcon').innerHTML = iconSvg('users');
+  $('#viewTitle').textContent = 'Friends';
+  $('#viewSub').textContent = dm.peer ? (friends.length ? `${online.length} of ${friends.length} online` : 'Add friends to chat in private') : 'Connecting…';
+  for (const t of document.querySelectorAll('#friendsPage .tab')) t.setAttribute('aria-selected', String(t.dataset.tab === dm.tab));
+  const body = $('#frBody'); body.textContent = '';
+  $('#frAddForm').hidden = dm.tab !== 'add';
+  body.hidden = dm.tab === 'add';
+  const section = (title, rows, empty) => {
+    const h = document.createElement('h3'); h.className = 'fr-section-title'; h.textContent = `${title} — ${rows.length}`;
+    body.appendChild(h);
+    if (!rows.length) { const p = document.createElement('p'); p.className = 'fr-empty'; p.textContent = empty; body.appendChild(p); return; }
+    const ul = document.createElement('ul'); ul.className = 'fr-list'; ul.append(...rows); body.appendChild(ul);
+  };
+  const noFriends = 'No friends yet. Open Add friend and type a friend’s name to send a request.';
+  const friendRow = ([k, f]) => frRow(k, f, isOnline(k) ? 'Online' : 'Offline', [
+    frAction('chat', `Message ${f.name}`, '', () => openDm(k)),
+    frAction('user-x', `Remove ${f.name} as a friend`, 'no', () => removeFriend(k)),
+  ]);
+  if (dm.tab === 'online') section('Online', online.map(friendRow), friends.length ? 'None of your friends are online right now. You can still message them; it’s sent when you’re both online.' : noFriends);
+  else if (dm.tab === 'all') section('All friends', friends.map(friendRow), noFriends);
+  else if (dm.tab === 'pending') {
+    const inc = Object.entries(dm.friends).filter(([, f]) => f.state === 'in');
+    const out = Object.entries(dm.friends).filter(([, f]) => f.state === 'out');
+    section('Incoming', inc.map(([k, f]) => frRow(k, f, 'Wants to be your friend', [
+      frAction('check', `Accept ${f.name}`, 'ok', () => acceptFriend(k)),
+      frAction('x', `Ignore ${f.name}`, 'no', () => ignoreFriend(k)),
+    ])), 'No requests waiting for you.');
+    section('Sent', out.map(([k, f]) => frRow(k, f, isOnline(k) ? 'Waiting for them to accept' : 'They’ll get it when you’re both online', [
+      frAction('x', `Cancel request to ${f.name}`, 'no', () => cancelFriend(k)),
+    ])), 'No requests sent.');
+  }
+  renderServersSection();
+}
+function renderDmPage() {
+  const key = dm.open, f = dm.friends[key];
+  if (!f) return;
+  const conv = convOf(key);
+  const on = isOnline(key);
+  $('#viewIcon').textContent = '@';
+  $('#viewTitle').textContent = f.name;
+  $('#viewSub').textContent = on ? 'Online' : 'Offline. Messages are sent when you’re both online.';
+  $('#dmInput').placeholder = `Message @${f.name}`;
+  const list = $('#dmMessages');
+  const same = list.dataset.key === key;
+  const stick = !same || nearBottom(list);
+  list.textContent = '';
+  const intro = document.createElement('li'); intro.className = 'chan-intro dm-intro';
+  intro.appendChild(avWithDot(f.name, key));
+  const h = document.createElement('h2'); h.textContent = f.name;
+  const p = document.createElement('p'); p.textContent = `This is the start of your private chat with ${f.name}. It isn’t shown in any server: messages go straight between your devices and are saved on them.`;
+  intro.append(h, p);
+  list.appendChild(intro);
+  let prev = null;
+  for (const m of conv.msgs) {
+    const li = document.createElement('li'); li.className = 'msg';
+    if (prev && foldName(prev.from) === foldName(m.from) && m.ts - prev.ts < 5 * 60 * 1000) li.classList.add('cont');
+    li.style.setProperty('--h', hue(m.from));
+    const av = document.createElement('span'); av.className = 'mini-av'; av.setAttribute('aria-hidden', 'true'); paintAv(av, m.from);
+    const head = document.createElement('div'); head.className = 'msg-head';
+    const nm = document.createElement('span'); nm.className = 'msg-name'; nm.textContent = m.from;
+    const tm = document.createElement('time'); tm.className = 'msg-time';
+    tm.textContent = new Date(m.ts).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    head.append(nm, tm);
+    const body = document.createElement('div'); body.className = 'msg-body'; fillText(body, m.text);
+    li.append(av, head, body);
+    if (m.pending) { const s = document.createElement('div'); s.className = 'dm-pending'; s.textContent = on ? 'Sending…' : 'Not sent yet. It goes out when you’re both online.'; li.appendChild(s); }
+    list.appendChild(li);
+    prev = m;
+  }
+  if (stick) list.scrollTop = list.scrollHeight;
+  list.dataset.key = key;
+  if (viewingDm(key) && unreadIn(conv)) { markRead(key); updateBadges(); renderDmSide(); }
+}
+function syncFriendButton(p) {
+  const b = $('#volFriend');
+  if (!p || !p.name || !S.inApp || foldName(p.name) === S.profileKey) { b.hidden = true; return; }
+  const rel = relFor(foldName(p.name));
+  b.hidden = false;
+  b.disabled = rel === 'out';
+  b.textContent = rel === 'friend' ? 'Message' : rel === 'out' ? 'Friend request sent' : rel === 'in' ? 'Accept friend request' : 'Add friend';
+}
+$('#volFriend').addEventListener('click', () => {
+  const p = S.peers.get($('#volPop').dataset.id);
+  if (!p) return;
+  const key = foldName(p.name), rel = relFor(key);
+  closeVolume();
+  if (rel === 'friend') openDm(key);
+  else if (rel === 'in') acceptFriend(key);
+  else toast(addFriend(p.name).text, 5000);
+});
+$('#navFriends').addEventListener('click', () => openFriends());
+$('#dmNew').addEventListener('click', () => openFriends('all'));
+for (const t of document.querySelectorAll('#friendsPage .tab')) {
+  t.addEventListener('click', () => {
+    dm.tab = t.dataset.tab;
+    $('#frAddNote').hidden = true;
+    renderHome();
+    if (dm.tab === 'add') setTimeout(() => $('#frAddName').focus(), 0);
+  });
+}
+$('#frAddForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const r = addFriend($('#frAddName').value);
+  const note = $('#frAddNote');
+  note.textContent = r.text; note.hidden = false; note.classList.toggle('bad', !r.ok);
+  if (r.ok) $('#frAddName').value = '';
+  $('#frAddName').focus();
+});
+$('#dmForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#dmInput');
+  const text = input.value.trim().slice(0, 2000);
+  if (!text || !dm.open) return;
+  sendDm(dm.open, text);
+  input.value = ''; autoGrow(input);
+  const list = $('#dmMessages'); list.scrollTop = list.scrollHeight;
+});
+$('#dmInput').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#dmForm').requestSubmit(); } });
+$('#dmInput').addEventListener('input', (e) => autoGrow(e.target));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.homeView && dm.view === 'dm') renderDmPage(); });
+
+/* ================= home =================
+   Home holds your friends and private chats, like Discord. Opening it doesn't take you out of the
+   server you're in: you stay in voice and can go back with the server's button on the left. */
+function showHome() {
+  S.inApp = true;
+  S.homeView = true;
+  $('#join').hidden = true; $('#room').hidden = false;
+  $('#room').classList.add('home');
+  closeVolume(); setDrawer(false);
+  if (!S.inRoom) { try { history.replaceState(null, '', location.pathname + location.search); } catch {} }
+  renderHome();
+  updateBadges();
+}
 function renderHome() {
-  if (S.inRoom || !S.inApp) return;
+  if (!S.inApp || !S.homeView) return;
   renderRail();
   renderUser();
+  if (dm.view === 'dm' && relFor(dm.open) !== 'friend') dm.view = 'friends';
+  renderDmSide();
   $('#viewText').hidden = true; $('#viewVoice').hidden = true; $('#viewHome').hidden = false;
-  $('#viewIcon').innerHTML = iconSvg('home');
-  $('#viewTitle').textContent = 'Home';
-  $('#viewSub').textContent = 'Pick a server on the left, or join one with the + button.';
-  $('#homeTitle').textContent = `Welcome, ${S.me.name}`;
+  const isDm = dm.view === 'dm';
+  $('#friendsPage').hidden = isDm; $('#dmPage').hidden = !isDm;
+  if (isDm) renderDmPage(); else renderFriendsPage();
+  updateDock();
+}
+function renderServersSection() {
   const list = myServers();
   const rooms = objOr(objOr(loadProfiles()[S.profileKey]).rooms);
   const ul = $('#homeServers');
@@ -4522,30 +5220,42 @@ function renderHome() {
     const nm = document.createElement('b'); nm.textContent = room;
     const sub = document.createElement('span');
     const r = objOr(rooms[room]);
-    sub.textContent = r.textName ? `Last in #${r.textName}` : 'Not opened on this device yet';
+    sub.textContent = S.inRoom && room === S.room ? (S.me.vc ? 'You’re here, in voice' : 'You’re here') : r.textName ? `Last in #${r.textName}` : 'Not opened on this device yet';
     tx.append(nm, sub);
     b.append(ic, tx);
     b.disabled = S.switching;
     b.addEventListener('click', () => switchServer(room));
     li.appendChild(b); ul.appendChild(li);
   }
-  updateDock();
 }
-// Leaves the server you're in and goes back to Home.
+// Hides Home without changing what the server shows. showText and showVoice call this.
+function clearHome() {
+  S.homeView = false;
+  $('#room').classList.remove('home'); $('#viewHome').hidden = true;
+}
+// Goes back from Home to the server you're in, to the channel you had open.
+function exitHome() {
+  if (!S.homeView || !S.inRoom) return;
+  try { history.replaceState(null, '', '#' + S.room); } catch {}
+  if (S.view.kind === 'voice' && S.me.vc) showVoice(); else showText(S.view.id || S.lastText || GENERAL);
+}
+// Switches the server's open channel without pulling you out of Home.
+function setTextView(id) {
+  if (S.homeView) { S.view = { kind: 'text', id }; S.lastText = id; renderAll(); }
+  else showText(id);
+}
 function goHome() {
   if (S.switching) return;
-  setDrawer(false);
-  if (!S.inRoom) { renderHome(); return; }
-  broadcast({ t: 'bye' });
-  S.leaving = true;
-  chime('leave');
-  setTimeout(() => { teardown(); showHome(); }, 200);
+  showHome();
 }
 function switchProfile() {
   const done = () => {
-    S.inApp = false; S.profileKey = ''; S.me.name = '';
+    stopInbox();
+    S.inApp = false; S.homeView = false; S.profileKey = ''; S.me.name = '';
+    dm.view = 'friends'; dm.open = ''; dm.tab = 'online';
     $('#room').hidden = true; $('#room').classList.remove('home');
     $('#join').hidden = false;
+    document.title = 'Party Line';
     showJoinStart();
   };
   if (S.inRoom) { broadcast({ t: 'bye' }); S.leaving = true; setTimeout(() => { teardown(); done(); }, 200); }
@@ -4553,8 +5263,8 @@ function switchProfile() {
 }
 $('#railHome').addEventListener('click', goHome);
 $('#homeAdd').addEventListener('click', openAddServer);
-$('#sideHomeAdd').addEventListener('click', openAddServer);
 $('#switchProfile').addEventListener('click', () => { $('#settings').close(); switchProfile(); });
+
 
 /* ================= join screen ================= */
 function showJoinError(text) { const el = $('#joinError'); el.textContent = text; el.hidden = !text; }
@@ -4635,6 +5345,8 @@ function enterApp(name, remember) {
   if (pendingAv) { setAvatar(S.profileKey, name, pendingAv, Date.now()); pendingAv = null; }
   if (remember) upsertProfile(name, { usedAt: Date.now() });
   const invite = hashRoom();
+  dm.view = 'friends'; dm.open = ''; dm.tab = 'online';
+  startInbox();
   showHome();
   if (invite) switchServer(invite);
 }
@@ -4721,8 +5433,9 @@ $('#gateForm').addEventListener('submit', async (e) => {
   }
 });
 function forgetDevice() {
+  stopInbox();
   const drop = new Set(['gate', 'me', 'name', 'profiles', 'avatars', 'histIndex', 'idKeys', 'idSeen', 'pfCache']);
-  for (const k of store.keys()) if (drop.has(k) || k.startsWith('hist:')) store.del(k);
+  for (const k of store.keys()) if (drop.has(k) || k.startsWith('hist:') || k.startsWith('friends:') || k.startsWith('dms:')) store.del(k);
   avatars = {}; pfCache = {};
   S.roomKey = null; pendingAv = null;
   $('#nameInput').value = '';
