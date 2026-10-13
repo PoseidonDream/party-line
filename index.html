@@ -182,6 +182,28 @@ select { appearance: auto; }
 .rail-btn:hover, .rail-btn[aria-current="true"] { border-radius: 16px; }
 .rail-btn[aria-current="true"] { box-shadow: 0 0 0 2px var(--lamp); }
 .rail-btn:disabled { cursor: progress; }
+.rail-btn .ic { width: 22px; height: 22px; }
+.rail-btn.rail-home { background: var(--panel-2); color: var(--lamp-ink); }
+.rail-btn.rail-home[aria-current="true"] { background: var(--lamp); color: var(--on-lamp); }
+.app.home .server-head, .app.home .conn-line, .app.home .channels, .app.home #copyInvite { display: none; }
+.side-home { display: none; }
+.app.home .side-home { display: grid; gap: 10px; align-content: start; padding: 16px; }
+.side-home-head { font: 800 23px/1 var(--font-display); text-transform: uppercase; letter-spacing: .03em; padding: 4px 0 6px; }
+.side-home-text { margin: 0; color: var(--dim); font-size: 14px; }
+.side-home .btn { justify-self: start; }
+.view-home { flex: 1; min-height: 0; overflow-y: auto; padding-block: clamp(20px, 6vh, 56px); padding-inline: 16px; }
+.home-card { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
+.home-card h2 { margin: 0; font: 800 clamp(30px, 4.5vw, 44px)/1.05 var(--font-display); text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.home-lede, .home-empty { margin: 0; color: var(--dim); }
+.home-servers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.home-server { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); text-align: left; }
+.home-server:hover { border-color: var(--lamp); }
+.home-server .rail-btn { width: 42px; height: 42px; flex: none; border-radius: 12px; font-size: 15px; }
+.home-server-text { min-width: 0; display: grid; gap: 2px; }
+.home-server-text b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-server-text span { font-size: 13px; color: var(--dim); }
+.home-card .btn.primary { justify-self: start; width: auto; padding: 0 18px; }
+.join-invite { margin: -8px 0 0; color: var(--lamp-ink); font-weight: 600; }
 .rail-sep { width: 32px; height: 2px; flex: none; border-radius: 1px; background: var(--line); }
 .rail-add { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 1px dashed var(--dim); border-radius: 50%; background: var(--panel); color: var(--ok); transition: border-radius .15s; }
 .rail-add:hover { border-radius: 16px; border-style: solid; border-color: transparent; background: var(--ok); color: var(--on-ok); }
@@ -435,7 +457,6 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .mini-av.has-img, .avatar.has-img { background-size: cover; background-position: center; color: transparent; }
 .avatar.has-img .initials { visibility: hidden; }
 .idcode { flex: none; display: inline-block; margin-left: 5px; padding: 2px 5px; border-radius: 5px; border: 1px solid var(--line); font: 600 10px/1.2 var(--font-mono); letter-spacing: .04em; color: var(--dim); vertical-align: 1px; }
-.idcode.warn { border-color: var(--danger); color: var(--danger); }
 .pop-id { margin: 0; font-size: 12px; line-height: 1.4; color: var(--dim); }
 .pop-id.warn { color: var(--danger); font-weight: 600; }
 .crown { display: inline-grid; place-items: center; margin-left: 5px; color: var(--lamp-ink); vertical-align: -2px; flex: none; }
@@ -545,6 +566,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
     <symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.63a1 1 0 0 0 1.52.3l4.27-3.66a.5.5 0 0 1 .82.52l-2.83 10.25a1 1 0 0 1-.96.73H5.8a1 1 0 0 1-.96-.73L2.01 6.06a.5.5 0 0 1 .82-.52L7.1 9.2a1 1 0 0 0 1.52-.3z"/><path d="M5 21h14"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </defs>
 </svg>
@@ -583,6 +605,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     </div>
     <form id="joinForm" novalidate hidden>
       <div class="join-head"><h2>Get on the line</h2><button type="button" class="link-btn" id="joinBack" hidden>Back to profiles</button></div>
+      <p class="hint join-invite" id="joinInvite" hidden></p>
       <div class="av-pick">
         <button type="button" class="av-btn" id="joinAvBtn" aria-describedby="joinAvLabel"><span class="mini-av" id="joinAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Profile picture</span></button>
         <div class="av-pick-text"><b id="joinAvLabel">Add a picture</b><small>Optional. Friends see it next to your name.</small><button type="button" class="link-btn" id="joinAvRemove" hidden>Remove picture</button></div>
@@ -598,14 +621,6 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <p class="hint">Poseidon is the admin's name. Paste your owner code to use it on this device.</p>
       </div>
       <div class="field">
-        <label class="flabel" for="roomInput">Server name</label>
-        <div class="row">
-          <input type="text" id="roomInput" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" class="input">
-          <button type="button" class="btn icon-btn" id="diceBtn" title="New random server name" aria-label="New random server name"><svg class="ic"><use href="#i-dice"/></svg></button>
-        </div>
-        <p class="hint">Friends join by typing the same server name, or by opening your invite link.</p>
-      </div>
-      <div class="field">
         <label class="flabel" for="joinMic">Microphone</label>
         <div class="mic-row">
           <select id="joinMic"><option value="">System default</option></select>
@@ -614,9 +629,9 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         <div class="meter" aria-hidden="true"><i></i></div>
         <p class="hint" id="micHint">Press Check mic and say something. The green bar should move.</p>
       </div>
-      <label class="check"><input type="checkbox" id="rememberMe" checked><span><b>Save my profile on this device</b><small>Next time, pick your name to continue where you left off.</small></span></label>
+      <label class="check"><input type="checkbox" id="rememberMe" checked><span><b>Save my profile on this device</b><small>Next time, just pick your name.</small></span></label>
       <p class="error" id="joinError" role="alert" hidden></p>
-      <button type="submit" class="btn primary" id="enterBtn">Enter server</button>
+      <button type="submit" class="btn primary" id="enterBtn">Continue</button>
       <button type="button" class="link-btn" id="lockBtn"><svg class="ic"><use href="#i-lock"/></svg>Forget everything on this device</button>
     </form>
     <p class="fineprint">Your voice and screen go straight to your friends' browsers. A free public server only helps you find each other. Use headphones to avoid echo.</p>
@@ -627,11 +642,18 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 <main id="room" class="app" hidden>
   <aside class="side" id="side" aria-label="Server">
     <nav class="rail" aria-label="Your servers">
+      <div class="rail-item" id="railHomeItem"><button type="button" class="rail-btn rail-home" id="railHome" title="Home" aria-label="Home"><svg class="ic"><use href="#i-home"/></svg></button></div>
+      <span class="rail-sep" aria-hidden="true"></span>
       <ul class="rail-list" id="railList"></ul>
       <span class="rail-sep" aria-hidden="true"></span>
       <button type="button" class="rail-add" id="railAdd" title="Join or create a server" aria-label="Join or create a server"><svg class="ic"><use href="#i-plus"/></svg></button>
     </nav>
     <div class="side-main">
+    <div class="side-home" id="sideHome">
+      <div class="side-home-head">Home</div>
+      <p class="side-home-text">Your servers are in the bar on the left. Use + to join a server by name, or to start a new one.</p>
+      <button type="button" class="btn small" id="sideHomeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
+    </div>
     <header class="server-head">
       <button type="button" class="server-btn" id="serverBtn" aria-expanded="false" aria-controls="serverMenu"><span id="serverName"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
       <div class="menu" id="serverMenu" hidden>
@@ -723,6 +745,15 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
       <div class="dropzone" id="dropzone" hidden>Drop to share</div>
     </div>
 
+    <div class="view-home" id="viewHome" hidden>
+      <div class="home-card">
+        <h2 id="homeTitle">Welcome</h2>
+        <p class="home-lede">Pick one of your servers, or join a new one. Friends join a server by typing the same name, or by opening your invite link.</p>
+        <ul class="home-servers" id="homeServers"></ul>
+        <p class="home-empty" id="homeEmpty">No servers yet. Join one with the button below. If you've used this name on another device, your other servers show up here after you enter a server where a friend is online.</p>
+        <button type="button" class="btn primary" id="homeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
+      </div>
+    </div>
     <div class="view-voice" id="viewVoice" hidden>
       <div class="stage" id="stage" hidden>
         <div class="stage-bar">
@@ -906,6 +937,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
           <dt><kbd>Space</kbd></dt><dd>Talk, when push to talk is on</dd>
         </dl>
       </div>
+      <button type="button" class="link-btn" id="switchProfile"><svg class="ic"><use href="#i-leave"/></svg>Switch profile</button>
       <p class="hint">Stay muted or deafened in a voice channel for 30 minutes and you're disconnected from voice. You get a warning 5 minutes before. Sharing your screen pauses the timer.</p>
     </div>
   </form>
@@ -1131,7 +1163,7 @@ const S = {
   firstRoster: true, recovering: false,
   peers: new Map(),
   rawStream: null, micStream: null, sendTrack: null, noMic: true, fx: null, roomKey: null, roomTag: '',
-  sessionIdKeys: {}, myCode: '',
+  inApp: false,
   profileKey: '', saveProfile: false, histHadLocal: false, resumed: false, sessionServers: [], switching: false,
   mutedSince: 0, afkWarned: false,
   micIssue: null, micPanelOpen: false, micPanelAuto: false, micFixedTimer: 0, liveSince: 0, heardAt: 0,
@@ -1700,37 +1732,127 @@ function removeProfile(key) { const all = loadProfiles(); delete all[key]; saveP
 })();
 function resumeFor(key, room) { return objOr(objOr(objOr(loadProfiles()[key]).rooms)[room]); }
 const SERVERS_MAX = 12;
-// The servers this profile has been in, in the order they were first joined (shown in the server bar).
-function serversOf(prof) {
-  const rooms = objOr(prof.rooms);
-  const list = Array.isArray(prof.servers) ? prof.servers : Object.keys(rooms).sort((a, b) => (Number(objOr(rooms[a]).at) || 0) - (Number(objOr(rooms[b]).at) || 0));
-  const out = [];
-  for (const r of list) { const c = cleanRoom(r); if (c.length >= 3 && !out.includes(c)) out.push(c); }
-  return out;
+/* A profile's server list is kept as { server: { on, at } } so changes made on different devices can be
+   merged: the newest change to each server wins, and removed servers stay removed. Friends' devices
+   carry each name's list, so a new phone or laptop gets the same server bar as your other devices. */
+function svOf(prof) {
+  const sv = {};
+  for (const [r, e] of Object.entries(objOr(prof.sv))) {
+    const room = cleanRoom(r);
+    if (room.length >= 3 && e && Number.isFinite(Number(e.at))) sv[room] = { on: e.on ? 1 : 0, at: Number(e.at) };
+  }
+  if (!Object.keys(sv).length) {   // older saved profiles: a plain list of servers
+    const rooms = objOr(prof.rooms);
+    const list = Array.isArray(prof.servers) ? prof.servers : Object.keys(rooms);
+    list.forEach((r, i) => { const room = cleanRoom(r); if (room.length >= 3) sv[room] = { on: 1, at: Number(objOr(rooms[room]).at) || i + 1 }; });
+  }
+  return sv;
+}
+function activeServers(sv) {
+  return Object.entries(sv).filter(([, e]) => e.on).sort((a, b) => a[1].at - b[1].at).map(([r]) => r);
+}
+function serversOf(prof) { return activeServers(svOf(prof)); }
+// Newest change per server wins; on a tie, "added" beats "removed".
+function mergeSv(a, b) {
+  const out = Object.assign({}, a);
+  let changed = false;
+  for (const [r, e] of Object.entries(b)) {
+    const cur = out[r];
+    if (!cur || e.at > cur.at || (e.at === cur.at && e.on && !cur.on)) { out[r] = e; changed = true; }
+  }
+  return { sv: out, changed };
+}
+function trimSv(sv) {
+  const active = activeServers(sv);
+  const now = Date.now();
+  for (const r of active.slice(0, Math.max(0, active.length - SERVERS_MAX))) sv[r] = { on: 0, at: now };
+  const removed = Object.entries(sv).filter(([, e]) => !e.on).sort((a, b) => b[1].at - a[1].at);
+  for (const [r] of removed.slice(30)) delete sv[r];
+  return sv;
 }
 function saveResume() {
   if (!S.inRoom || !S.saveProfile || !S.profileKey) return;
   const prof = objOr(loadProfiles()[S.profileKey]);
   const rooms = objOr(prof.rooms);
-  let servers = serversOf(prof);
+  const sv = svOf(prof);
   const tc = S.chans.get(S.lastText);
   rooms[S.room] = { text: S.lastText, textName: tc ? tc.name : '', at: Date.now() };
-  if (!servers.includes(S.room)) servers.push(S.room);
-  if (servers.length > SERVERS_MAX) {
-    const keep = new Set([...servers].sort((a, b) => (Number(objOr(rooms[b]).at) || 0) - (Number(objOr(rooms[a]).at) || 0)).slice(0, SERVERS_MAX));
-    servers = servers.filter((r) => keep.has(r));
-  }
-  for (const r of Object.keys(rooms)) if (!servers.includes(r)) delete rooms[r];
-  upsertProfile(S.me.name, { rooms, servers, lastRoom: S.room, usedAt: Date.now() });
+  let svChanged = false;
+  if (!sv[S.room] || !sv[S.room].on) { sv[S.room] = { on: 1, at: Date.now() }; svChanged = true; }
+  trimSv(sv);
+  const active = new Set(activeServers(sv));
+  for (const r of Object.keys(rooms)) if (!active.has(r)) delete rooms[r];
+  upsertProfile(S.me.name, { rooms, sv, servers: undefined, lastRoom: S.room, usedAt: Date.now() });
+  if (svChanged) pfBroadcast();
 }
 function forgetServer(room) {
+  if (!S.saveProfile) return;
   const all = loadProfiles();
   const prof = all[S.profileKey];
   if (!prof) return;
-  prof.servers = serversOf(prof).filter((r) => r !== room);
+  const sv = svOf(prof);
+  sv[room] = { on: 0, at: Date.now() };
+  prof.sv = sv; delete prof.servers;
   const rooms = objOr(prof.rooms); delete rooms[room]; prof.rooms = rooms;
-  if (prof.lastRoom === room) prof.lastRoom = [...prof.servers].sort((a, b) => (Number(objOr(rooms[b]).at) || 0) - (Number(objOr(rooms[a]).at) || 0))[0] || '';
+  if (prof.lastRoom === room) prof.lastRoom = activeServers(sv).pop() || '';
   saveProfiles(all);
+  pfBroadcast();
+}
+
+/* ---- passing server lists between devices through friends ---- */
+let pfCache = objOr(store.get('pfCache', null));
+function validSv(raw) {
+  const sv = {};
+  let n = 0;
+  for (const [r, e] of Object.entries(objOr(raw))) {
+    if (++n > 60) break;
+    const room = cleanRoom(r), at = Number(e && e.at);
+    if (room.length >= 3 && Number.isFinite(at) && at > 0 && at < Date.now() + 864e5) sv[room] = { on: e.on ? 1 : 0, at };
+  }
+  return sv;
+}
+function pfMine() {
+  if (!S.saveProfile || !S.profileKey) return null;
+  const prof = loadProfiles()[S.profileKey];
+  return prof ? { k: S.profileKey, name: S.me.name, sv: svOf(prof) } : null;
+}
+function sendPf(p, rec) { try { p.data.send({ t: 'pf', k: rec.k, name: rec.name, sv: rec.sv }); } catch {} }
+function sendPfAll(p) {
+  const mine = pfMine();
+  if (mine && Object.keys(mine.sv).length) sendPf(p, mine);
+  for (const [k, c] of Object.entries(pfCache)) if (k !== S.profileKey && c && c.sv) sendPf(p, { k, name: c.name || '', sv: c.sv });
+}
+function pfBroadcast() {
+  const mine = pfMine();
+  if (mine) for (const p of S.peers.values()) if (p.data && p.data.open) sendPf(p, mine);
+}
+function onPf(p, msg) {
+  if (typeof msg.k !== 'string' || !msg.k || msg.k.length > 40) return;
+  const incoming = validSv(msg.sv);
+  if (!Object.keys(incoming).length) return;
+  if (msg.k === S.profileKey && S.saveProfile) {
+    const all = loadProfiles();
+    const prof = all[msg.k];
+    if (!prof) return;
+    const { sv, changed } = mergeSv(svOf(prof), incoming);
+    if (!changed) return;
+    prof.sv = trimSv(sv); delete prof.servers;
+    saveProfiles(all);
+    renderRail();
+    if (!S.inRoom) renderHome();
+    pfBroadcast();
+  } else {
+    const cur = objOr(pfCache[msg.k]);
+    const { sv, changed } = mergeSv(validSv(cur.sv), incoming);
+    if (!changed && cur.sv) return;
+    pfCache[msg.k] = { name: cleanName(msg.name) || cur.name || '', sv: trimSv(sv), seen: Date.now() };
+    const keys = Object.keys(pfCache);
+    if (keys.length > 80) {
+      keys.sort((a, b) => (Number(pfCache[b].seen) || 0) - (Number(pfCache[a].seen) || 0));
+      for (const k of keys.slice(80)) delete pfCache[k];
+    }
+    store.set('pfCache', pfCache);
+  }
 }
 
 /* ---- profile pictures ---- */
@@ -2019,6 +2141,7 @@ function attachData(p, conn) {
     sendState(p);
     fbSyncTo(p);
     sendAvList(p);
+    sendPfAll(p);
     sendHistSince(p);
     sendChallenge(p);
     const list = customChannels();
@@ -2159,9 +2282,7 @@ function onPeerMessage(p, msg) {
   if (!msg || typeof msg !== 'object') return;
   if (msg.t === 'state') {
     const first = !p.gotState; p.gotState = true;
-    const prevName = p.name;
     p.name = cleanName(msg.name) || p.name || 'Guest';
-    if (p.idCode && prevName && prevName !== p.name) noteIdSeen(p);
     p.muted = !!msg.muted; p.deafened = !!msg.deafened; p.micOk = msg.micOk !== false;
     if (Number.isFinite(msg.joinedAt)) p.joinedAt = msg.joinedAt;
     const prevVc = p.vc;
@@ -2194,21 +2315,19 @@ function onPeerMessage(p, msg) {
       const text = msg.text.slice(0, 2000), name = p.name || 'Guest';
       const ts = Number(msg.ts) > 0 && Number(msg.ts) < Date.now() + 864e5 ? Number(msg.ts) : Date.now();
       const id = typeof msg.id === 'string' && MSG_ID_RE.test(msg.id) ? msg.id : synthId(name, ts, text);
-      const m = textMsg(id, ts, name, text);
-      if (amAdmin() && p.idCode) { m.code = p.idCode; m.codeNew = !!p.idNew; }
-      pushMsg(c.id, m);
+      pushMsg(c.id, textMsg(id, ts, name, text));
     }
   } else if (msg.t === 'channels' && Array.isArray(msg.list)) {
     for (const c of msg.list.slice(0, 30)) if (c && typeof c.name === 'string') ensureChannel(c.kind, c.name, true);
     renderChannels(); scheduleHistSave();
   } else if (msg.t === 'chan-add' && typeof msg.name === 'string') {
     if (ensureChannel(msg.kind, msg.name, true)) { renderChannels(); scheduleHistSave(); }
+  } else if (msg.t === 'pf') {
+    onPf(p, msg);
   } else if (msg.t === 'av-list' || msg.t === 'av-req' || msg.t === 'av') {
     onAvMessage(p, msg);
   } else if (msg.t === 'adm-chal') {
     onAdminChallenge(p, msg);
-  } else if (msg.t === 'id-proof') {
-    onIdProof(p, msg);
   } else if (msg.t === 'adm-proof') {
     onAdminProof(p, msg);
   } else if (msg.t === 'adm-voice-kick' || msg.t === 'adm-mute' || msg.t === 'adm-kick') {
@@ -2798,7 +2917,6 @@ async function enterRoom(name, room) {
   S.inRoom = true;
   try { history.replaceState(null, '', '#' + room); } catch {}
   showRoom();
-  refreshMyCode();
   if (!S.saveProfile && !S.sessionServers.includes(room)) S.sessionServers.push(room);
   const talk = 'Click a voice channel on the left when you want to talk.';
   sysMsg(S.resumed ? `Welcome back, ${name}. ${talk}`
@@ -2844,11 +2962,7 @@ function leaveRoom() {
   chime('leave');
   setTimeout(() => {
     teardown();
-    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
-    document.title = 'Party Line';
-    $('#room').hidden = true; $('#join').hidden = false;
-    showJoinStart();
-    $('#micHint').textContent = 'Press Check mic and say something. The green bar should move.';
+    showHome();
   }, 200);
 }
 window.addEventListener('pagehide', () => {
@@ -2862,6 +2976,7 @@ window.addEventListener('pagehide', () => {
 /* ================= rendering: room ================= */
 function showRoom() {
   $('#join').hidden = true; $('#room').hidden = false;
+  $('#room').classList.remove('home'); $('#viewHome').hidden = true;
   S.micPanelOpen = !!S.micIssue; S.micPanelAuto = true; $('#mpNote').hidden = true;
   showText(S.view.id || GENERAL);
   updateStatus(); renderMicStatus();
@@ -2913,6 +3028,9 @@ function serverInitials(room) {
   return (w[0][0] + (w[1] ? w[1][0] : (w[0][1] || ''))).toUpperCase();
 }
 function renderRail() {
+  const home = !S.inRoom;
+  $('#railHomeItem').classList.toggle('current', home);
+  if (home) $('#railHome').setAttribute('aria-current', 'true'); else $('#railHome').removeAttribute('aria-current');
   const ul = $('#railList');
   ul.textContent = '';
   for (const room of myServers()) {
@@ -2929,31 +3047,28 @@ function renderRail() {
     li.appendChild(b); ul.appendChild(li);
   }
 }
-// Moves you to another server: leaves this one, then enters the other with the same profile.
+// Goes to a server: leaves the one you're in (if any), then enters the other with the same profile.
 async function switchServer(room) {
   room = cleanRoom(room);
   if (room.length < 3 || S.switching) return;
   if (room === S.room && S.inRoom) { setDrawer(false); return; }
   S.switching = true;
-  const name = S.me.name, remember = S.saveProfile;
   $('#switchText').textContent = `Going to ${room}…`;
   $('#switching').hidden = false;
   closeVolume(); setMenu(false); setDrawer(false);
-  broadcast({ t: 'bye' });
-  S.leaving = true;
-  await sleep(200);
-  teardown();
+  if (S.inRoom) {
+    broadcast({ t: 'bye' });
+    S.leaving = true;
+    await sleep(200);
+    teardown();
+  }
   let failed = '';
-  await joinWith(name, room, { remember, busy: () => {}, showErr: (t) => { if (t) failed = t; } });
+  try { await enterRoom(S.me.name, room); saveResume(); }
+  catch (err) { teardown(); failed = (err && err.message) || 'Something went wrong. Try again.'; }
   $('#switching').hidden = true;
   S.switching = false;
-  if (failed) {
-    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
-    document.title = 'Party Line';
-    $('#room').hidden = true; $('#join').hidden = false;
-    showJoinStart();
-    if (!$('#quickJoin').hidden) showQjError(failed); else showJoinError(failed);
-  } else renderRail();
+  if (failed) { showHome(); toast(failed, 8000); }
+  else renderRail();
 }
 function openAddServer() {
   $('#asName').value = ''; $('#asError').hidden = true;
@@ -3027,8 +3142,7 @@ function renderChannels() {
         const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = m.o.name || 'Joining…';
         row.append(av, nm);
         if (me ? amAdmin() : m.o.isAdmin) row.appendChild(crownBadge());
-        if (amAdmin() && m.id !== 'me' && m.o.idCode) row.appendChild(idBadge(m.o.idCode, m.o.idNew, m.o.idNew ? 'New ID code for this name' : 'ID code (only the admin sees this)'));
-        if (amAdmin() && me && S.myCode) row.appendChild(idBadge(S.myCode, false, 'Your ID code'));
+        if (amAdmin()) { const code = idCodeFor(m.o.name); if (code) row.appendChild(idBadge(code)); }
         if (m.o.sharing) { const lv = document.createElement('span'); lv.className = 'chan-live'; lv.textContent = 'LIVE'; row.appendChild(lv); }
         const micBad = me ? (S.noMic || !!S.micIssue) : !m.o.micOk;
         if (m.o.deafened) row.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
@@ -3046,7 +3160,7 @@ function renderChannels() {
 function renderView() {
   if (!S.inRoom) return;
   const text = S.view.kind === 'text';
-  $('#viewText').hidden = !text; $('#viewVoice').hidden = text;
+  $('#viewText').hidden = !text; $('#viewVoice').hidden = text; $('#viewHome').hidden = true;
   const icon = $('#viewIcon');
   if (text) {
     const c = S.chans.get(S.view.id);
@@ -3327,7 +3441,7 @@ function msgEl(msg, prev) {
   paintAv(av, msg.author.name);
   const head = document.createElement('div'); head.className = 'msg-head';
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.textContent = msg.author.name;
-  if (amAdmin() && msg.code) nm.appendChild(idBadge(msg.code, msg.codeNew));
+  if (amAdmin()) { const code = idCodeFor(msg.author.name); if (code) nm.appendChild(idBadge(code)); }
   if (isAdminName(String(msg.author.id || '').slice(2))) nm.appendChild(crownBadge());
   const tm = document.createElement('time'); tm.className = 'msg-time';
   tm.textContent = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -3465,7 +3579,7 @@ function sendChat() {
   if (text) {
     const ts = Date.now(), id = msgId();
     broadcast({ t: 'chat', ch, text, ts, id });
-    pushMsg(ch, Object.assign(textMsg(id, ts, S.me.name, text), { self: true, code: amAdmin() ? S.myCode : '' }));
+    pushMsg(ch, Object.assign(textMsg(id, ts, S.me.name, text), { self: true }));
   }
   input.value = ''; autoGrow(input);
   renderTray();
@@ -3686,7 +3800,7 @@ function openVolume(id, anchor) {
   if (amAdmin()) {
     $('#admVoiceKick').hidden = !p.vc;
     $('#admMute').textContent = S.serverMutes.has(id) ? 'Unmute for everyone' : 'Mute for everyone';
-    const idl = $('#admId'); idl.textContent = idStatusText(p); idl.classList.toggle('warn', !!p.idNew);
+    $('#admId').textContent = idLine(p.name);
   }
   pop.hidden = false;
   const r = anchor.getBoundingClientRect();
@@ -3765,16 +3879,13 @@ function applyName() {
     const all = loadProfiles();
     if (S.saveProfile && all[oldKey]) { all[newKey] = Object.assign({}, all[oldKey], { name: n }); delete all[oldKey]; saveProfiles(all); }
     const pic = avData(oldKey);
-    const ids = objOr(store.get('idKeys', null));
-    if (ids[oldKey]) { ids[newKey] = ids[oldKey]; delete ids[oldKey]; store.set('idKeys', ids); }
-    if (S.sessionIdKeys[oldKey]) { S.sessionIdKeys[newKey] = S.sessionIdKeys[oldKey]; delete S.sessionIdKeys[oldKey]; }
-    idCache.delete(oldKey);
     S.profileKey = newKey;
     if (pic) setAvatar(newKey, n, pic, Date.now());
   }
   saveResume();
   if (S.roster && S.peer && S.roster.has(S.peer.id)) S.roster.get(S.peer.id).name = n;
   sendState(); updateTile('me'); renderChannels(); paintAv($('#setAv'), n);
+  if (!S.inRoom) renderHome();
 }
 async function setMyAvatar(file) {
   try {
@@ -3822,7 +3933,7 @@ for (const r of document.querySelectorAll('input[name="quality"]')) {
 const FB_OWNER = { kty: 'EC', crv: 'P-256', x: 'G6mPwstZufmjDILuAPfqDvM-MK8yKLJWaBprpcTOFRo', y: 'XHSCYX207xk9jQ51mPGjf_c4ZlUgm4t_QrB-f65Jom4' };
 const FB = { bagMax: 200, ackMax: 1000, inboxMax: 500, sentMax: 100, maxAge: 60 * 864e5, maxText: 2000 };
 const FB_KINDS = { bug: 'Bug', idea: 'Idea', other: 'Other' };
-const fb = { bag: [], acked: new Set(), sent: [], inbox: [], ownerKey: null, signKey: null, pending: new Set() };
+const fb = { bag: [], acked: new Set(), sent: [], inbox: [], ownerKey: null, signKey: null, hmacKey: null, pending: new Set() };
 const fbId = () => toHex(crypto.getRandomValues(new Uint8Array(10)));
 const isFbId = (id) => typeof id === 'string' && /^[0-9a-f]{20}$/.test(id);
 const b64u = (buf) => { let s = ''; for (const b of new Uint8Array(buf)) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -3939,7 +4050,8 @@ async function fbUnlockOwner(code) {
   } catch { return false; }
   try {
     fb.signKey = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: FB_OWNER.x, y: FB_OWNER.y, d: code }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-  } catch { fb.signKey = null; }
+    fb.hmacKey = await crypto.subtle.importKey('raw', unb64u(code), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  } catch { fb.signKey = null; fb.hmacKey = null; }
   fb.ownerKey = key;
   store.set('fbOwner', code);
   for (const e of [...fb.bag]) {
@@ -4085,7 +4197,7 @@ $('#fbOwnerForm').addEventListener('submit', async (e) => {
   toast('Inbox and admin tools unlocked on this device.', 4000);
 });
 $('#fbLock').addEventListener('click', () => {
-  fb.ownerKey = null; fb.signKey = null;
+  fb.ownerKey = null; fb.signKey = null; fb.hmacKey = null; idCodes.clear();
   store.set('fbOwner', null);
   renderFeedback();
   onAdminChanged();
@@ -4159,7 +4271,6 @@ function onAdminProof(p, msg) {
     if (!ok || S.peers.get(p.id) !== p) return;
     p.isAdmin = true;
     rememberAdminName(foldName(p.name));
-    sendIdProof(p);
     renderAll();
     const c = S.view.kind === 'text' && S.chans.get(S.view.id);
     if (c) rerenderMessages(c);
@@ -4170,10 +4281,9 @@ function onAdminChanged() {
   if (amAdmin()) {
     for (const p of S.peers.values()) sendAdminProof(p);
     if (S.inRoom) rememberAdminName(S.profileKey);
-    refreshMyCode();
-  } else S.myCode = '';
+  }
   syncOwnerField();
-  if (!S.inRoom) return;
+  if (!S.inRoom) { if (S.inApp) renderHome(); return; }
   renderAll();
   const c = S.view.kind === 'text' && S.chans.get(S.view.id);
   if (c) rerenderMessages(c);
@@ -4324,112 +4434,133 @@ function syncOwnerField() {
 }
 
 /* ================= ID codes (admin only) =================
-   Each profile on each device has its own secret key. Its short code (like K7Q-F29) is shown only to
-   the admin: a person's app proves its key to the admin's app by signing the admin's fresh challenge,
-   and only after it has checked the admin is real. Typing someone's name can't copy their code.
-   The admin's app remembers which codes it has seen for each name, to spot a new device or an impostor. */
-const ID_PREFIX = 'partyline-id|';
+   Every name gets one short code, the same on every device that uses that name. Only the admin's app
+   can work it out: it's made from the name and the owner code, so friends can't see or guess codes. */
 const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-async function idCodeOf(raw) {
-  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', raw));
+const idCodes = new Map(), idPending = new Set();
+let idRepaintTimer = 0;
+function b32code(bytes) {
   let val = 0, bits = 0, out = '';
-  for (const b of h) {
+  for (const b of bytes) {
     val = ((val << 8) | b) & 0xffff; bits += 8;
     while (bits >= 5 && out.length < 6) { out += B32[(val >>> (bits - 5)) & 31]; bits -= 5; }
     if (out.length >= 6) break;
   }
   return out.slice(0, 3) + '-' + out.slice(3);
 }
-const idCache = new Map();   // profile name key -> Promise<{ priv, pub64, code }>
-function myIdentity() {
-  const key = S.profileKey;
-  if (!key) return Promise.resolve(null);
-  if (!idCache.has(key)) {
-    idCache.set(key, (async () => {
-      const all = objOr(store.get('idKeys', null));
-      let jwk = all[key] || S.sessionIdKeys[key];
-      if (!jwk || typeof jwk.d !== 'string') {
-        const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
-        const full = await crypto.subtle.exportKey('jwk', kp.privateKey);
-        jwk = { x: full.x, y: full.y, d: full.d };
-        if (S.saveProfile) { all[key] = jwk; store.set('idKeys', all); } else S.sessionIdKeys[key] = jwk;
-      }
-      const priv = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y, d: jwk.d }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-      const pub = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y }, { name: 'ECDSA', namedCurve: 'P-256' }, true, ['verify']);
-      const raw = await crypto.subtle.exportKey('raw', pub);
-      return { priv, pub64: b64u(raw), code: await idCodeOf(raw) };
-    })().catch((e) => { idCache.delete(key); throw e; }));
+async function computeIdCode(key) {
+  const mac = await crypto.subtle.sign('HMAC', fb.hmacKey, new TextEncoder().encode('partyline-id|' + key));
+  return b32code(new Uint8Array(mac));
+}
+// Returns the code for a name right away if it's known, and works it out in the background if not.
+function idCodeFor(name) {
+  if (!fb.hmacKey) return '';
+  const key = foldName(name || '');
+  if (!key) return '';
+  if (idCodes.has(key)) return idCodes.get(key);
+  if (!idPending.has(key)) {
+    idPending.add(key);
+    computeIdCode(key).then((code) => {
+      idCodes.set(key, code);
+      clearTimeout(idRepaintTimer);
+      idRepaintTimer = setTimeout(repaintIdCodes, 60);
+    }).catch(() => {}).finally(() => idPending.delete(key));
   }
-  return idCache.get(key);
+  return '';
 }
-// Sent only to someone whose app has already proven it's the admin.
-async function sendIdProof(p) {
-  if (!p.isAdmin || !p.chalIn || !S.peer || !p.data || !p.data.open) return;
-  try {
-    const id = await myIdentity();
-    if (!id) return;
-    const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, id.priv, new TextEncoder().encode(`${ID_PREFIX}${p.chalIn}|${S.peer.id}|${p.id}`));
-    p.data.send({ t: 'id-proof', pub: id.pub64, sig: b64u(sig) });
-  } catch {}
+function repaintIdCodes() {
+  if (!S.inRoom) return;
+  renderAll();
+  const c = S.view.kind === 'text' && S.chans.get(S.view.id);
+  if (c) rerenderMessages(c);
+  const id = $('#volPop').dataset.id, p = id && S.peers.get(id);
+  if (p && !$('#volPop').hidden) $('#admId').textContent = idLine(p.name);
 }
-// Runs on the admin's device.
-async function onIdProof(p, msg) {
-  if (!amAdmin() || !p.chalOut || !S.peer) return;
-  if (typeof msg.pub !== 'string' || msg.pub.length !== 87 || !B64U_RE.test(msg.pub)) return;
-  if (typeof msg.sig !== 'string' || msg.sig.length !== 86 || !B64U_RE.test(msg.sig)) return;
-  try {
-    const raw = unb64u(msg.pub);
-    const pub = await crypto.subtle.importKey('raw', raw, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-    const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, unb64u(msg.sig), new TextEncoder().encode(`${ID_PREFIX}${p.chalOut}|${p.id}|${S.peer.id}`));
-    if (!ok || S.peers.get(p.id) !== p) return;
-    p.idCode = await idCodeOf(raw);
-    noteIdSeen(p);
-    renderAll();
-  } catch {}
-}
-// The admin's record of which codes showed up under which names.
-function noteIdSeen(p) {
-  if (!p.idCode || !p.name) return;
-  const seen = objOr(store.get('idSeen', null));
-  const nk = foldName(p.name);
-  const forName = objOr(seen[nk]);
-  p.idNew = Object.keys(forName).length > 0 && !forName[p.idCode];
-  p.idAlso = Object.entries(seen).filter(([n, codes]) => n !== nk && objOr(codes)[p.idCode]).map(([n]) => n).slice(0, 5);
-  p.idFirst = !Object.keys(forName).length;
-  forName[p.idCode] = Date.now();
-  seen[nk] = forName;
-  const names = Object.keys(seen);
-  if (names.length > 200) {
-    const last = (n) => Math.max(0, ...Object.values(objOr(seen[n])).map(Number));
-    names.sort((a, b) => last(b) - last(a));
-    for (const n of names.slice(200)) delete seen[n];
-  }
-  store.set('idSeen', seen);
-}
-function idBadge(code, warn, title) {
+function idBadge(code) {
   const s = document.createElement('span');
-  s.className = 'idcode' + (warn ? ' warn' : '');
+  s.className = 'idcode';
   s.textContent = code;
-  s.title = title || 'ID code (only the admin sees this)';
+  s.title = 'ID code for this name. Only the admin sees it.';
   return s;
 }
-function idStatusText(p) {
-  if (!p.idCode) return 'ID code: waiting for their app to answer…';
-  if (p.idNew) return `ID code ${p.idCode}. New code for ${p.name}: a different device, or someone else using this name.`;
-  const also = p.idAlso && p.idAlso.length ? ` Also seen as ${p.idAlso.join(', ')}.` : '';
-  return `ID code ${p.idCode}. ${p.idFirst ? 'First time you see this name.' : 'Same code as before for this name.'}${also}`;
+function idLine(name) {
+  const code = idCodeFor(name);
+  return code ? `ID code ${code}. The same on every device that uses the name ${name}.` : 'ID code: working it out…';
 }
-async function refreshMyCode() {
-  if (!amAdmin() || !S.inRoom) return;
-  try { const id = await myIdentity(); if (id && id.code !== S.myCode) { S.myCode = id.code; renderAll(); } } catch {}
+
+/* ================= home =================
+   After you pick your profile you land here, not in a server. Your servers are in the bar on the left;
+   the + button joins a server by name or starts a new one. */
+function showHome() {
+  S.inApp = true;
+  $('#join').hidden = true; $('#room').hidden = false;
+  $('#room').classList.add('home');
+  try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+  document.title = 'Party Line';
+  renderHome();
 }
+function renderHome() {
+  if (S.inRoom || !S.inApp) return;
+  renderRail();
+  renderUser();
+  $('#viewText').hidden = true; $('#viewVoice').hidden = true; $('#viewHome').hidden = false;
+  $('#viewIcon').innerHTML = iconSvg('home');
+  $('#viewTitle').textContent = 'Home';
+  $('#viewSub').textContent = 'Pick a server on the left, or join one with the + button.';
+  $('#homeTitle').textContent = `Welcome, ${S.me.name}`;
+  const list = myServers();
+  const rooms = objOr(objOr(loadProfiles()[S.profileKey]).rooms);
+  const ul = $('#homeServers');
+  ul.textContent = '';
+  $('#homeEmpty').hidden = list.length > 0;
+  for (const room of list) {
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'home-server';
+    const ic = document.createElement('span'); ic.className = 'rail-btn'; ic.setAttribute('aria-hidden', 'true');
+    ic.style.setProperty('--h', hue(room)); ic.textContent = serverInitials(room);
+    const tx = document.createElement('span'); tx.className = 'home-server-text';
+    const nm = document.createElement('b'); nm.textContent = room;
+    const sub = document.createElement('span');
+    const r = objOr(rooms[room]);
+    sub.textContent = r.textName ? `Last in #${r.textName}` : 'Not opened on this device yet';
+    tx.append(nm, sub);
+    b.append(ic, tx);
+    b.disabled = S.switching;
+    b.addEventListener('click', () => switchServer(room));
+    li.appendChild(b); ul.appendChild(li);
+  }
+  updateDock();
+}
+// Leaves the server you're in and goes back to Home.
+function goHome() {
+  if (S.switching) return;
+  setDrawer(false);
+  if (!S.inRoom) { renderHome(); return; }
+  broadcast({ t: 'bye' });
+  S.leaving = true;
+  chime('leave');
+  setTimeout(() => { teardown(); showHome(); }, 200);
+}
+function switchProfile() {
+  const done = () => {
+    S.inApp = false; S.profileKey = ''; S.me.name = '';
+    $('#room').hidden = true; $('#room').classList.remove('home');
+    $('#join').hidden = false;
+    showJoinStart();
+  };
+  if (S.inRoom) { broadcast({ t: 'bye' }); S.leaving = true; setTimeout(() => { teardown(); done(); }, 200); }
+  else done();
+}
+$('#railHome').addEventListener('click', goHome);
+$('#homeAdd').addEventListener('click', openAddServer);
+$('#sideHomeAdd').addEventListener('click', openAddServer);
+$('#switchProfile').addEventListener('click', () => { $('#settings').close(); switchProfile(); });
 
 /* ================= join screen ================= */
 function showJoinError(text) { const el = $('#joinError'); el.textContent = text; el.hidden = !text; }
-// Each profile on this device shows in "Who's joining?"; picking one continues where it left off.
+// Each profile on this device shows in "Who's joining?". Picking one opens the app; servers are in the bar on the left.
 const hashRoom = () => { let h = ''; try { h = decodeURIComponent(location.hash.slice(1) || ''); } catch {} const r = cleanRoom(h); return r.length >= 3 ? r : ''; };
 let pendingAv = null;   // a picture chosen on the join screen, saved once the person enters
-$('#roomInput').value = hashRoom() || (profileList()[0] || {}).lastRoom || randomRoom();
 function paintJoinAv() {
   const el = $('#joinAv');
   const name = cleanName($('#nameInput').value);
@@ -4448,13 +4579,16 @@ function showForm(name) {
   $('#quickJoin').hidden = true; $('#joinForm').hidden = false;
   $('#joinBack').hidden = !profileList().length;
   if (typeof name === 'string') $('#nameInput').value = name;
+  const inv = hashRoom();
+  $('#joinInvite').hidden = !inv;
+  if (inv) $('#joinInvite').textContent = `You're joining the server ${inv}.`;
   paintJoinAv();
   syncOwnerField();
-  setTimeout(() => ($('#nameInput').value ? $('#roomInput') : $('#nameInput')).focus(), 0);
+  setTimeout(() => $('#nameInput').focus(), 0);
 }
 function renderPicker() {
   const hash = hashRoom();
-  $('#qjHint').textContent = hash ? `Joining server ${hash}. Pick your profile.` : 'Pick your profile to continue where you left off.';
+  $('#qjHint').textContent = hash ? `You're joining the server ${hash}. Pick your profile.` : 'Pick your profile.';
   const ul = $('#qjList');
   ul.textContent = '';
   for (const p of profileList()) {
@@ -4464,13 +4598,11 @@ function renderPicker() {
     const tx = document.createElement('span'); tx.className = 'profile-text';
     const nm = document.createElement('b'); nm.textContent = p.name;
     const sub = document.createElement('span'); sub.className = 'profile-sub';
-    const room = hash || p.lastRoom;
-    const r = objOr(p.rooms[room]);
-    sub.textContent = !room ? 'Pick a server' : `Server ${room}` + (r.textName ? ` · #${r.textName}` : '');
+    sub.textContent = hash ? `Join ${hash}` : p.lastRoom ? `Last in ${p.lastRoom}` : 'No servers yet';
     tx.append(nm, sub);
     const go = document.createElement('span'); go.className = 'profile-arrow'; go.innerHTML = iconSvg('chevron');
     b.append(av, tx, go);
-    b.addEventListener('click', () => pickProfile(p, sub));
+    b.addEventListener('click', () => pickProfile(p));
     const x = document.createElement('button');
     x.type = 'button'; x.className = 'profile-x'; x.innerHTML = iconSvg('x');
     x.setAttribute('aria-label', `Remove ${p.name} from this device`); x.title = 'Remove from this device';
@@ -4495,38 +4627,25 @@ function showJoinStart() {
     setTimeout(() => { const b = $('#qjList button'); if (b) b.focus(); }, 0);
   } else showForm();
 }
-async function joinWith(name, room, opts) {
-  opts.showErr('');
-  opts.busy(true);
+// Opens the app as this profile. An invite link goes straight on into its server.
+function enterApp(name, remember) {
+  S.me.name = name;
   S.profileKey = foldName(name);
-  S.saveProfile = !!opts.remember;
+  S.saveProfile = !!remember;
   if (pendingAv) { setAvatar(S.profileKey, name, pendingAv, Date.now()); pendingAv = null; }
-  try {
-    await enterRoom(name, room);
-    saveResume();
-  } catch (err) {
-    teardown();
-    opts.showErr((err && err.message) || 'Something went wrong. Try again.');
-  } finally {
-    opts.busy(false);
-  }
+  if (remember) upsertProfile(name, { usedAt: Date.now() });
+  const invite = hashRoom();
+  showHome();
+  if (invite) switchServer(invite);
 }
-function pickProfile(p, subEl) {
+function pickProfile(p) {
   if (foldName(p.name) === ADMIN_KEY && !amAdmin()) {
     showForm(p.name);
     showJoinError(`Paste your owner code to continue as ${ADMIN_NAME} on this device.`);
     setTimeout(() => $('#ownerCodeInput').focus(), 0);
     return;
   }
-  const room = hashRoom() || p.lastRoom;
-  if (!room) { showForm(p.name); return; }
-  const rows = [...document.querySelectorAll('#qjList button')];
-  const before = subEl.textContent;
-  joinWith(p.name, room, {
-    remember: true,
-    busy: (on) => { for (const r of rows) r.disabled = on; subEl.textContent = on ? 'Connecting…' : before; },
-    showErr: showQjError,
-  });
+  enterApp(p.name, true);
 }
 $('#qjNew').addEventListener('click', () => { pendingAv = null; showForm(''); });
 $('#joinBack').addEventListener('click', () => { pendingAv = null; showJoinStart(); });
@@ -4540,8 +4659,6 @@ $('#joinAvFile').addEventListener('change', async (e) => {
   paintJoinAv();
 });
 $('#joinAvRemove').addEventListener('click', () => { pendingAv = null; paintJoinAv(); });
-$('#diceBtn').addEventListener('click', () => { $('#roomInput').value = randomRoom(); });
-$('#roomInput').addEventListener('blur', (e) => { const c = cleanRoom(e.target.value); if (c) e.target.value = c; });
 $('#joinMic').addEventListener('change', (e) => {
   settings.micId = e.target.value; saveSettings();
   if (S.micStream && !S.noMic) chooseMic(e.target.value);
@@ -4556,22 +4673,14 @@ $('#joinForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   showJoinError('');
   const name = cleanName($('#nameInput').value);
-  const room = cleanRoom($('#roomInput').value);
   if (!name) { showJoinError('Enter your name so your friends know who you are.'); $('#nameInput').focus(); return; }
-  if (room.length < 3) { showJoinError('Server names need at least 3 letters or numbers.'); $('#roomInput').focus(); return; }
-  $('#roomInput').value = room;
   if (foldName(name) === ADMIN_KEY && !amAdmin()) {
     const code = $('#ownerCodeInput').value.trim();
     if (!code) { showJoinError(`${ADMIN_NAME} is the admin's name. Paste your owner code to use it, or pick another name.`); $('#ownerCodeInput').focus(); return; }
     if (!(await fbUnlockOwner(code))) { showJoinError("That isn't the owner code. Copy it again and paste it in full."); $('#ownerCodeInput').select(); return; }
     $('#ownerCodeInput').value = '';
   }
-  const btn = $('#enterBtn');
-  await joinWith(name, room, {
-    remember: $('#rememberMe').checked,
-    busy: (on) => { btn.disabled = on; btn.textContent = on ? 'Connecting…' : 'Enter server'; },
-    showErr: showJoinError,
-  });
+  enterApp(name, $('#rememberMe').checked);
 });
 
 function showGate(msg) {
@@ -4612,9 +4721,9 @@ $('#gateForm').addEventListener('submit', async (e) => {
   }
 });
 function forgetDevice() {
-  const drop = new Set(['gate', 'me', 'name', 'profiles', 'avatars', 'histIndex', 'idKeys', 'idSeen']);
+  const drop = new Set(['gate', 'me', 'name', 'profiles', 'avatars', 'histIndex', 'idKeys', 'idSeen', 'pfCache']);
   for (const k of store.keys()) if (drop.has(k) || k.startsWith('hist:')) store.del(k);
-  avatars = {};
+  avatars = {}; pfCache = {};
   S.roomKey = null; pendingAv = null;
   $('#nameInput').value = '';
   showGate('Forgotten. This device no longer has the password, profiles, pictures or chat history.');
