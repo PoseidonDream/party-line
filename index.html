@@ -4605,7 +4605,7 @@ function idLine(name) {
    else carries them. A message to a friend who's offline waits on your device until you're both online.
    Up to three devices can use the same name at once; they share friends and chats with each other.
    The admin's name only counts once the other side proves it has the owner code. */
-const DM = { slots: 3, retryMs: 45000, maxMsgs: 300, maxConns: 40, maxIncoming: 50 };
+const DM = { slots: 3, retryMs: 45000, maxMsgs: 300, maxConns: 150, maxDialing: 24, maxIncoming: 50 };
 const dm = { peer: null, slot: -1, gen: 0, conns: new Set(), friends: {}, convs: {}, view: 'friends', tab: 'online', open: '', saveTimer: 0, retryTimer: 0, ids: new Map() };
 const FR_STATES = ['friend', 'out', 'in', 'ignored', 'removed', 'none'];
 
@@ -4703,18 +4703,24 @@ async function dmConnectAll() {
   const peer = dm.peer;
   if (!peer || peer.destroyed) return;
   if (peer.disconnected) { try { peer.reconnect(); } catch {} return; }
-  const keys = new Set([S.profileKey]);
-  for (const [k, f] of Object.entries(dm.friends)) if (f.state === 'friend' || f.state === 'out' || f.state === 'in') keys.add(k);
-  for (const k of keys) {
-    const ids = await inboxIds(k);
-    if (dm.peer !== peer || peer.disconnected) return;
-    ids.forEach((id, slot) => {
-      if (k === S.profileKey && slot === dm.slot) return;
-      if ([...dm.conns].some((c) => c.peer === id)) return;
-      if (dm.conns.size >= DM.maxConns) return;
+  // Your own devices first, then friends in a new random order each round, so with lots of friends
+  // offline everyone still gets tried; most people only use the first address, so those go first.
+  const others = Object.entries(dm.friends).filter(([, f]) => f.state === 'friend' || f.state === 'out' || f.state === 'in').map(([k]) => k);
+  for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
+  const keys = [S.profileKey, ...others];
+  const idsOf = new Map();
+  for (const k of keys) idsOf.set(k, await inboxIds(k));
+  if (dm.peer !== peer || peer.disconnected) return;
+  let budget = DM.maxDialing - [...dm.conns].filter((c) => c.dmOut && !c.open).length;
+  for (let slot = 0; slot < DM.slots; slot++) {
+    for (const k of keys) {
+      if (budget <= 0 || dm.conns.size >= DM.maxConns) return;
+      if (k === S.profileKey && slot === dm.slot) continue;
+      const id = idsOf.get(k)[slot];
+      if ([...dm.conns].some((c) => c.peer === id)) continue;
       const conn = peer.connect(id, { reliable: true, serialization: 'json', metadata: { kind: 'dm' } });
-      if (conn) attachDmConn(conn, k, true);
-    });
+      if (conn) { attachDmConn(conn, k, true); budget--; }
+    }
   }
 }
 function attachDmConn(conn, key, outbound) {
