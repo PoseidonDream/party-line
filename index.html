@@ -439,6 +439,10 @@ button.member:hover { background: var(--panel-2); color: var(--fg); }
 .tile-vol:hover { background: var(--panel-2); color: var(--fg); }
 .tile:hover .tile-vol, .tile-vol:focus-visible { opacity: 1; }
 @media (hover: none) { .tile-vol { opacity: 1; } }
+.crowd-note { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--lamp); background: var(--panel); }
+.crowd-ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--lamp); color: var(--on-lamp); }
+.crowd-ic .ic { width: 18px; height: 18px; }
+.crowd-text { flex: 1 1 260px; min-width: 0; font-size: 14px; }
 .alone, .voice-empty { margin: 0 auto; max-width: 46ch; text-align: center; color: var(--dim); font-size: 14px; display: grid; justify-items: center; gap: 10px; }
 .voice-empty { margin: auto; }
 .voice-empty p { margin: 0; font-size: 16px; }
@@ -855,6 +859,11 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
           <video id="stageVideo" autoplay playsinline></video>
           <div class="stage-wait" id="stageWait" hidden>Connecting to the stream…</div>
         </div>
+      </div>
+      <div class="crowd-note" id="crowdNote" role="status" hidden>
+        <span class="crowd-ic" aria-hidden="true"><svg class="ic"><use href="#i-users"/></svg></span>
+        <span class="crowd-text" id="crowdText"></span>
+        <button type="button" class="btn small" id="crowdNew"><svg class="ic"><use href="#i-plus"/></svg><span id="crowdNewLabel">Open a new voice channel</span></button>
       </div>
       <div class="tiles" id="tiles"></div>
       <div class="alone" id="alone" hidden>
@@ -2169,7 +2178,7 @@ function broadcast(msg) {
 const stateMsg = () => {
   const vc = S.me.vc && S.chans.get(S.me.vc);
   return {
-    t: 'state', name: S.me.name, muted: S.me.muted || S.me.serverMuted, deafened: S.me.deafened, sharing: S.me.sharing,
+    t: 'state', v: VOICE_PROTO, name: S.me.name, muted: S.me.muted || S.me.serverMuted, deafened: S.me.deafened, sharing: S.me.sharing,
     joinedAt: S.me.joinedAt, micOk: !S.noMic && !S.micIssue, vc: vc ? vc.id : null, vcName: vc ? vc.name : '',
     av: avAt(S.profileKey),
   };
@@ -2181,6 +2190,39 @@ function sendState(p) {
 
 // Who hears whom: only people in the same voice channel as you.
 const inMyVC = (p) => !!S.me.vc && p.gotState && p.vc === S.me.vc;
+/* Voice links only exist between people in the same voice channel, so a big server doesn't cost
+   everyone a connection to everyone. Of each pair, the one with the lower address places the call.
+   Older copies of the app (before VOICE_PROTO 2) expect a call with everyone; they still get one. */
+const VOICE_PROTO = 2;
+const isLegacy = (p) => p.gotState && (p.proto || 1) < VOICE_PROTO;
+function syncVoiceLink(p) {
+  if (!S.peer || !p.gotState) return;
+  const legacy = isLegacy(p);
+  if (!legacy && !inMyVC(p)) { if (p.call) hangUp(p); p.net = null; p.callTries = 0; return; }
+  if (p.call || p.callTimer) return;
+  if (!legacy && !(S.peer.id < p.id)) { p.net = p.net || 'connecting'; return; }   // they call us
+  if (!p.net) p.net = 'connecting';
+  p.callTimer = setTimeout(() => {
+    p.callTimer = 0;
+    if (S.peers.get(p.id) !== p || p.call || !S.peer) return;
+    if (!isLegacy(p) && !inMyVC(p)) return;
+    startCall(p);
+  }, legacy ? 1500 : 0);
+}
+function startCall(p) {
+  if (!S.peer || !S.micStream) return;
+  const call = S.peer.call(p.id, S.micStream, { metadata: { kind: 'voice' } });
+  if (!call) return;
+  attachVoice(p, call);
+  setSendAudio(p, inMyVC(p));
+  updateTile(p.id);
+}
+function hangUp(p) {
+  const c = p.call;
+  p.call = null; p.net = null; p.callTries = 0;
+  clearTimeout(p.callTimer); p.callTimer = 0;
+  try { c && c.close(); } catch {}
+}
 function setSendAudio(p, on) {
   const pc = p.call && p.call.peerConnection;
   if (!pc) return;
@@ -2196,6 +2238,7 @@ function setSendAudio(p, on) {
 }
 function syncPeer(p) {
   const on = inMyVC(p);
+  syncVoiceLink(p);
   setSendAudio(p, on);
   applyPeerVolume(p);
   const wantOut = S.me.sharing && on && p.data && p.data.open;
@@ -2216,9 +2259,6 @@ function connectTo(m, preexisting) {
   p.joinedAt = p.joinedAt || Number(m.joinedAt) || 0;
   p.preexisting = !!preexisting;
   attachData(p, S.peer.connect(m.id, Object.assign({ metadata: { kind: 'data' } }, DATA_OPTS)));
-  const call = S.peer.call(m.id, S.micStream, { metadata: { kind: 'voice' } });
-  attachVoice(p, call);
-  setSendAudio(p, false);
   renderAll();
 }
 
@@ -2251,9 +2291,16 @@ function attachVoice(p, call) {
   if (old && old !== call) { try { old.close(); } catch {} }
   call.on('stream', (stream) => { if (p.call === call) setRemoteAudio(p, stream); });
   call.on('close', () => {
-    if (p.call !== call) return;
-    p.call = null; p.net = 'failed';
-    if (!p.data || !p.data.open) removePeer(p.id, true); else updateTile(p.id);
+    if (p.call !== call) return;   // hung up on purpose, or replaced by a newer call
+    p.call = null;
+    if (!p.data || !p.data.open) { removePeer(p.id, true); return; }
+    p.net = null;
+    if (inMyVC(p) || isLegacy(p)) {   // dropped while we should be talking: try again a few times
+      p.callTries = (p.callTries || 0) + 1;
+      if (p.callTries > 4) p.net = 'failed';
+      else { p.net = 'connecting'; setTimeout(() => { if (S.peers.get(p.id) === p) syncVoiceLink(p); }, 1500 * p.callTries); }
+    }
+    updateTile(p.id);
   });
   call.on('error', () => {});
   watchIce(p, call);
@@ -2266,6 +2313,7 @@ function watchIce(p, call) {
     if (p.call !== call) return;
     const s = pc.iceConnectionState;
     p.net = (s === 'connected' || s === 'completed') ? 'ok' : s === 'failed' ? 'failed' : s === 'disconnected' ? 'unstable' : 'connecting';
+    if (p.net === 'ok') p.callTries = 0;
     if (s === 'failed' && !p.failNotified) {
       p.failNotified = true;
       sysMsg(`Couldn't connect audio with ${p.name || 'someone'}. A strict network or firewall may be blocking it.`);
@@ -2362,6 +2410,7 @@ function onIncomingCall(call) {
     call.answer();
   } else {
     call.answer(S.micStream);
+    clearTimeout(p.callTimer); p.callTimer = 0;
     attachVoice(p, call);
     setSendAudio(p, inMyVC(p));
   }
@@ -2372,6 +2421,7 @@ function onPeerMessage(p, msg) {
   if (!msg || typeof msg !== 'object') return;
   if (msg.t === 'state') {
     const first = !p.gotState; p.gotState = true;
+    p.proto = Number(msg.v) || 1;
     p.name = cleanName(msg.name) || p.name || 'Guest';
     p.muted = !!msg.muted; p.deafened = !!msg.deafened; p.micOk = msg.micOk !== false;
     if (Number.isFinite(msg.joinedAt)) p.joinedAt = msg.joinedAt;
@@ -2388,6 +2438,7 @@ function onPeerMessage(p, msg) {
     if (p.isAdmin) rememberAdminName(pk);
     if (first && pk === S.profileKey) toast(`Someone else is in this server as ${p.name}. If that isn't you on another device, one of you should change name in Settings.`, 9000);
     if (first && !p.preexisting) { sysMsg(`${p.name} joined the server.`); }
+    if (first && isLegacy(p)) toast(`${p.name} is using an older copy of Party Line. Ask them to reload the page so voice works best.`, 8000);
     if (S.me.vc && prevVc !== p.vc && announce) {
       if (p.vc === S.me.vc) chime('join');
       else if (prevVc === S.me.vc) chime('leave');
@@ -2449,6 +2500,7 @@ function removePeer(id, announce) {
   if (!p) return;
   S.peers.delete(id);
   const wasInMyVC = !!S.me.vc && p.vc === S.me.vc;
+  clearTimeout(p.callTimer); p.callTimer = 0;
   for (const c of [p.data, p.call, p.screenIn, p.screenOut, p.files]) { try { c && c.close(); } catch {} }
   try { p.source && p.source.disconnect(); } catch {}
   try { p.gain && p.gain.disconnect(); } catch {}
@@ -2943,6 +2995,8 @@ function joinVoice(chId) {
   if (!c || c.kind !== 'voice') return;
   if (S.me.vc === chId) { showVoice(); return; }
   if (S.me.sharing) stopShare(true);
+  const already = voiceMembers(chId).length;
+  if (already >= CROWD) toast(`${c.name} already has ${already} people. Voice works best with up to ${CROWD} in one channel.`, 7000, { label: 'Open another', fn: moveToOverflow });
   S.me.vc = chId; S.stageFocus = null;
   chime('join');
   sendState();
@@ -3347,6 +3401,7 @@ function renderTiles() {
     updateTile(id);
   });
   const c = S.me.vc && S.chans.get(S.me.vc);
+  renderCrowd(c, ids.length);
   $('#voiceEmpty').hidden = !!S.me.vc;
   $('#alone').hidden = !c || ids.length > 1;
   if (c) $('#aloneText').textContent = `Nobody else is in ${c.name} yet. Send the invite, or wait here for your friends.`;
@@ -3363,6 +3418,42 @@ function renderTiles() {
     }
   }
 }
+/* Voice works best with up to about 10 people in one channel, because everyone's voice goes to
+   everyone separately. Past that, the channel suggests splitting into another one. */
+const CROWD = 10;
+function overflowSpot(c) {
+  const base = c.name.replace(/\s+\d+$/, '').trim() || 'Voice';
+  for (let i = 2; i < 30; i++) {
+    const name = `${base} ${i}`, id = 'v-' + slug(name);
+    if (id === c.id || S.dels.has('c:' + id)) continue;
+    const ex = S.chans.get(id);
+    if (ex && ex.kind !== 'voice') continue;
+    if (ex && voiceMembers(id).length >= CROWD) continue;
+    return { name, existing: ex || null };
+  }
+  return null;
+}
+function renderCrowd(c, n) {
+  const note = $('#crowdNote');
+  const spot = c && n > CROWD ? overflowSpot(c) : null;
+  note.hidden = !spot;
+  if (!spot) return;
+  $('#crowdText').textContent = `${n} people in ${c.name}. Voice works best with up to ${CROWD} in one channel, since everyone’s voice goes to everyone separately. Some of you could move to another channel.`;
+  $('#crowdNewLabel').textContent = spot.existing ? `Move to ${spot.name}` : `Open ${spot.name}`;
+}
+function moveToOverflow() {
+  const c = S.me.vc && S.chans.get(S.me.vc);
+  const spot = c && overflowSpot(c);
+  if (!spot) { toast('Couldn’t find a free channel name. Create one with + next to Voice Channels.', 5000); return; }
+  if (spot.existing) { joinVoice(spot.existing.id); return; }
+  const n = ensureChannel('voice', spot.name, true);
+  if (!n) { toast('This server already has the most channels it can hold.', 5000); return; }
+  broadcast({ t: 'chan-add', kind: 'voice', name: n.name });
+  scheduleHistSave();
+  joinVoice(n.id);
+  toast(`You opened ${n.name}. Friends can click it to join you.`, 5000);
+}
+$('#crowdNew').addEventListener('click', moveToOverflow);
 function tbadge(icon, label) {
   const s = document.createElement('span');
   s.className = 'tb'; s.title = label; s.innerHTML = iconSvg(icon);

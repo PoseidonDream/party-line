@@ -24,8 +24,8 @@ There's no fixed limit in the app. What decides it is each person's computer and
 |---|---|---|---|
 | People talking in one voice channel | 2–10 | about 15–20 on good computers and internet | Your voice is sent separately to each person in the channel. Phones run out of power first. |
 | People watching one screen share | 2–5 | depends on the sharer's upload speed | The sharer sends a separate video to each viewer, about 1.5–2.5 Mbps each at 720p. |
-| People online in one server at once | up to about 30 | roughly 250 in theory | Every pair of people keeps a connection. Chrome allows about 500 connections per page. |
-| Servers | no limit | — | Each server is separate. Big groups can split into more voice channels or servers. |
+| People online in one server at once | up to about 50 | roughly 500 in theory | Every pair of people keeps one light connection for chat; Chrome allows about 500 per page. Voice connections only exist between people in the same voice channel. |
+| Servers | no limit | — | Each server is separate. When a voice channel passes 10 people, the app suggests opening another one. |
 | Friends for private chats | dozens | about 150 open chat links per device | One link per online friend device. |
 
 Going past these numbers smoothly would need a media server, where everyone sends their voice once and the server passes it on. That's how Discord handles big rooms. Party Line doesn't use one, so it stays free and needs nothing to run.
@@ -45,6 +45,7 @@ Going past these numbers smoothly would need a media server, where everyone send
 - A volume slider for each person, up to 150%, which only changes what you hear.
 - A mic check that tells you when your mic isn't working and how to fix it.
 - If you stay muted or deafened in voice for 30 minutes you're disconnected, with a warning 5 minutes before. Sharing your screen pauses the timer.
+- When a voice channel gets crowded (more than 10 people), it suggests splitting up and opens a new channel such as "Lobby 2" with one click.
 
 **Screen sharing**
 - Share a screen, window or tab, with its sound where the browser allows it.
