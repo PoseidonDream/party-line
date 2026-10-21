@@ -180,7 +180,7 @@ live.on('voice', (d) => {
     if (st.channelId === V.channelId && (!prev || prev.channelId !== V.channelId)) chime('join', V.deafened);
     if (prev && prev.channelId === V.channelId && st.channelId !== V.channelId) chime('leave', V.deafened);
   }
-  if (S.watching === st.userId && !st.sharing) S.watching = null;
+  if (S.watching === st.userId && !st.sharing && !(st.userId === S.me.id && V.sharing)) S.watching = null;
   renderVoiceBits();
 });
 live.on('voice.left', (d) => {
@@ -811,7 +811,7 @@ function renderVoiceView() {
   const tiles = $('#tiles');
   tiles.textContent = '';
   // the stage: someone's screen share you chose to watch
-  const sharers = people.filter((p) => p.sharing);
+  const sharers = people.filter((p) => p.sharing || (p.userId === S.me.id && V.sharing));
   if (S.watching && !sharers.some((p) => p.userId === S.watching)) S.watching = null;
   const stage = $('#stage'), video = $('#stageVideo');
   let stream = null;

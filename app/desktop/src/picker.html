@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Share your screen</title><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src data:; style-src 'self' 'unsafe-inline'"><link rel="stylesheet" href="shared.css">
+<style>
+  body { padding: 18px; }
+  h2 { margin: 0 0 4px; font-size: 22px; }
+  .tabs { display: flex; gap: 6px; margin: 12px 0; }
+  .tabs button { height: 34px; padding: 0 14px; font-size: 14px; background: var(--panel-2); color: var(--dim); border: 1px solid var(--line); }
+  .tabs button[aria-selected="true"] { background: var(--lamp); color: var(--on-lamp); border-color: transparent; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .src { height: auto; display: grid; gap: 6px; padding: 8px; background: var(--panel); color: var(--fg); border: 2px solid var(--line); border-radius: 12px; text-align: left; font-size: 13px; font-weight: 600; }
+  .src:hover, .src:focus-visible { border-color: var(--lamp); }
+  .src img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 6px; }
+  .src span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .foot { display: flex; justify-content: flex-end; margin-top: 14px; }
+</style></head>
+<body>
+<h2>Share your screen</h2>
+<p>Pick a whole screen or one window. On Windows your computer's sound is shared too.</p>
+<div class="tabs" role="tablist"><button role="tab" data-k="screen" aria-selected="true">Screens</button><button role="tab" data-k="window" aria-selected="false">Windows</button></div>
+<div class="grid" id="grid"></div>
+<div class="foot"><button class="ghost" id="cancel">Cancel</button></div>
+<script src="picker.js"></script>
+</body>
+</html>

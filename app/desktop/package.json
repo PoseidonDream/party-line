@@ -1,0 +1,102 @@
+{
+  "name": "party-line-desktop",
+  "productName": "Party Line",
+  "version": "1.0.0",
+  "description": "Party Line desktop app for Windows, Mac and Linux.",
+  "main": "src/main.js",
+  "author": "PoseidonDream",
+  "license": "UNLICENSED",
+  "private": true,
+  "partyLine": {
+    "server": ""
+  },
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "optionalDependencies": {
+    "uiohook-napi": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.poseidondream.partyline",
+    "productName": "Party Line",
+    "artifactName": "Party-Line-${version}-${os}-${arch}.${ext}",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "PoseidonDream",
+        "repo": "party-line",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Party Line"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.social-networking",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Party Line uses your microphone for voice channels.",
+        "NSCameraUsageDescription": "Party Line may use your camera."
+      },
+      "x64ArchFiles": "**/node_modules/uiohook-napi/prebuilds/**"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "executableName": "party-line",
+      "maintainer": "PoseidonDream",
+      "icon": "build/icon.png",
+      "category": "Network"
+    }
+  }
+}
