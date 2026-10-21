@@ -47,6 +47,19 @@ npm install
 npm start
 ```
 
+## Tests
+
+`app/tests` opens real Chromium windows that sign up, chat, share photos, add friends, send private messages, talk in voice, share a screen and use admin tools against a throwaway server. GitHub runs them on every change (Actions → Tests).
+
+```
+cd app/server && npm install
+cd ../tests && npm install && npm run install-browser
+npm test                 # everything
+npm test -- chat-voice   # just one file
+```
+
+Screenshots land in `app/tests/results/`.
+
 ## Admin powers
 
 Accounts named in `ADMIN_NAMES`, plus each server's creator for their own server, can:

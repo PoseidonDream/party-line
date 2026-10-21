@@ -1,0 +1,13 @@
+{
+  "name": "party-line-tests",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests for Party Line: real Chromium windows talking to a real server.",
+  "scripts": {
+    "test": "node run.mjs",
+    "install-browser": "playwright-core install --with-deps chromium"
+  },
+  "devDependencies": {
+    "playwright-core": "1.49.1"
+  }
+}
