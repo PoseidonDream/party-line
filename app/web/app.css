@@ -608,3 +608,11 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .load-more { align-self: center; margin: 8px 0; }
 .member .mini-av.has-img, .tile .avatar.has-img { color: transparent; }
 .status-ring { --dot-ring: var(--panel); }
+.theme-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border-radius: 12px; background: var(--field); border: 1px solid var(--line); }
+.theme-opt { position: relative; }
+.theme-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-opt span { display: grid; place-items: center; height: 36px; border-radius: 9px; font-weight: 600; color: var(--dim); cursor: pointer; }
+.theme-opt input:checked + span { background: var(--lamp); color: var(--on-lamp); }
+.theme-opt input:focus-visible + span { outline: 2px solid var(--lamp); outline-offset: 2px; }
+.theme-toggle { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.theme-toggle:hover { border-color: var(--dim); }

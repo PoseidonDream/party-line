@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('partyLineDesktop', {
   saveServer: (url) => ipcRenderer.invoke('setup:save', url),
   currentServer: () => ipcRenderer.invoke('setup:current'),
   retry: () => ipcRenderer.send('retry'),
+  setTheme: (t) => ipcRenderer.send('theme', t),
 });

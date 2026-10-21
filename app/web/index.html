@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="/app.css">
+<script>try { var t = (JSON.parse(localStorage.getItem('pl:settings')) || {}).theme; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -52,12 +53,15 @@
     <symbol id="i-user-x" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></symbol>
     <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></symbol>
   </defs>
 </svg>
 
 
 <!-- ================= SIGN IN ================= -->
+<button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch dark or light mode" title="Switch dark or light mode" hidden><svg class="ic"><use href="#i-sun"/></svg></button>
 <main id="join" class="join" hidden>
   <section>
     <h1 class="wordmark"><span>Party</span><span class="lit">Line</span></h1>
@@ -352,6 +356,15 @@
         </div>
         <input type="file" id="setAvFile" accept="image/*" hidden>
       </div>
+      <fieldset class="field">
+        <legend class="flabel">Appearance</legend>
+        <div class="theme-pick" role="radiogroup">
+          <label class="theme-opt"><input type="radio" name="theme" value="system"><span>System</span></label>
+          <label class="theme-opt"><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+          <label class="theme-opt"><input type="radio" name="theme" value="light"><span>Light</span></label>
+        </div>
+        <p class="hint">System follows your computer or phone's dark mode setting.</p>
+      </fieldset>
       <div class="field">
         <label class="flabel" for="setName">Display name</label>
         <div class="row"><input type="text" id="setName" class="input" maxlength="24" autocomplete="nickname"><button type="button" class="btn" id="setNameSave">Save</button></div>

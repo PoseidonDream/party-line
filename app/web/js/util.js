@@ -7,10 +7,11 @@ export const MAX_LEVEL = 1.5;   // every volume slider goes up to 150%
 export const clampLevel = (v) => Math.max(0, Math.min(MAX_LEVEL, Number.isFinite(+v) ? +v : 1));
 
 export const settings = Object.assign(
-  { noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, notify: false },
+  { noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, notify: false, theme: 'system' },
   store.get('settings', {}) || {},
 );
 if (!['off', 'standard', 'strong'].includes(settings.noiseMode)) settings.noiseMode = 'strong';
+if (!['system', 'dark', 'light'].includes(settings.theme)) settings.theme = 'system';
 settings.inputVol = clampLevel(settings.inputVol); settings.outputVol = clampLevel(settings.outputVol);
 export const saveSettings = () => store.set('settings', settings);
 export const friendVols = store.get('vols', {}) || {};   // per-person volume, by user id

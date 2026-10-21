@@ -16,6 +16,23 @@ const S = {
 };
 const MAX_IMAGE = 15 * 1048576, MAX_VIDEO = 50 * 1048576;
 
+/* ================= dark and light mode ================= */
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => settings.theme === 'dark' || (settings.theme === 'system' && darkQuery.matches);
+function applyTheme() {
+  const root = document.documentElement;
+  if (settings.theme === 'system') delete root.dataset.theme; else root.dataset.theme = settings.theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = isDark() ? '#11151d' : '#e8ebf0';
+  $('#themeToggle').querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
+  for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
+  if (desktop && desktop.setTheme) desktop.setTheme(settings.theme);
+}
+function setTheme(t) { settings.theme = t; saveSettings(); applyTheme(); }
+darkQuery.addEventListener('change', applyTheme);
+applyTheme();
+$('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
+
 /* ================= small view helpers ================= */
 const user = (id) => S.users.get(id) || { id, name: 'Someone', avatar: null, online: false };
 const nameOf = (id) => user(id).name;
@@ -68,7 +85,7 @@ function showAuth(mode) {
   $('#authError').hidden = true;
 }
 function showJoinScreen() {
-  $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false;
+  $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false;
   if (S.pendingInvite) { $('#joinInvite').hidden = false; $('#joinInvite').textContent = 'You were invited to a server. Sign in or create an account to join.'; }
   api('/api/info').then((i) => { info = i; showAuth(authMode); }).catch(() => {});
   showAuth(store.get('hadAccount', false) ? 'login' : 'register');
@@ -127,7 +144,7 @@ live.on('ready', (d) => {
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
   S.ready = true;
-  $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false;
+  $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true;
   if (first) {
     const last = store.get('lastView', null);
     if (last && last.kind === 'dm' && S.users.has(last.userId)) S.view = last;
@@ -1187,6 +1204,7 @@ function syncSettingsForm() {
   $('#setAvRemove').hidden = !S.me.avatar;
   for (const r of document.querySelectorAll('input[name="noise"]')) r.checked = r.value === settings.noiseMode;
   for (const r of document.querySelectorAll('input[name="quality"]')) r.checked = r.value === settings.quality;
+  for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
   $('#setPtt').checked = settings.ptt;
   $('#setNotify').checked = settings.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted';
   $('#notifyField').hidden = typeof Notification === 'undefined';
@@ -1208,6 +1226,7 @@ $('#setSpeaker').addEventListener('change', (e) => { settings.speakerId = e.targ
 $('#inVol').addEventListener('input', (e) => { $('#inVolOut').textContent = `${e.target.value}%`; Voice.setInputVol(e.target.value / 100); });
 $('#outVol').addEventListener('input', (e) => { $('#outVolOut').textContent = `${e.target.value}%`; settings.outputVol = clampLevel(e.target.value / 100); saveSettings(); Voice.applyAllVolumes(); });
 document.querySelectorAll('input[name="noise"]').forEach((r) => r.addEventListener('change', () => Voice.setNoiseMode(r.value).then(renderUserArea)));
+document.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
 document.querySelectorAll('input[name="quality"]').forEach((r) => r.addEventListener('change', () => { settings.quality = r.value; saveSettings(); }));
 $('#setPtt').addEventListener('change', (e) => { settings.ptt = e.target.checked; saveSettings(); Voice.setPtt(false); Voice.applyMic(); renderUserArea(); });
 $('#setNotify').addEventListener('change', async (e) => {

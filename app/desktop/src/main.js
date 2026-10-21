@@ -1,7 +1,7 @@
 /* Party Line desktop app. Opens your group's Party Line server in its own window and adds what a browser
    can't: a screen and window picker for screen sharing, push to talk that works while a game is in front,
    a tray icon, unread badges and automatic updates. */
-const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell, nativeImage, dialog, nativeTheme } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const pkg = require('../package.json');
@@ -162,6 +162,7 @@ ipcMain.on('badge', (e, n) => {
   }
 });
 ipcMain.on('focus', showWin);
+ipcMain.on('theme', (e, t) => { if (['system', 'dark', 'light'].includes(t)) nativeTheme.themeSource = t; });
 ipcMain.on('app-version', (e) => { e.returnValue = app.getVersion(); });
 
 app.on('second-instance', (e, argv) => {
