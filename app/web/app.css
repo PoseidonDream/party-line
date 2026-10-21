@@ -663,3 +663,14 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .search-head { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
 .search-head span { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .search-body { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 4.5em; overflow: hidden; }
+.tile.has-cam { overflow: hidden; background: var(--stage-bg); }
+.tile-cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.tile-cam.mirror { transform: scaleX(-1); }
+.tile.has-cam .tile-meta { left: 8px; bottom: 6px; padding: 2px 8px; border-radius: 8px; background: rgba(6, 8, 12, .62); color: #f3eee4; right: auto; max-width: calc(100% - 90px); }
+.tile.has-cam .tile-sub { color: #c7cbd3; }
+.tile.has-cam .lamp { z-index: 1; }
+.tile.has-cam.speaking { box-shadow: 0 0 0 3px var(--lamp), 0 0 22px 4px var(--lamp-glow); }
+.tile-badges, .tile-vol { z-index: 1; }
+.tb.cam { background: var(--panel-2); color: var(--fg); }
+.voice-status { grid-template-columns: minmax(0, 1fr) auto; }
+.vs-btns .ub { width: 34px; }

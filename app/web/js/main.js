@@ -1049,7 +1049,9 @@ function renderVoiceView() {
     d.className = 'tile' + (V.speaking.has(p.userId) ? ' speaking' : '') + (inThis && !isMe && peer && peer.net !== 'ok' ? ' dim' : '');
     d.dataset.uid = p.userId;
     d.innerHTML = '<span class="lamp" aria-hidden="true"></span>';
-    const av = avEl(p.userId, 'avatar'); d.appendChild(av);
+    const cam = isMe ? (V.camera ? V.camStream : null) : (p.camera && peer ? peer.camStream : null);
+    if (cam && inThis) { d.classList.add('has-cam'); d.appendChild(camVideo(p.userId, cam, isMe)); }
+    else d.appendChild(avEl(p.userId, 'avatar'));
     const meta = document.createElement('div'); meta.className = 'tile-meta';
     const n = document.createElement('span'); n.className = 'tile-name'; n.textContent = nameOf(p.userId) + (isMe ? ' (you)' : ''); meta.appendChild(n);
     const sub = document.createElement('span'); sub.className = 'tile-sub';
@@ -1064,6 +1066,7 @@ function renderVoiceView() {
       live2.addEventListener('click', (e) => { e.stopPropagation(); if (!inThis) { joinVoice(chId).then(() => { S.watching = p.userId; renderVoiceView(); }); return; } S.watching = S.watching === p.userId ? null : p.userId; renderVoiceView(); });
       badges.appendChild(live2);
     }
+    if (p.camera && !inThis) badges.insertAdjacentHTML('beforeend', `<span class="tb cam" title="Camera on">${iconSvg('video')}</span>`);
     if (p.deafened) badges.insertAdjacentHTML('beforeend', `<span class="tb" title="Deafened">${iconSvg('headphones-off')}</span>`);
     else if (p.muted || p.serverMuted) badges.insertAdjacentHTML('beforeend', `<span class="tb" title="Muted">${iconSvg('mic-off')}</span>`);
     d.appendChild(badges);
@@ -1088,6 +1091,15 @@ for (const b of [$('#joinVoiceBtn'), $('#joinVoiceBtn2')]) b.addEventListener('c
 $('#stageClose').addEventListener('click', () => { S.watching = null; renderVoiceView(); });
 $('#stageFull').addEventListener('click', () => { const el = $('#stage'); if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen && el.requestFullscreen().catch(() => {}); });
 
+/* One <video> per person, reused between renders so the picture doesn't flicker. */
+const camEls = new Map();
+function camVideo(id, stream, mirror) {
+  let v = camEls.get(id);
+  if (!v) { v = document.createElement('video'); v.className = 'tile-cam'; v.autoplay = true; v.playsInline = true; v.muted = true; camEls.set(id, v); }
+  if (v.srcObject !== stream) { v.srcObject = stream; v.play().catch(() => {}); }
+  v.classList.toggle('mirror', !!mirror);
+  return v;
+}
 function renderSpeaking(set) {
   document.querySelectorAll('.tile[data-uid], .member[data-uid]').forEach((el) => el.classList.toggle('speaking', set.has(Number(el.dataset.uid))));
 }
@@ -1157,6 +1169,11 @@ function renderUserArea() {
     const bad = peers.some((p) => p.net === 'failed');
     $('#vsState').lastChild.textContent = V.joining ? 'Connecting…' : bad ? 'Voice trouble' : 'Voice connected';
     $('#vsState').style.color = bad ? 'var(--danger)' : '';
+    const cb = $('#camBtn');
+    cb.hidden = !Voice.canCamera();
+    cb.classList.toggle('on', V.camera);
+    cb.querySelector('use').setAttribute('href', V.camera ? '#i-video-off' : '#i-video');
+    cb.querySelector('.lbl').textContent = V.camera ? 'Turn off camera' : 'Turn on camera'; cb.title = V.camera ? 'Turn off camera' : 'Turn on camera';
     const sh = $('#shareBtn');
     sh.hidden = !Voice.canShare();
     sh.classList.toggle('on', V.sharing);
@@ -1192,6 +1209,10 @@ $('#shareBtn').addEventListener('click', async () => {
   renderVoiceBits();
 });
 $('#noiseBtn').addEventListener('click', cycleNoise);
+$('#camBtn').addEventListener('click', async () => {
+  if (V.camera) Voice.stopCamera(); else { await Voice.startCamera(); if (V.camera && S.view.kind !== 'voice') { const f = findChannel(V.channelId); if (f) setView({ kind: 'voice', serverId: f.server.id, channelId: f.channel.id }); } }
+  renderVoiceBits();
+});
 function cycleNoise() { Voice.setNoiseMode(settings.noiseMode === 'strong' ? 'standard' : 'strong').then(() => { toast(`Noise filter: ${settings.noiseMode === 'strong' ? 'Strong' : 'Standard'}`, 1800); renderUserArea(); syncSettingsForm(); }); }
 $('#vcLeaveBtn').addEventListener('click', () => { Voice.leaveVoice(); chime('leave'); renderVoiceBits(); });
 $('#vsChan').addEventListener('click', () => { const f = findChannel(V.channelId); if (f) setView({ kind: 'voice', serverId: f.server.id, channelId: f.channel.id }); });
@@ -1433,6 +1454,9 @@ async function refreshDevices() {
   try { list = await navigator.mediaDevices.enumerateDevices(); } catch {}
   const ok = (d) => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications';
   const ins = list.filter((d) => d.kind === 'audioinput' && ok(d)), outs = list.filter((d) => d.kind === 'audiooutput' && ok(d));
+  const cams = list.filter((d) => d.kind === 'videoinput' && d.deviceId);
+  fill($('#setCam'), cams, 'Camera', settings.camId || '');
+  $('#camField').hidden = cams.length < 2;
   for (const sel of [$('#setMic'), $('#mpMic')]) fill(sel, ins, 'Microphone', settings.micId);
   fill($('#setSpeaker'), outs, 'Speaker', settings.speakerId);
   $('#speakerField').hidden = !canPickSpeaker || !outs.length;
@@ -1468,6 +1492,10 @@ function openSettings() {
 }
 $('#setBtn').addEventListener('click', openSettings);
 $('#setMic').addEventListener('change', (e) => Voice.chooseMic(e.target.value));
+$('#setCam').addEventListener('change', async (e) => {
+  settings.camId = e.target.value; saveSettings();
+  if (V.camera) { Voice.stopCamera(); await Voice.startCamera(); }
+});
 $('#setSpeaker').addEventListener('change', (e) => { settings.speakerId = e.target.value; saveSettings(); Voice.applySpeaker(); });
 $('#inVol').addEventListener('input', (e) => { $('#inVolOut').textContent = `${e.target.value}%`; Voice.setInputVol(e.target.value / 100); });
 $('#outVol').addEventListener('input', (e) => { $('#outVolOut').textContent = `${e.target.value}%`; settings.outputVol = clampLevel(e.target.value / 100); saveSettings(); Voice.applyAllVolumes(); });

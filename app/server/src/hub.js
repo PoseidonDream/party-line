@@ -15,7 +15,7 @@ const toServer = (serverId, msg) => toUsers(M.memberIds(serverId), msg);
 const toAll = (msg) => { for (const c of conns.values()) send(c, msg); };
 const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
-  sharing: v.sharing, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
+  sharing: v.sharing, camera: !!v.camera, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
 const fail = (msg) => { throw new M.UserError(msg); };
 
 export const hub = {
@@ -217,6 +217,7 @@ const handlers = {
     if (!v || v.connId !== c.id) return {};
     v.muted = !!d.muted; v.deafened = !!d.deafened; v.sharing = !!d.sharing;
     v.screenId = d.sharing && typeof d.screenId === 'string' ? d.screenId.slice(0, 80) : null;
+    v.camera = !!d.camera;
     toServer(v.serverId, { t: 'voice', state: voiceView(user.id, v) });
     return {};
   },

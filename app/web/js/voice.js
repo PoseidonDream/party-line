@@ -7,6 +7,7 @@ export const V = {
   channelId: null, serverId: null, joining: false,
   muted: false, deafened: false, serverMuted: false, pttHeld: false,
   sharing: false, screenStream: null,
+  camera: false, camStream: null,
   rawStream: null, micStream: null, sendTrack: null, noMic: true, micIssue: null, fx: null,
   peers: new Map(),   // userId -> peer
   speaking: new Set(),
@@ -158,6 +159,7 @@ export function leaveVoice(notifyServer = true) {
   if (!V.channelId) return;
   if (notifyServer) live.send('voice.leave', {});
   if (V.sharing) stopShare(false);
+  if (V.camera) stopCamera(false);
   closeAllPeers();
   V.channelId = null; V.serverId = null; V.serverMuted = false;
   stopMic();
@@ -173,7 +175,7 @@ export async function rejoinVoice() {
 }
 export function sendVoiceState() {
   if (!V.channelId) return;
-  live.send('voice.state', { muted: V.muted, deafened: V.deafened, sharing: V.sharing, screenId: V.screenStream ? V.screenStream.id : null });
+  live.send('voice.state', { muted: V.muted, deafened: V.deafened, sharing: V.sharing, screenId: V.screenStream ? V.screenStream.id : null, camera: V.camera });
 }
 export function setMuted(b) { V.muted = !!b; if (!V.muted && V.deafened) V.deafened = false; applyMic(); applyAllVolumes(); sendVoiceState(); hooks.change(); }
 export function setDeafened(b) { V.deafened = !!b; applyMic(); applyAllVolumes(); sendVoiceState(); hooks.change(); }
@@ -190,6 +192,7 @@ export function onVoiceState(st) {
   const p = V.peers.get(st.userId);
   if (p && st.channelId !== V.channelId) closePeer(st.userId);
   else if (p && !st.sharing && p.screenStream) { p.screenStream = null; p.screenId = null; hooks.change(); }
+  if (p && !st.camera && p.camStream) { p.camStream = null; p.camId = null; hooks.change(); }
 }
 export function onVoiceLeft(userId) { if (userId !== hooks.myId()) closePeer(userId); }
 
@@ -200,11 +203,13 @@ function getPeer(id) {
   if (p) return p;
   const pc = new RTCPeerConnection({ iceServers: V.ice || [] });
   p = { id, pc, polite: hooks.myId() > id, makingOffer: false, ignoreOffer: false, micSender: null, screenSenders: [],
-    audioEl: null, stream: null, gain: null, source: null, analyser: null, screenStream: null, screenId: null, net: 'connecting', failNotified: false };
+    audioEl: null, stream: null, gain: null, source: null, analyser: null, screenStream: null, screenId: null,
+    camStream: null, camId: null, camSenders: [], net: 'connecting', failNotified: false };
   V.peers.set(id, p);
   if (!V.micStream) V.micStream = silentStream();
   p.micSender = pc.addTrack(V.sendTrack || V.micStream.getAudioTracks()[0], V.micStream);
   if (V.sharing && V.screenStream) addScreenTo(p);
+  if (V.camera && V.camStream) addCameraTo(p);
   pc.onnegotiationneeded = async () => {
     try { p.makingOffer = true; await pc.setLocalDescription(); signal(id, { desc: pc.localDescription }); }
     catch (e) { console.warn('offer', e); }
@@ -213,7 +218,8 @@ function getPeer(id) {
   pc.onicecandidate = ({ candidate }) => { if (candidate) signal(id, { cand: candidate }); };
   pc.ontrack = (e) => {
     const st = e.streams[0] || new MediaStream([e.track]);
-    if (e.track.kind === 'video' || (p.screenId && st.id === p.screenId)) { p.screenStream = st; hooks.change(); }
+    if (p.camId && st.id === p.camId) { p.camStream = st; hooks.change(); }
+    else if (e.track.kind === 'video' || (p.screenId && st.id === p.screenId)) { p.screenStream = st; hooks.change(); }
     else setRemoteAudio(p, st);
   };
   pc.oniceconnectionstatechange = () => {
@@ -233,7 +239,11 @@ export async function onRtc(from, data) {
   const p = getPeer(from);
   const pc = p.pc;
   try {
-    if ('screen' in data) {
+    if ('cam' in data) {
+      p.camId = data.cam || null;
+      if (!data.cam) p.camStream = null;
+      hooks.change();
+    } else if ('screen' in data) {
       p.screenId = data.screen || null;
       if (!data.screen) p.screenStream = null;
       hooks.change();
@@ -372,6 +382,53 @@ export function stopShare(notify = true) {
     for (const sender of p.screenSenders) { try { p.pc.removeTrack(sender); } catch {} }
     p.screenSenders = [];
     if (notify) signal(p.id, { screen: null });
+  }
+  if (s) s.getTracks().forEach((t) => t.stop());
+  if (notify) sendVoiceState();
+  hooks.change();
+}
+
+/* ================= camera ================= */
+export const canCamera = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function addCameraTo(p) {
+  signal(p.id, { cam: V.camStream.id });   // which incoming video is the camera, before it arrives
+  for (const t of V.camStream.getVideoTracks()) {
+    const sender = p.pc.addTrack(t, V.camStream);
+    p.camSenders.push(sender);
+    try {
+      const prm = sender.getParameters();
+      prm.encodings = prm.encodings && prm.encodings.length ? prm.encodings : [{}];
+      prm.encodings[0].maxBitrate = 600_000;
+      sender.setParameters(prm).catch(() => {});
+    } catch {}
+  }
+}
+export async function startCamera() {
+  if (!V.channelId || V.camera) return;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: settings.camId ? { ideal: settings.camId } : undefined, width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 } },
+    });
+  } catch (e) {
+    toast(e && e.name === 'NotAllowedError' ? 'Camera access is blocked. Allow it in your browser or system settings.' : 'Couldn’t start your camera. Is another app using it?', 5000);
+    return;
+  }
+  const t = stream.getVideoTracks()[0];
+  if (t) t.addEventListener('ended', () => stopCamera(true));
+  V.camStream = stream; V.camera = true;
+  for (const p of V.peers.values()) addCameraTo(p);
+  sendVoiceState();
+  hooks.change();
+}
+export function stopCamera(notify = true) {
+  if (!V.camera) return;
+  const s = V.camStream;
+  V.camera = false; V.camStream = null;
+  for (const p of V.peers.values()) {
+    for (const sender of p.camSenders) { try { p.pc.removeTrack(sender); } catch {} }
+    p.camSenders = [];
+    if (notify) signal(p.id, { cam: null });
   }
   if (s) s.getTracks().forEach((t) => t.stop());
   if (notify) sendVoiceState();

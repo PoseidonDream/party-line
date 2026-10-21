@@ -55,6 +55,8 @@
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.89a.5.5 0 0 0-.76-.43L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+    <symbol id="i-video-off" viewBox="0 0 24 24"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.25-3.06a.5.5 0 0 1 .75.44v8.24"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/><path d="m2 2 20 20"/></symbol>
     <symbol id="i-reply" viewBox="0 0 24 24"><path d="m9 17-5-5 5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></symbol>
     <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
@@ -285,6 +287,7 @@
         <button type="button" class="vs-chan" id="vsChan" title="Open voice channel"></button>
       </div>
       <div class="vs-btns">
+        <button type="button" class="ub" id="camBtn"><svg class="ic"><use href="#i-video"/></svg><span class="sr lbl">Turn on camera</span></button>
         <button type="button" class="ub" id="shareBtn"><svg class="ic"><use href="#i-screen"/></svg><span class="sr lbl">Share screen</span></button>
         <button type="button" class="ub" id="noiseBtn"><svg class="ic"><use href="#i-wave"/></svg><span class="sr lbl">Noise filter</span></button>
         <button type="button" class="ub danger" id="vcLeaveBtn" title="Disconnect from voice"><svg class="ic"><use href="#i-phone-off"/></svg><span class="sr">Disconnect from voice</span></button>
@@ -391,6 +394,10 @@
       <div class="field">
         <label class="flabel" for="setMic">Microphone</label>
         <select id="setMic"><option value="">System default</option></select>
+      </div>
+      <div class="field" id="camField">
+        <label class="flabel" for="setCam">Camera</label>
+        <select id="setCam"><option value="">System default</option></select>
       </div>
       <div class="field" id="speakerField">
         <label class="flabel" for="setSpeaker">Speaker</label>
