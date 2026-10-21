@@ -1,0 +1,141 @@
+/* Party Line server: the web app, a small JSON API, file uploads and the live WebSocket hub. */
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import express from 'express';
+import { config } from './config.js';
+import * as M from './model.js';
+import { attachHub, hub } from './hub.js';
+
+M.ensureDefaultServer();
+M.syncAdmins();
+const uploadDir = path.join(config.dataDir, 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const app = express();
+app.disable('x-powered-by');
+if (config.trustProxy) app.set('trust proxy', 1);
+app.use(express.json({ limit: '64kb' }));
+
+/* Too many wrong passwords from one address: slow down. */
+const attempts = new Map();
+function throttle(req, res, next) {
+  const k = req.ip, t = Date.now();
+  const a = (attempts.get(k) || []).filter((x) => t - x < 10 * 60_000);
+  if (a.length >= 20) return res.status(429).json({ error: 'Too many tries. Wait a few minutes and try again.' });
+  a.push(t); attempts.set(k, a);
+  next();
+}
+const bearer = (req) => (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+function auth(req, res, next) {
+  const u = M.userForToken(bearer(req));
+  if (!u) return res.status(401).json({ error: 'Sign in again.' });
+  req.user = u; next();
+}
+const wrap = (fn) => (req, res) => {
+  try { const r = fn(req, res); if (r !== undefined) res.json(r); }
+  catch (e) {
+    if (e instanceof M.UserError) res.status(400).json({ error: e.message });
+    else { console.error(e); res.status(500).json({ error: 'Something went wrong on the server.' }); }
+  }
+};
+
+app.get('/api/info', wrap(() => ({ name: 'Party Line', needsGroupPassword: !!config.groupPassword, version: 1 })));
+app.post('/api/register', throttle, wrap((req) => {
+  const { name, password, groupPassword } = req.body || {};
+  const r = M.register(name, password, groupPassword);
+  hub.userChanged(r.user);
+  return { token: r.token, user: M.publicUser(r.user) };
+}));
+app.post('/api/login', throttle, wrap((req) => {
+  const r = M.login((req.body || {}).name, (req.body || {}).password);
+  return { token: r.token, user: M.publicUser(r.user) };
+}));
+app.post('/api/logout', wrap((req) => { M.logout(bearer(req)); return { ok: true }; }));
+app.post('/api/password', auth, wrap((req) => { M.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword); return { ok: true }; }));
+
+/* ICE servers for voice. TURN passwords are short-lived and signed with TURN_SECRET (coturn "use-auth-secret"). */
+app.get('/api/ice', auth, wrap((req) => {
+  const ice = [{ urls: config.stunUrls }];
+  if (config.turnUrls.length && config.turnSecret) {
+    const username = `${Math.floor(Date.now() / 1000) + 24 * 3600}:${req.user.id}`;
+    const credential = crypto.createHmac('sha1', config.turnSecret).update(username).digest('base64');
+    ice.push({ urls: config.turnUrls, username, credential });
+  }
+  return { iceServers: ice };
+}));
+
+app.get('/api/channels/:id/messages', auth, wrap((req) => {
+  const c = M.getChannel(Number(req.params.id));
+  if (!c || !M.isMember(req.user.id, c.server_id) || c.kind !== 'text') return { messages: [] };
+  return { messages: M.history('channel_id', c.id, Number(req.query.before) || 0) };
+}));
+app.get('/api/dms/:userId/messages', auth, wrap((req) => {
+  const d = M.dmWith(req.user.id, Number(req.params.userId), false);
+  return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [] };
+}));
+
+/* Uploads: the raw file is the request body. */
+const IMAGE = /^image\/(png|jpeg|gif|webp|avif|bmp)$/;
+const VIDEO = /^video\/(mp4|webm|quicktime|ogg|x-matroska)$/;
+const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif', 'image/bmp': 'bmp',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov', 'video/ogg': 'ogv', 'video/x-matroska': 'mkv' };
+function receive(req, res, max, okType, done) {
+  const type = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!okType(type)) return res.status(415).json({ error: 'Only photos and videos can be shared.' });
+  const len = Number(req.get('content-length') || 0);
+  if (len > max) return res.status(413).json({ error: `That file is too big. The limit is ${Math.round(max / 1048576)} MB.` });
+  const name = decodeURIComponent(String(req.get('x-file-name') || 'file')).replace(/[\u0000-\u001f/\\]/g, '').slice(0, 120) || 'file';
+  const tmp = path.join(uploadDir, `.tmp-${crypto.randomBytes(8).toString('hex')}`);
+  const out = fs.createWriteStream(tmp);
+  let size = 0, aborted = false;
+  req.on('data', (chunk) => {
+    size += chunk.length;
+    if (size > max && !aborted) { aborted = true; req.unpipe(out); out.destroy(); fs.rm(tmp, () => {}); res.status(413).json({ error: 'That file is too big.' }); req.destroy(); }
+  });
+  req.pipe(out);
+  out.on('finish', () => {
+    if (aborted) return;
+    const id = M.addUpload(req.user.id, name, type, size);
+    fs.rename(tmp, path.join(uploadDir, id), (err) => {
+      if (err) return res.status(500).json({ error: 'Could not save the file.' });
+      done({ id, url: `/uploads/${id}`, name, type, size, ext: EXT[type] });
+    });
+  });
+  out.on('error', () => { if (!aborted) res.status(500).json({ error: 'Could not save the file.' }); });
+}
+app.post('/api/upload', auth, (req, res) => {
+  const type = String(req.get('content-type') || '').toLowerCase();
+  const max = type.startsWith('video/') ? config.maxVideo : config.maxImage;
+  receive(req, res, max, (t) => IMAGE.test(t) || VIDEO.test(t), (f) => res.json(f));
+});
+app.post('/api/avatar', auth, (req, res) => {
+  receive(req, res, config.maxAvatar, (t) => IMAGE.test(t), (f) => {
+    const u = M.setAvatar(req.user.id, f.url);
+    hub.userChanged(u);
+    res.json({ user: M.publicUser(u) });
+  });
+});
+app.delete('/api/avatar', auth, wrap((req) => { const u = M.setAvatar(req.user.id, null); hub.userChanged(u); return { user: M.publicUser(u) }; }));
+app.get('/uploads/:id', (req, res) => {
+  const up = M.getUpload(String(req.params.id));
+  if (!up) return res.status(404).end();
+  res.setHeader('Content-Type', up.type);
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(up.name)}`);
+  res.sendFile(path.join(uploadDir, up.id), { acceptRanges: true });
+});
+
+/* The web app. Invite links (/invite/CODE) open the same page. */
+app.use(express.static(config.webDir, { index: 'index.html', extensions: ['html'], setHeaders: (res, p) => {
+  if (p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css')) res.setHeader('Cache-Control', 'no-cache');
+} }));
+app.get(['/invite/:code', '/app'], (req, res) => res.sendFile(path.join(config.webDir, 'index.html')));
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
+const server = http.createServer(app);
+attachHub(server);
+server.listen(config.port, () => console.log(`Party Line server on http://localhost:${config.port} (data in ${config.dataDir})`));
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { server.close(); process.exit(0); });

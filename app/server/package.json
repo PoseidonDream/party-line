@@ -1,0 +1,17 @@
+{
+  "name": "party-line-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Party Line server: accounts, servers, channels, messages, friends, DMs and voice signaling. Also serves the web app.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.3"
+  }
+}

@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11151d">
+<title>Party Line</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+    <symbol id="i-mic-off" viewBox="0 0 24 24"><path d="M2 2l20 20"/><path d="M18.89 13.23A7 7 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M12 19v3"/></symbol>
+    <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></symbol>
+    <symbol id="i-headphones-off" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/><path d="M2 2l20 20"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="m9 10 3-3 3 3"/><path d="M12 13V7"/></symbol>
+    <symbol id="i-screen-off" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="m14.5 7.5-5 5"/><path d="m9.5 7.5 5 5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></symbol>
+    <symbol id="i-leave" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-max" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+    <symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-plus-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+    <symbol id="i-signal" viewBox="0 0 24 24"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></symbol>
+    <symbol id="i-phone-off" viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="M22 2 2 22"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/><path d="M2 2l20 20"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-feedback" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 8h8"/><path d="M8 12h5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.63a1 1 0 0 0 1.52.3l4.27-3.66a.5.5 0 0 1 .82.52l-2.83 10.25a1 1 0 0 1-.96.73H5.8a1 1 0 0 1-.96-.73L2.01 6.06a.5.5 0 0 1 .82-.52L7.1 9.2a1 1 0 0 0 1.52-.3z"/><path d="M5 21h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="3"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-user-x" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></symbol>
+    <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></symbol>
+  </defs>
+</svg>
+
+
+<!-- ================= SIGN IN ================= -->
+<main id="join" class="join" hidden>
+  <section>
+    <h1 class="wordmark"><span>Party</span><span class="lit">Line</span></h1>
+    <p class="lede">A private place for you and your friends: voice channels, text channels, screen sharing, photos and videos, friends and private chats.</p>
+    <div class="jackfield" id="jackfield" aria-hidden="true"></div>
+    <p class="strip" id="joinStrip">Your own server · Chats are saved · Works on PC and phone</p>
+  </section>
+
+  <section class="join-card">
+    <div class="auth-tabs" role="tablist" aria-label="Sign in or create an account">
+      <button type="button" class="tab" role="tab" id="tabLogin" aria-selected="true">Sign in</button>
+      <button type="button" class="tab" role="tab" id="tabRegister" aria-selected="false">Create account</button>
+    </div>
+    <form id="authForm" novalidate>
+      <p class="hint join-invite" id="joinInvite" hidden></p>
+      <label class="field">
+        <span class="flabel">Name</span>
+        <input type="text" id="authName" class="input" maxlength="24" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="e.g. Deniz">
+      </label>
+      <div class="field">
+        <label class="flabel" for="authPass">Password</label>
+        <div class="row">
+          <input type="password" id="authPass" class="input" autocomplete="current-password">
+          <button type="button" class="btn icon-btn" id="authShow" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="ic"><use href="#i-eye"/></svg></button>
+        </div>
+        <p class="hint" id="authPassHint" hidden>At least 4 characters. You type it once on each device.</p>
+      </div>
+      <div class="field" id="groupField" hidden>
+        <label class="flabel" for="authGroup">Group password</label>
+        <input type="password" id="authGroup" class="input" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <p class="hint">The password your friend group shares. Ask whoever invited you.</p>
+      </div>
+      <p class="error" id="authError" role="alert" hidden></p>
+      <button type="submit" class="btn primary" id="authBtn">Sign in</button>
+    </form>
+    <p class="fineprint">Messages and pictures are kept on your group's Party Line server. Voice and screen shares go straight between you and your friends. Use headphones to avoid echo.</p>
+  </section>
+</main>
+
+<div class="switching" id="booting"><div class="switch-card" role="status"><span class="spinner" aria-hidden="true"></span><span id="bootText">Connecting…</span></div></div>
+
+<!-- ================= APP ================= -->
+<main id="room" class="app" hidden>
+  <aside class="side" id="side" aria-label="Servers and channels">
+    <nav class="rail" aria-label="Your servers">
+      <div class="rail-item" id="railHomeItem"><button type="button" class="rail-btn rail-home" id="railHome" title="Home: friends and private chats" aria-label="Home"><svg class="ic"><use href="#i-home"/></svg></button><span class="rail-badge" id="railHomeBadge" hidden></span></div>
+      <span class="rail-sep" aria-hidden="true"></span>
+      <ul class="rail-list" id="railList"></ul>
+      <span class="rail-sep" aria-hidden="true"></span>
+      <button type="button" class="rail-add" id="railAdd" title="Join or create a server" aria-label="Join or create a server"><svg class="ic"><use href="#i-plus"/></svg></button>
+    </nav>
+    <div class="side-main">
+      <div class="side-home" id="sideHome">
+        <button type="button" class="nav-item" id="navFriends"><svg class="ic"><use href="#i-users"/></svg><span>Friends</span><span class="count-pill" id="pendingCount" hidden></span></button>
+        <div class="cat-head dm-head"><span class="cat-label">Private chats</span></div>
+        <ul class="dm-list" id="dmList" aria-label="Private chats"></ul>
+        <p class="side-home-text" id="dmEmpty">Chats with your friends show up here. Add a friend, then press the chat button next to their name.</p>
+      </div>
+      <header class="server-head">
+        <button type="button" class="server-btn" id="serverBtn" aria-expanded="false" aria-controls="serverMenu"><span id="serverName"></span><svg class="ic"><use href="#i-chevron"/></svg></button>
+        <div class="menu" id="serverMenu" hidden>
+          <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
+          <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
+          <button type="button" id="mFeedback"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
+          <button type="button" id="mSettings"><svg class="ic"><use href="#i-sliders"/></svg>Settings</button>
+          <button type="button" id="mLeave" class="danger"><svg class="ic"><use href="#i-leave"/></svg>Leave server</button>
+          <button type="button" id="mDelete" class="danger"><svg class="ic"><use href="#i-trash"/></svg>Delete server</button>
+        </div>
+      </header>
+      <p class="conn-line" aria-live="polite"><span class="dot" id="statusDot"></span><span id="statusText">Connected</span><span aria-hidden="true">·</span><span id="countText"></span></p>
+      <nav class="channels" aria-label="Channels">
+        <section class="cat">
+          <div class="cat-head">
+            <button type="button" class="cat-toggle" aria-expanded="true" aria-controls="textList"><svg class="ic"><use href="#i-chevron"/></svg>Text Channels</button>
+            <button type="button" class="cat-add" id="addText" aria-label="Create a text channel" title="Create a text channel"><svg class="ic"><use href="#i-plus"/></svg></button>
+          </div>
+          <form class="cat-new" id="newTextForm" hidden><label class="sr" for="newText">New text channel name</label><input type="text" id="newText" maxlength="32" placeholder="new-channel" autocomplete="off" spellcheck="false"></form>
+          <ul class="chan-list" id="textList"></ul>
+        </section>
+        <section class="cat">
+          <div class="cat-head">
+            <button type="button" class="cat-toggle" aria-expanded="true" aria-controls="voiceList"><svg class="ic"><use href="#i-chevron"/></svg>Voice Channels</button>
+            <button type="button" class="cat-add" id="addVoice" aria-label="Create a voice channel" title="Create a voice channel"><svg class="ic"><use href="#i-plus"/></svg></button>
+          </div>
+          <form class="cat-new" id="newVoiceForm" hidden><label class="sr" for="newVoice">New voice channel name</label><input type="text" id="newVoice" maxlength="32" placeholder="New voice channel" autocomplete="off"></form>
+          <ul class="chan-list" id="voiceList"></ul>
+        </section>
+      </nav>
+    </div>
+  </aside>
+  <div class="drawer-scrim" id="drawerScrim" hidden></div>
+
+  <section class="main" aria-label="Open channel">
+    <header class="main-head">
+      <button type="button" class="ub drawer-btn" id="drawerBtn" aria-label="Show channels"><svg class="ic"><use href="#i-menu"/></svg><span class="dot-badge" id="drawerBadge" hidden></span></button>
+      <span class="view-icon" id="viewIcon" aria-hidden="true">#</span>
+      <h1 class="view-title" id="viewTitle"></h1>
+      <span class="view-sub" id="viewSub"></span>
+      <div class="head-actions">
+        <button type="button" class="btn small" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
+        <button type="button" class="btn small" id="feedbackBtn" title="Send feedback"><svg class="ic"><use href="#i-feedback"/></svg><span class="hide-sm">Feedback</span><span class="count-pill" id="fbCount" hidden></span></button>
+      </div>
+    </header>
+
+    <div class="offline-bar" id="offlineBar" role="status" hidden><span class="spinner" aria-hidden="true"></span><span>Lost connection to the server. Reconnecting…</span></div>
+    <section class="micpanel" id="micPanel" aria-labelledby="mpTitle" hidden>
+      <div class="mp-icon" aria-hidden="true"><svg class="ic"><use id="mpIconUse" href="#i-mic-off"/></svg></div>
+      <div class="mp-main" aria-live="polite">
+        <h2 class="mp-title" id="mpTitle"></h2>
+        <p class="mp-text" id="mpText"></p>
+        <ol class="mp-steps" id="mpSteps"></ol>
+        <div class="mp-controls">
+          <label for="mpMic" class="sr">Microphone</label>
+          <select id="mpMic"><option value="">System default</option></select>
+          <button type="button" class="btn" id="mpRetry">Try again</button>
+        </div>
+        <div class="mp-meter-label"><span>Mic level</span><span id="mpMeterHint">Say something. The bar should move.</span></div>
+        <div class="meter" aria-hidden="true"><i></i></div>
+      </div>
+      <button type="button" class="btn small icon-btn" id="mpClose" aria-label="Hide mic check" title="Hide"><svg class="ic"><use href="#i-x"/></svg></button>
+    </section>
+    <div class="afk-bar" id="afkBar" role="status" hidden>
+      <span class="afk-ic" aria-hidden="true"><svg class="ic"><use href="#i-clock"/></svg></span>
+      <span class="afk-text" id="afkText"></span>
+      <button type="button" class="btn small" id="afkUnmute">Unmute</button>
+    </div>
+    <div class="notice-row" id="audioUnlockRow" hidden><button type="button" class="btn" id="audioUnlock"><svg class="ic"><use href="#i-volume"/></svg>Turn on sound</button></div>
+
+    <div class="view-text" id="viewText" hidden>
+      <ol class="messages" id="messages"></ol>
+      <form class="composer" id="chatForm">
+        <div class="composer-box">
+          <div class="tray" id="tray" hidden></div>
+          <div class="composer-row">
+            <button type="button" class="ub" id="attachBtn" aria-label="Add photos or videos" title="Add photos or videos"><svg class="ic"><use href="#i-plus-circle"/></svg></button>
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,video/mp4,video/webm,video/quicktime" multiple hidden>
+            <label for="chatInput" class="sr">Message</label>
+            <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Message"></textarea>
+            <button type="submit" class="ub" aria-label="Send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
+          </div>
+        </div>
+      </form>
+      <div class="dropzone" id="dropzone" hidden>Drop to share</div>
+    </div>
+
+    <div class="view-home" id="viewHome" hidden>
+      <div class="friends-page">
+        <div class="tabs" role="tablist" aria-label="Friends">
+          <button type="button" class="tab" role="tab" data-tab="online">Online</button>
+          <button type="button" class="tab" role="tab" data-tab="all">All</button>
+          <button type="button" class="tab" role="tab" data-tab="pending">Pending<span class="count-pill" id="pendingCount2" hidden></span></button>
+          <button type="button" class="tab tab-add" role="tab" data-tab="add">Add friend</button>
+        </div>
+        <div class="fr-scroll">
+          <form class="fr-add" id="frAddForm" hidden>
+            <h2>Add friend</h2>
+            <p class="fr-add-text">Type the name your friend uses in Party Line. Once they accept, you can chat in private.</p>
+            <div class="fr-add-row">
+              <label class="sr" for="frAddName">Friend's name</label>
+              <input type="text" id="frAddName" class="input" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Their name">
+              <button type="submit" class="btn primary"><svg class="ic"><use href="#i-user-plus"/></svg>Send friend request</button>
+            </div>
+            <p class="fr-note" id="frAddNote" role="status" hidden></p>
+          </form>
+          <div id="frBody"></div>
+          <section class="home-servers-box" aria-labelledby="homeServersTitle">
+            <h3 class="fr-section-title" id="homeServersTitle">Your servers</h3>
+            <ul class="home-servers" id="homeServers"></ul>
+            <p class="home-empty" id="homeEmpty">You're not in any servers yet.</p>
+            <button type="button" class="btn" id="homeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div class="view-voice" id="viewVoice" hidden>
+      <div class="stage" id="stage" hidden>
+        <div class="stage-bar">
+          <div class="stage-title" id="stageTitle"></div>
+          <div class="stage-switch" id="stageSwitch"></div>
+          <button type="button" class="btn small" id="stageFull"><svg class="ic"><use href="#i-max"/></svg>Fullscreen</button>
+          <button type="button" class="btn small icon-btn" id="stageClose" aria-label="Stop watching" title="Stop watching"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="stage-view">
+          <video id="stageVideo" autoplay playsinline muted></video>
+          <div class="stage-wait" id="stageWait" hidden>Connecting to the stream…</div>
+        </div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="alone" id="alone" hidden><span id="aloneText"></span></div>
+      <div class="voice-empty" id="voiceEmpty" hidden>
+        <p id="voiceEmptyText">Nobody's here yet.</p>
+        <div class="row-btns"><button type="button" class="btn primary join-voice" id="joinVoiceBtn"><svg class="ic"><use href="#i-mic"/></svg>Join voice</button></div>
+      </div>
+      <div class="row-btns" id="joinVoiceRow" hidden><button type="button" class="btn primary join-voice" id="joinVoiceBtn2"><svg class="ic"><use href="#i-mic"/></svg>Join voice</button></div>
+    </div>
+  </section>
+
+  <footer class="user-area" aria-label="Your voice controls">
+    <div class="voice-status" id="voiceStatus" hidden>
+      <div class="vs-text">
+        <span class="vs-state" id="vsState"><svg class="ic"><use href="#i-signal"/></svg>Voice connected</span>
+        <button type="button" class="vs-chan" id="vsChan" title="Open voice channel"></button>
+      </div>
+      <div class="vs-btns">
+        <button type="button" class="ub" id="shareBtn"><svg class="ic"><use href="#i-screen"/></svg><span class="sr lbl">Share screen</span></button>
+        <button type="button" class="ub" id="noiseBtn"><svg class="ic"><use href="#i-wave"/></svg><span class="sr lbl">Noise filter</span></button>
+        <button type="button" class="ub danger" id="vcLeaveBtn" title="Disconnect from voice"><svg class="ic"><use href="#i-phone-off"/></svg><span class="sr">Disconnect from voice</span></button>
+      </div>
+    </div>
+    <button type="button" class="ptt-hold" id="pttBtn" hidden><svg class="ic"><use href="#i-mic"/></svg>Hold to talk</button>
+    <div class="user-bar">
+      <button type="button" class="me" id="meBtn" aria-controls="micPanel" aria-expanded="false" title="Mic check">
+        <span class="mini-av" id="meAv" aria-hidden="true"></span>
+        <span class="me-text"><span class="me-name" id="meName"></span><span class="me-status" id="meStatus"></span></span>
+      </button>
+      <button type="button" class="ub" id="micBtn"><svg class="ic"><use href="#i-mic"/></svg><span class="sr lbl">Mute</span></button>
+      <button type="button" class="ub" id="deafBtn"><svg class="ic"><use href="#i-headphones"/></svg><span class="sr lbl">Deafen</span></button>
+      <button type="button" class="ub" id="setBtn" title="Settings"><svg class="ic"><use href="#i-sliders"/></svg><span class="sr">Settings</span></button>
+    </div>
+  </footer>
+</main>
+
+<!-- ================= ADD SERVER ================= -->
+<dialog id="addServer" aria-labelledby="asTitle">
+  <div class="set-head">
+    <h2 id="asTitle">Add a server</h2>
+    <button type="button" class="btn icon-btn" id="asClose" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="set-body">
+    <form id="asJoinForm" class="as-form" novalidate>
+      <label class="flabel" for="asInvite">Join with an invite</label>
+      <div class="row">
+        <input type="text" id="asInvite" class="input" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Invite link or code">
+        <button type="submit" class="btn">Join</button>
+      </div>
+      <p class="hint">Paste the invite link a friend sent you.</p>
+    </form>
+    <form id="asCreateForm" class="as-form" novalidate>
+      <label class="flabel" for="asName">Or create your own</label>
+      <div class="row">
+        <input type="text" id="asName" class="input" maxlength="40" autocomplete="off" placeholder="Server name">
+        <button type="submit" class="btn">Create</button>
+      </div>
+      <p class="hint">You get text and voice channels to start. Share the invite link with friends.</p>
+    </form>
+    <p class="error" id="asError" role="alert" hidden></p>
+  </div>
+</dialog>
+
+<!-- ================= FEEDBACK ================= -->
+<dialog id="feedback" aria-labelledby="fbTitle">
+  <div class="set-head">
+    <h2 id="fbTitle">Feedback</h2>
+    <button type="button" class="btn icon-btn" id="fbClose" aria-label="Close feedback"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="set-body">
+    <form id="fbForm" class="fb-form" novalidate>
+      <fieldset class="fb-kinds">
+        <legend class="sr">Kind of feedback</legend>
+        <label class="fb-kind"><input type="radio" name="fbKind" value="bug" checked><span>Bug</span></label>
+        <label class="fb-kind"><input type="radio" name="fbKind" value="idea"><span>Idea</span></label>
+        <label class="fb-kind"><input type="radio" name="fbKind" value="other"><span>Other</span></label>
+      </fieldset>
+      <label class="sr" for="fbText">Your message</label>
+      <textarea id="fbText" class="fb-text" maxlength="4000" placeholder="What happened, or what would make Party Line better?"></textarea>
+      <label class="check"><input type="checkbox" id="fbAnon"><span><b>Send without my name</b></span></label>
+      <p class="error" id="fbError" role="alert" hidden></p>
+      <p class="fb-note good" id="fbDone" role="status" hidden></p>
+      <button type="submit" class="btn primary" id="fbSend">Send feedback</button>
+    </form>
+    <section class="fb-section" id="fbInboxSec" hidden>
+      <div class="fb-section-head"><h3>Inbox</h3><button type="button" class="btn small" id="fbCopyAll"><svg class="ic"><use href="#i-copy"/></svg>Copy all</button></div>
+      <p class="fb-empty" id="fbInboxEmpty">No feedback yet.</p>
+      <ol class="fb-list" id="fbInbox"></ol>
+    </section>
+  </div>
+</dialog>
+
+<!-- ================= SETTINGS ================= -->
+<dialog id="settings" aria-labelledby="setTitle">
+  <form method="dialog">
+    <div class="set-head">
+      <h2 id="setTitle">Settings</h2>
+      <button class="btn icon-btn" value="close" aria-label="Close settings"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="set-body">
+      <div class="av-pick">
+        <button type="button" class="av-btn" id="setAvBtn"><span class="mini-av" id="setAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Change profile picture</span></button>
+        <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Square photos look best.</small>
+          <div class="av-actions"><button type="button" class="btn small" id="setAvChange">Change picture</button><button type="button" class="btn small" id="setAvRemove">Remove</button></div>
+        </div>
+        <input type="file" id="setAvFile" accept="image/*" hidden>
+      </div>
+      <div class="field">
+        <label class="flabel" for="setName">Display name</label>
+        <div class="row"><input type="text" id="setName" class="input" maxlength="24" autocomplete="nickname"><button type="button" class="btn" id="setNameSave">Save</button></div>
+        <p class="hint" id="setNameNote">Friends sign in and find you by this name.</p>
+      </div>
+      <div class="field">
+        <label class="flabel" for="setMic">Microphone</label>
+        <select id="setMic"><option value="">System default</option></select>
+      </div>
+      <div class="field" id="speakerField">
+        <label class="flabel" for="setSpeaker">Speaker</label>
+        <select id="setSpeaker"><option value="">System default</option></select>
+      </div>
+      <fieldset class="field levels">
+        <legend class="flabel">Voice levels</legend>
+        <div class="level">
+          <div class="level-head"><label for="inVol">Your mic volume</label><output id="inVolOut" for="inVol">100%</output></div>
+          <input type="range" id="inVol" min="0" max="150" step="1" list="volTicks">
+          <div class="meter" aria-hidden="true"><i></i></div>
+          <small>How loud your friends hear you. Talk and watch the bar; it should reach about halfway.</small>
+        </div>
+        <div class="level">
+          <div class="level-head"><label for="outVol">Everyone's volume</label><output id="outVolOut" for="outVol">100%</output></div>
+          <input type="range" id="outVol" min="0" max="150" step="1" list="volTicks">
+          <small>How loud you hear everyone. To change one friend, click their tile in a voice channel.</small>
+        </div>
+      </fieldset>
+      <fieldset class="field">
+        <legend class="flabel">Background noise</legend>
+        <label class="radio"><input type="radio" name="noise" value="strong"><span><b>Strong</b><small>Your browser's filter plus Party Line's extra filter. Removes steady noise like fans, AC and hum.</small></span></label>
+        <label class="radio"><input type="radio" name="noise" value="standard"><span><b>Standard</b><small>The built-in filter only. Use this if your voice sounds choppy on Strong.</small></span></label>
+        <label class="radio"><input type="radio" name="noise" value="off"><span><b>Off</b><small>Raw microphone. Best for music.</small></span></label>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="setPtt"><span><b>Push to talk</b><small id="pttHint">Hold Space (or the Hold to talk button) to talk.</small></span></label>
+      <label class="check" id="notifyField"><input type="checkbox" id="setNotify"><span><b>Pop-up notifications</b><small>For private messages while Party Line is in the background.</small></span></label>
+      <fieldset class="field">
+        <legend class="flabel">Screen share quality</legend>
+        <label class="radio"><input type="radio" name="quality" value="motion"><span><b>Smooth</b><small>720p at 30 fps. Best for games and videos.</small></span></label>
+        <label class="radio"><input type="radio" name="quality" value="detail"><span><b>Sharp</b><small>1080p at 15 fps. Best for code, slides and documents.</small></span></label>
+      </fieldset>
+      <details class="pw-box">
+        <summary>Change password</summary>
+        <div class="pw-form">
+          <input type="password" id="pwOld" class="input" placeholder="Current password" autocomplete="current-password">
+          <input type="password" id="pwNew" class="input" placeholder="New password" autocomplete="new-password">
+          <button type="button" class="btn" id="pwSave">Change password</button>
+          <p class="hint" id="pwNote" hidden></p>
+        </div>
+      </details>
+      <div class="keys">
+        <span class="flabel">Shortcuts</span>
+        <dl>
+          <dt><kbd>M</kbd></dt><dd>Mute or unmute</dd>
+          <dt><kbd>D</kbd></dt><dd>Deafen or undeafen (also mutes you)</dd>
+          <dt><kbd>N</kbd></dt><dd>Noise filter Strong or Standard</dd>
+          <dt><kbd>Space</kbd></dt><dd>Talk, when push to talk is on</dd>
+        </dl>
+      </div>
+      <p class="hint" id="appInfo"></p>
+      <button type="button" class="link-btn" id="signOut"><svg class="ic"><use href="#i-leave"/></svg>Sign out on this device</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="volTicks"><option value="0"></option><option value="100"></option><option value="150"></option></datalist>
+<div class="popover" id="userPop" role="dialog" aria-label="Person" hidden>
+  <div class="pop-who"><span class="mini-av" id="popAv" aria-hidden="true"></span><div class="pop-title" id="popName"></div></div>
+  <div class="level" id="popVolBox">
+    <div class="level-head"><label for="volRange">Volume</label><output id="volOut" for="volRange">100%</output></div>
+    <input type="range" id="volRange" min="0" max="150" step="1" list="volTicks">
+    <small>100% is their normal level. Up to 150% makes a quiet friend louder, only for you.</small>
+    <div class="pop-actions">
+      <label class="check"><input type="checkbox" id="volMute"><span><b>Mute for me</b></span></label>
+      <button type="button" class="btn small" id="volReset">Reset</button>
+    </div>
+  </div>
+  <div class="pop-btns">
+    <button type="button" class="btn small" id="popMsg"><svg class="ic"><use href="#i-chat"/></svg>Message</button>
+    <button type="button" class="btn small" id="popFriend"><svg class="ic"><use href="#i-user-plus"/></svg>Add friend</button>
+  </div>
+  <div class="pop-admin" id="popAdmin" hidden>
+    <span class="flabel"><svg class="ic"><use href="#i-crown"/></svg>Admin</span>
+    <button type="button" class="btn small" id="admVoiceKick">Disconnect from voice</button>
+    <button type="button" class="btn small" id="admMute">Mute for everyone</button>
+    <button type="button" class="btn small adm-danger" id="admKick">Remove from server</button>
+  </div>
+</div>
+<dialog id="confirmDlg" aria-labelledby="cfTitle">
+  <form method="dialog" class="cf">
+    <h2 id="cfTitle"></h2>
+    <p id="cfText"></p>
+    <input type="text" id="cfInput" class="input" maxlength="40" hidden>
+    <div class="cf-btns"><button class="btn" value="cancel">Cancel</button><button class="btn cf-ok" value="ok" id="cfOk">Delete</button></div>
+  </form>
+</dialog>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo" hidden>
+  <div class="lb-bar">
+    <span class="lb-name" id="lbName"></span>
+    <a class="btn small lb-btn" id="lbSave" download><svg class="ic"><use href="#i-download"/></svg>Save</a>
+    <button type="button" class="btn small icon-btn lb-btn" id="lbClose" aria-label="Close photo"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <img id="lbImg" alt="">
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="audioSink" hidden></div>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

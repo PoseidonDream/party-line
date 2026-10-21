@@ -1,0 +1,13 @@
+{
+  "name": "Party Line",
+  "short_name": "Party Line",
+  "description": "Voice channels, text channels, screen sharing and private chats for your friend group.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#11151d",
+  "theme_color": "#11151d",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
