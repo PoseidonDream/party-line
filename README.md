@@ -1,5 +1,7 @@
 # Party Line
 
+> **New: Party Line as its own app.** There's now a server version with real accounts, saved chats, a desktop app for Windows, Mac and Linux, and a website that works on phones. See [app/README.md](app/README.md), and [deploy/DEPLOY.md](deploy/DEPLOY.md) to put it online for about $5 a month. The peer-to-peer site described below still works as before.
+
 **A private, Discord-style place for a small group of friends to talk, play and hang out, right in the browser.**
 
 Live site: **https://poseidondream.github.io/party-line/**
