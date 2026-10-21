@@ -7,6 +7,7 @@ name: Android app
 on:
   workflow_dispatch:
   push:
+    branches: ['**']
     tags: ['android-v*']
     paths: ['app/mobile/**', '.github/workflows/android.yml']
 
