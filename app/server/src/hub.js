@@ -12,15 +12,17 @@ const send = (c, msg) => { if (c && c.ws.readyState === 1) c.ws.send(JSON.string
 const toUser = (userId, msg, except) => { for (const c of byUser.get(userId) || []) if (c !== except) send(c, msg); };
 const toUsers = (ids, msg) => { for (const id of new Set(ids)) toUser(id, msg); };
 const toServer = (serverId, msg) => toUsers(M.memberIds(serverId), msg);
-const toAll = (msg) => { for (const c of conns.values()) send(c, msg); };
+const userView = (id) => { const u = M.getUser(id); return u && Object.assign(M.publicUser(u), { online: online(id) }); };
+/* Everyone online who can see this person (see M.canSeeUser). */
+const toWatchers = (userId, msg) => { for (const uid of byUser.keys()) if (M.canSeeUser(uid, userId)) toUser(uid, msg); };
 const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
   sharing: v.sharing, camera: !!v.camera, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
 const fail = (msg) => { throw new M.UserError(msg); };
 
 export const hub = {
-  userChanged(u) { toAll({ t: 'user', user: Object.assign(M.publicUser(u), { online: online(u.id) }) }); },
-  joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId }); },
+  userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); },
+  joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
 
 function readyFor(user) {
@@ -29,7 +31,7 @@ function readyFor(user) {
   return {
     t: 'ready',
     me: M.publicUser(user),
-    users: M.allUsers().map((u) => Object.assign(u, { online: online(u.id) })),
+    users: M.visibleUsers(user.id).map((u) => Object.assign(u, { online: online(u.id) })),
     servers,
     friends: M.friendsOf(user.id),
     dms: M.dmsOf(user.id),
@@ -64,7 +66,7 @@ const handlers = {
     const dm = M.dmWith(user.id, other.id, true);
     const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
-    toUser(other.id, { t: 'dm', msg: m, withUserId: user.id });
+    toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
     return { msg: m };
   },
   'msg.edit'(c, user, d) {
@@ -113,7 +115,7 @@ const handlers = {
   /* ---- servers and channels ---- */
   'server.create'(c, user, d) {
     const id = M.createServer(user.id, d.name);
-    toUser(user.id, { t: 'server', server: M.serverView(id, user.id) });
+    toUser(user.id, { t: 'server', server: M.serverView(id, user.id), users: [userView(user.id)] });
     return { id };
   },
   'server.join'(c, user, d) {
@@ -122,9 +124,9 @@ const handlers = {
     if (!s) fail('That invite doesn’t work. Ask for a new one.');
     if (!M.isMember(user.id, s.id)) {
       M.joinServer(user.id, s.id);
-      toServer(s.id, { t: 'member', serverId: s.id, userId: user.id });
+      toServer(s.id, { t: 'member', serverId: s.id, userId: user.id, user: userView(user.id) });
     }
-    toUser(user.id, { t: 'server', server: M.serverView(s.id, user.id), voice: [...voice].filter(([, v]) => v.serverId === s.id).map(([id, v]) => voiceView(id, v)) });
+    toUser(user.id, { t: 'server', server: M.serverView(s.id, user.id), users: M.memberIds(s.id).map(userView), voice: [...voice].filter(([, v]) => v.serverId === s.id).map(([id, v]) => voiceView(id, v)) });
     return { id: s.id };
   },
   'server.leave'(c, user, d) {
@@ -175,15 +177,15 @@ const handlers = {
   /* ---- friends ---- */
   'friend.request'(c, user, d) {
     const r = M.requestFriend(user.id, d.name);
-    toUser(user.id, { t: 'friend', id: r.other.id, state: r.state });
-    toUser(r.other.id, { t: 'friend', id: user.id, state: r.state === 'friends' ? 'friends' : 'incoming' });
+    toUser(user.id, { t: 'friend', id: r.other.id, state: r.state, user: userView(r.other.id) });
+    toUser(r.other.id, { t: 'friend', id: user.id, state: r.state === 'friends' ? 'friends' : 'incoming', user: userView(user.id) });
     return { state: r.state, name: r.other.name };
   },
   'friend.accept'(c, user, d) {
     const id = Number(d.id);
     M.acceptFriend(user.id, id);
-    toUser(user.id, { t: 'friend', id, state: 'friends' });
-    toUser(id, { t: 'friend', id: user.id, state: 'friends' });
+    toUser(user.id, { t: 'friend', id, state: 'friends', user: userView(id) });
+    toUser(id, { t: 'friend', id: user.id, state: 'friends', user: userView(user.id) });
     return {};
   },
   'friend.remove'(c, user, d) {
@@ -302,7 +304,7 @@ export function attachHub(server) {
     if (!byUser.has(user.id)) byUser.set(user.id, new Set());
     byUser.get(user.id).add(c);
     send(c, readyFor(user));
-    if (first) toAll({ t: 'presence', userId: user.id, online: true });
+    if (first) toWatchers(user.id, { t: 'presence', userId: user.id, online: true });
 
     ws.on('pong', () => { c.alive = true; });
     ws.on('message', (raw) => {
@@ -326,7 +328,7 @@ export function attachHub(server) {
       set && set.delete(c);
       const v = voice.get(user.id);
       if (v && v.connId === c.id) leaveVoice(user.id);
-      if (!online(user.id)) { byUser.delete(user.id); toAll({ t: 'presence', userId: user.id, online: false }); }
+      if (!online(user.id)) { byUser.delete(user.id); toWatchers(user.id, { t: 'presence', userId: user.id, online: false }); }
     });
   });
   const beat = setInterval(() => {

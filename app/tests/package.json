@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Browser tests for Party Line: real Chromium windows talking to a real server.",
   "scripts": {
-    "test": "node run.mjs",
+    "test": "node --disable-warning=ExperimentalWarning run.mjs",
     "install-browser": "playwright-core install --with-deps chromium"
   },
   "devDependencies": {

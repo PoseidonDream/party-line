@@ -39,6 +39,7 @@ export async function startServer(env = {}) {
   process.on('exit', () => { try { proc.kill(); } catch {} });
   return {
     url: `http://localhost:${port}`,
+    dataDir,
     stop: async () => { await stop(); fs.rmSync(dataDir, { recursive: true, force: true }); },
     kill: stop,
     restart: launch,

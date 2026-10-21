@@ -340,3 +340,22 @@ export const setFeedbackDone = (id, done) => run('UPDATE feedback SET done = ? W
 export const deleteFeedback = (id) => run('DELETE FROM feedback WHERE id = ?', id);
 
 export const allUsers = () => all('SELECT * FROM users').map(publicUser);
+
+/* Who you can see: people who share a server with you, friends and friend requests, and people you've chatted with. */
+const VISIBLE = `
+  SELECT m2.user_id AS id FROM members m1 JOIN members m2 ON m2.server_id = m1.server_id WHERE m1.user_id = :me
+  UNION SELECT friend_id FROM friends WHERE user_id = :me
+  UNION SELECT CASE WHEN user_a = :me THEN user_b ELSE user_a END FROM dms WHERE user_a = :me OR user_b = :me
+  UNION SELECT :me`;
+export const visibleUsers = (me) => all(`SELECT * FROM users WHERE id IN (${VISIBLE})`, { me }).map(publicUser);
+export const canSeeUser = (me, other) => me === other || !!one(`SELECT 1 AS x FROM (${VISIBLE}) WHERE id = :other`, { me, other });
+
+/* Photos and videos nobody uses any more: from deleted messages, channels or servers, old profile pictures,
+   and uploads that were never sent. Kept for an hour first, so a message being written isn't affected. */
+export function unusedUploads(olderThan = 60 * 60_000) {
+  const used = new Set();
+  for (const r of all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) for (const a of JSON.parse(r.attachments)) used.add(a.id);
+  for (const r of all('SELECT avatar FROM users WHERE avatar IS NOT NULL')) used.add(String(r.avatar).replace('/uploads/', ''));
+  return all('SELECT id FROM uploads WHERE created_at < ?', now() - olderThan).map((r) => r.id).filter((id) => !used.has(id));
+}
+export const forgetUpload = (id) => run('DELETE FROM uploads WHERE id = ?', id);

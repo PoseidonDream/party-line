@@ -165,7 +165,9 @@ live.on('user', (d) => {
   renderAll(); rerenderMessagesSoft();
 });
 live.on('presence', (d) => { const u = S.users.get(d.userId); if (u) { u.online = d.online; renderSide(); renderConn(); if (S.view.kind === 'friends') renderFriends(); if (S.view.kind === 'dm') renderHeader(); } });
+const learnUsers = (list) => { for (const u of list || []) if (u) S.users.set(u.id, u); };
 live.on('server', (d) => {
+  learnUsers(d.users);
   S.servers.set(d.server.id, d.server);
   for (const v of d.voice || []) S.voice.set(v.userId, v);
   renderAll();
@@ -179,7 +181,7 @@ live.on('server.gone', (d) => {
   renderAll();
 });
 live.on('server.renamed', (d) => { const s = S.servers.get(d.id); if (s) { s.name = d.name; renderAll(); } });
-live.on('member', (d) => { const s = S.servers.get(d.serverId); if (s && !s.members.includes(d.userId)) { s.members.push(d.userId); renderConn(); } });
+live.on('member', (d) => { learnUsers([d.user]); const s = S.servers.get(d.serverId); if (s && !s.members.includes(d.userId)) { s.members.push(d.userId); renderConn(); } });
 live.on('member.left', (d) => { const s = S.servers.get(d.serverId); if (s) { s.members = s.members.filter((x) => x !== d.userId); renderConn(); } });
 live.on('chan', (d) => { const s = S.servers.get(d.channel.serverId); if (s && !s.channels.some((c) => c.id === d.channel.id)) { s.channels.push(d.channel); renderSide(); } });
 live.on('chan.del', (d) => {
@@ -218,6 +220,7 @@ live.on('voice.kicked', (d) => {
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
 live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
 live.on('dm', (d) => {
+  learnUsers([d.user]);
   const key = `d:${d.withUserId}`;
   const cur = S.dms.get(d.withUserId) || { id: d.msg.dmId, userId: d.withUserId, unread: 0 };
   cur.id = d.msg.dmId; cur.lastId = d.msg.id; cur.lastAt = d.msg.at;
@@ -244,6 +247,7 @@ live.on('read', (d) => {
   renderRail(); renderSide();
 });
 live.on('friend', (d) => {
+  learnUsers([d.user]);
   const prev = S.friends.get(d.id);
   if (d.state) S.friends.set(d.id, d.state); else S.friends.delete(d.id);
   if (d.state === 'incoming' && prev !== 'incoming') { chime('msg', V.deafened); toast(`${nameOf(d.id)} sent you a friend request.`, 5000, { label: 'View', fn: () => { S.friendTab = 'pending'; setView({ kind: 'friends' }); } }); }

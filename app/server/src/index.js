@@ -139,6 +139,20 @@ app.use(express.static(config.webDir, { index: 'index.html', extensions: ['html'
 app.get(['/invite/:code', '/app'], (req, res) => res.sendFile(path.join(config.webDir, 'index.html')));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
+/* Hourly: delete photos and videos nothing uses any more, and half-finished uploads. */
+function cleanUploads() {
+  let n = 0;
+  for (const id of M.unusedUploads()) { fs.rm(path.join(uploadDir, id), { force: true }, () => {}); M.forgetUpload(id); n++; }
+  for (const f of fs.readdirSync(uploadDir)) {
+    if (!f.startsWith('.tmp-')) continue;
+    const p = path.join(uploadDir, f);
+    try { if (Date.now() - fs.statSync(p).mtimeMs > 60 * 60_000) { fs.rmSync(p, { force: true }); n++; } } catch {}
+  }
+  if (n) console.log(`Cleaned up ${n} unused upload${n === 1 ? '' : 's'}.`);
+}
+setTimeout(cleanUploads, Number(process.env.CLEANUP_FIRST_MS) || 30_000).unref();
+setInterval(cleanUploads, 60 * 60_000).unref();
+
 const server = http.createServer(app);
 attachHub(server);
 server.listen(config.port, () => console.log(`Party Line server on http://localhost:${config.port} (data in ${config.dataDir})`));
