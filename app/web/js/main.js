@@ -530,7 +530,18 @@ function renderMainView() {
     $('#chatInput').placeholder = k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f ? `Message #${f.channel.name}` : 'Message';
   }
 }
-function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); }
+function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); }
+/* Android app: while you're in voice, a notification keeps it running when the phone locks or you switch apps. */
+const phoneApp = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor.registerPlugin('PartyLine') : null;
+let phoneInCall = null;
+function syncPhoneCall() {
+  if (!phoneApp) return;
+  const f = V.channelId && findChannel(V.channelId);
+  const key = f ? `${f.channel.id}` : '';
+  if (key === phoneInCall) return;
+  phoneInCall = key;
+  phoneApp.setInCall({ inCall: !!f, title: f ? `In voice: ${f.channel.name}` : '' }).catch(() => {});
+}
 
 /* ================= messages ================= */
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;

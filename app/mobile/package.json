@@ -1,0 +1,17 @@
+{
+  "name": "party-line-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Party Line for Android (and iPhone later): the Party Line website in an app, with voice that keeps running in the background.",
+  "scripts": {
+    "sync": "cap sync android",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/core": "^7.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.2.0"
+  }
+}

@@ -6,6 +6,7 @@ Party Line as its own app: a server your group runs, a website and a desktop app
 |---|---|
 | `server/` | Node.js server: accounts, servers, channels, saved messages, friends, private chats, photo and video uploads, who's online, and the handshakes that connect voice. Data goes in one SQLite file. Also serves the website. |
 | `web/` | The website (plain HTML, CSS and JavaScript, no build step). Same look as the original Party Line. |
+| `mobile/` | The Android app (Capacitor). It opens your server like the desktop app, and keeps voice running in the background with an "In voice" notification. Built by GitHub (Actions → Android app). See [SIGNING.md](SIGNING.md). |
 | `desktop/` | The Windows, Mac and Linux app (Electron). It opens your server and adds a screen and window picker, push to talk that works in games, a tray icon and auto-updates. |
 | `../deploy/` | Everything to run it on a $5 server: Docker, automatic HTTPS (Caddy), a voice relay (coturn) and a setup script. See [deploy/DEPLOY.md](../deploy/DEPLOY.md). |
 

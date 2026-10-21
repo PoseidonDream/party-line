@@ -78,7 +78,7 @@ GitHub builds the Windows, Mac and Linux installers for you.
    - `Party-Line-…-linux-x86_64.AppImage` for **Linux**
 4. Send friends the link to the release page.
 
-The installers aren't signed with a paid certificate, so the first time:
+The installers aren't signed with a paid certificate (see [app/SIGNING.md](../app/SIGNING.md) to add one), so the first time:
 - **Windows** shows "Windows protected your PC". Click **More info → Run anyway**.
 - **Mac** says the app can't be checked. Right-click the app → **Open** → **Open**.
 
@@ -86,7 +86,10 @@ The app updates itself: when you publish a newer release, everyone gets it on th
 
 ## Phones
 
-The website works on phones right now: chat, voice and watching screen shares. To get an app icon, open the address in Chrome (Android) or Safari (iPhone), then choose **Add to Home Screen**. Sharing your screen from a phone isn't supported.
+- **Android:** there's a real app. Run **Actions → Android app → Run workflow** (after setting `PARTY_LINE_SERVER` in step 6) and share the `.apk` it makes. In the app, voice keeps running when the phone locks or you switch apps. See [app/SIGNING.md](../app/SIGNING.md) to sign it so updates install over the old version.
+- **iPhone:** use the website in Safari → Share → **Add to Home Screen**. A real iPhone app needs Apple's $99/year developer account and a Mac; the steps are in [app/SIGNING.md](../app/SIGNING.md).
+
+The website also works in any phone browser for chat, voice and watching screen shares. On the website, voice stops when the phone locks. Sharing your screen from a phone isn't supported.
 
 ## Looking after it
 

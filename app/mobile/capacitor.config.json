@@ -1,0 +1,12 @@
+{
+  "appId": "com.poseidondream.partyline",
+  "appName": "Party Line",
+  "webDir": "www",
+  "server": {
+    "url": "",
+    "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#11151d"
+  }
+}
