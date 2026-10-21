@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>try { var t = (JSON.parse(localStorage.getItem('partyline:settings')) || {}).theme; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <title>Party Line</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -582,6 +583,15 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .toast span { flex: 1; }
 .toast .btn { pointer-events: auto; flex: none; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
+.theme-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border-radius: 12px; background: var(--field); border: 1px solid var(--line); }
+.theme-opt { position: relative; }
+.theme-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-opt span { display: grid; place-items: center; height: 36px; border-radius: 9px; font-weight: 600; color: var(--dim); cursor: pointer; }
+.theme-opt input:checked + span { background: var(--lamp); color: var(--on-lamp); }
+.theme-opt input:focus-visible + span { outline: 2px solid var(--lamp); outline-offset: 2px; }
+.theme-toggle { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.theme-toggle:hover { border-color: var(--dim); }
+#join[hidden] ~ .theme-toggle, body:has(#join[hidden]) .theme-toggle { display: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
@@ -627,11 +637,14 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
     <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
     <symbol id="i-user-x" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5"/><path d="m22 8-5 5"/></symbol>
     <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
   </defs>
 </svg>
 
 <!-- ================= JOIN ================= -->
+<button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch dark or light mode" title="Switch dark or light mode"><svg class="ic"><use href="#i-sun"/></svg></button>
 <main id="join" class="join">
   <section>
     <h1 class="wordmark"><span>Party</span><span class="lit">Line</span></h1>
@@ -991,6 +1004,15 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
         </div>
         <input type="file" id="setAvFile" accept="image/*" hidden>
       </div>
+      <fieldset class="field">
+        <legend class="flabel">Appearance</legend>
+        <div class="theme-pick" role="radiogroup">
+          <label class="theme-opt"><input type="radio" name="theme" value="system"><span>System</span></label>
+          <label class="theme-opt"><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+          <label class="theme-opt"><input type="radio" name="theme" value="light"><span>Light</span></label>
+        </div>
+        <p class="hint">System follows your computer or phone's dark mode setting.</p>
+      </fieldset>
       <label class="field"><span class="flabel">Display name</span><input type="text" id="setName" maxlength="24" autocomplete="nickname"><small class="hint">Your name is your profile. Changing it moves your picture and saved spot to the new name.</small></label>
       <div class="field">
         <label class="flabel" for="setMic">Microphone</label>
@@ -1242,7 +1264,8 @@ const store = {
   keys() { try { return Object.keys(localStorage).filter((k) => k.startsWith('partyline:')).map((k) => k.slice(10)); } catch { return []; } },
 };
 const savedSettings = store.get('settings', {}) || {};
-const settings = Object.assign({ noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1 }, savedSettings);
+const settings = Object.assign({ noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, theme: 'system' }, savedSettings);
+if (!['system', 'dark', 'light'].includes(settings.theme)) settings.theme = 'system';
 const MAX_LEVEL = 1.5;   // every volume slider goes up to 150%
 const clampLevel = (v) => Math.max(0, Math.min(MAX_LEVEL, Number.isFinite(+v) ? +v : 1));
 settings.inputVol = clampLevel(settings.inputVol); settings.outputVol = clampLevel(settings.outputVol);
@@ -4057,6 +4080,7 @@ function openSettings() {
   syncNoiseControls();
   $('#setPtt').checked = !!settings.ptt;
   for (const r of document.querySelectorAll('input[name="quality"]')) r.checked = r.value === settings.quality;
+  for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
   refreshDevices();
   $('#settings').showModal();
 }
@@ -4125,6 +4149,21 @@ $('#setPtt').addEventListener('change', (e) => {
 for (const r of document.querySelectorAll('input[name="quality"]')) {
   r.addEventListener('change', () => { if (r.checked) { settings.quality = r.value; saveSettings(); } });
 }
+
+/* ================= dark and light mode ================= */
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => settings.theme === 'dark' || (settings.theme === 'system' && darkQuery.matches);
+function applyTheme() {
+  const root = document.documentElement;
+  if (settings.theme === 'system') delete root.dataset.theme; else root.dataset.theme = settings.theme;
+  $('#themeToggle').querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
+  for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
+}
+function setTheme(t) { settings.theme = t; saveSettings(); applyTheme(); }
+darkQuery.addEventListener('change', applyTheme);
+for (const r of document.querySelectorAll('input[name="theme"]')) r.addEventListener('change', () => { if (r.checked) setTheme(r.value); });
+$('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
+applyTheme();
 
 /* ================= feedback =================
    Feedback is locked on the sender's device with the owner's public key, then passed from device
