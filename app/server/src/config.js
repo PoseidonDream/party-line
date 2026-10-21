@@ -18,6 +18,9 @@ export const config = {
   turnUrls: list(env.TURN_URLS),
   turnSecret: env.TURN_SECRET || '',
   stunUrls: list(env.STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'),
+  // Optional media server for big voice channels (deploy/docker-compose.yml, profile "sfu").
+  // When set, voice goes through it instead of directly between people.
+  livekit: { url: env.LIVEKIT_URL || '', key: env.LIVEKIT_KEY || '', secret: env.LIVEKIT_SECRET || '' },
   maxImage: 15 * 1024 * 1024,
   maxVideo: 50 * 1024 * 1024,
   maxAvatar: 2 * 1024 * 1024,

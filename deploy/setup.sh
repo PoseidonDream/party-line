@@ -15,6 +15,7 @@ echo "== Opening the ports Party Line needs =="
 ufw allow OpenSSH >/dev/null
 ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw allow 443/udp >/dev/null
 ufw allow 3478 >/dev/null; ufw allow 49160:49200/udp >/dev/null
+ufw allow 7881/tcp >/dev/null; ufw allow 7882/udp >/dev/null   # media server, only used if you turn it on
 ufw --force enable >/dev/null
 
 echo "== Getting Party Line =="
@@ -34,6 +35,8 @@ PUBLIC_IP=${PUBLIC_IP:-$IP}
 GROUP_PASSWORD=$GROUP_PASSWORD
 ADMIN_NAMES=${ADMIN_NAMES:-Poseidon}
 TURN_SECRET=$(openssl rand -hex 32)
+LIVEKIT_KEY=PL$(openssl rand -hex 6)
+LIVEKIT_SECRET=$(openssl rand -hex 32)
 ENV
   chmod 600 .env
 fi

@@ -20,6 +20,7 @@ const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.
   sharing: v.sharing, camera: !!v.camera, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
 const fail = (msg) => { throw new M.UserError(msg); };
 
+export const voiceChannelOf = (userId) => (voice.get(userId) || {}).channelId || null;
 export const hub = {
   userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); },
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },

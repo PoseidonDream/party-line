@@ -1,6 +1,6 @@
 /* Voice and screen sharing. Everyone in a voice channel connects directly to everyone else (WebRTC);
    the server only passes the handshakes along. The microphone runs through an optional noise filter. */
-import { api, live } from './net.js';
+import { api, live, absUrl } from './net.js';
 import { settings, saveSettings, friendVols, clampLevel, audioCtx, makeAnalyser, level, toast } from './util.js';
 
 export const V = {
@@ -81,6 +81,7 @@ async function installMic(raw, real) {
   V.rawStream = raw; V.micStream = send; V.sendTrack = send.getAudioTracks()[0] || null;
   if (send !== raw) raw.getAudioTracks().forEach((t) => { t.enabled = true; });
   for (const p of V.peers.values()) if (p.micSender) p.micSender.replaceTrack(V.sendTrack).catch(() => {});
+  if (lk && lk.mic && V.sendTrack) lk.mic.track.replaceTrack(V.sendTrack, true).catch(() => {});
   const keep = new Set([...raw.getTracks(), ...send.getTracks()]);
   for (const st of [oldRaw, oldSend]) if (st) st.getTracks().forEach((t) => { if (!keep.has(t)) t.stop(); });
   try { localMeter.source && localMeter.source.disconnect(); } catch {}
@@ -145,12 +146,17 @@ export async function joinVoice(channelId) {
   V.joining = true; hooks.change();
   try {
     if (!V.micStream) await setupMic(settings.micId);
-    if (!V.ice) { try { V.ice = (await api('/api/ice')).iceServers; } catch { V.ice = [{ urls: 'stun:stun.l.google.com:19302' }]; } }
+    // Asked every time: relay passwords expire, and the media server may have been switched on or off.
+    try { const r = await api('/api/ice'); V.ice = r.iceServers; V.sfu = !!r.sfu; }
+    catch { if (!V.ice) { V.ice = [{ urls: 'stun:stun.l.google.com:19302' }]; V.sfu = false; } }
     if (V.channelId) closeAllPeers();
     const r = await live.req('voice.join', { channelId, muted: V.muted, deafened: V.deafened });
     V.channelId = channelId;
     V.serverMuted = false;
-    for (const id of r.peers) getPeer(id);   // we're the newcomer, so we start the handshakes
+    if (V.sfu) {
+      try { await sfuConnect(channelId); }
+      catch (e) { leaveVoice(); throw new Error(`Couldn’t connect to voice: ${e.message}`); }
+    } else for (const id of r.peers) getPeer(id);   // we're the newcomer, so we start the handshakes
     if (V.sharing) sendVoiceState();
     applyMic(); applyAllVolumes();
   } finally { V.joining = false; hooks.change(); }
@@ -235,7 +241,7 @@ function getPeer(id) {
   return p;
 }
 export async function onRtc(from, data) {
-  if (!V.channelId || !data) return;
+  if (!V.channelId || !data || lk) return;
   const p = getPeer(from);
   const pc = p.pc;
   try {
@@ -270,7 +276,10 @@ function closePeer(id) {
   V.speaking.delete(id);
   hooks.change();
 }
-function closeAllPeers() { for (const id of [...V.peers.keys()]) closePeer(id); }
+function closeAllPeers() {
+  if (lk) { const room = lk.room; lk = null; room.disconnect(false).catch(() => {}); }
+  for (const id of [...V.peers.keys()]) closePeer(id);
+}
 
 /* ================= hearing people ================= */
 function setRemoteAudio(p, stream) {
@@ -370,7 +379,8 @@ export async function startShare() {
   const vt = stream.getVideoTracks()[0];
   if (vt) { try { vt.contentHint = q.hint; } catch {} vt.addEventListener('ended', () => stopShare(true)); }
   V.screenStream = stream; V.sharing = true;
-  for (const p of V.peers.values()) addScreenTo(p);
+  if (lk) await sfuPublishScreen();
+  else for (const p of V.peers.values()) addScreenTo(p);
   sendVoiceState();
   hooks.change();
 }
@@ -378,6 +388,7 @@ export function stopShare(notify = true) {
   if (!V.sharing) return;
   const s = V.screenStream;
   V.sharing = false; V.screenStream = null;
+  if (lk) sfuUnpublish(lk.screen);
   for (const p of V.peers.values()) {
     for (const sender of p.screenSenders) { try { p.pc.removeTrack(sender); } catch {} }
     p.screenSenders = [];
@@ -417,7 +428,8 @@ export async function startCamera() {
   const t = stream.getVideoTracks()[0];
   if (t) t.addEventListener('ended', () => stopCamera(true));
   V.camStream = stream; V.camera = true;
-  for (const p of V.peers.values()) addCameraTo(p);
+  if (lk) await sfuPublishCamera();
+  else for (const p of V.peers.values()) addCameraTo(p);
   sendVoiceState();
   hooks.change();
 }
@@ -425,6 +437,7 @@ export function stopCamera(notify = true) {
   if (!V.camera) return;
   const s = V.camStream;
   V.camera = false; V.camStream = null;
+  if (lk) sfuUnpublish(lk.cam);
   for (const p of V.peers.values()) {
     for (const sender of p.camSenders) { try { p.pc.removeTrack(sender); } catch {} }
     p.camSenders = [];
@@ -433,4 +446,92 @@ export function stopCamera(notify = true) {
   if (s) s.getTracks().forEach((t) => t.stop());
   if (notify) sendVoiceState();
   hooks.change();
+}
+
+/* ================= media server (big voice channels) =================
+   When the server has a LiveKit media server set up, everyone sends their voice, camera and screen once to it
+   and it passes them on, instead of sending a copy to each person. People show up in V.peers the same way. */
+let lk = null;   // { room, L, mic, screen: [], cam: [] }
+function loadLiveKit() {
+  if (window.LivekitClient) return Promise.resolve(window.LivekitClient);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = absUrl('/vendor/livekit-client.js');
+    s.onload = () => resolve(window.LivekitClient);
+    s.onerror = () => reject(new Error('the voice library didn’t load'));
+    document.head.appendChild(s);
+  });
+}
+function sfuPeer(id) {
+  let p = V.peers.get(id);
+  if (!p) {
+    p = { id, pc: null, audioEl: null, stream: null, gain: null, source: null, analyser: null, screenStream: null, camStream: null,
+      screenSenders: [], camSenders: [], net: 'ok', failNotified: false };
+    V.peers.set(id, p);
+    hooks.change();
+  }
+  return p;
+}
+async function sfuConnect(channelId) {
+  const L = await loadLiveKit();
+  const { url, token } = await api(`/api/voice-token?channelId=${channelId}`);
+  const room = new L.Room({ adaptiveStream: true, dynacast: true });
+  const src = L.Track.Source;
+  const idOf = (part) => Number(part.identity);
+  const isScreen = (pub) => pub.source === src.ScreenShare || pub.source === src.ScreenShareAudio;
+  room.on(L.RoomEvent.ParticipantConnected, (part) => sfuPeer(idOf(part)));
+  room.on(L.RoomEvent.ParticipantDisconnected, (part) => closePeer(idOf(part)));
+  room.on(L.RoomEvent.TrackSubscribed, (track, pub, part) => {
+    const p = sfuPeer(idOf(part)), t = track.mediaStreamTrack;
+    if (pub.source === src.Camera) p.camStream = new MediaStream([t]);
+    else if (isScreen(pub)) { p.screenStream = new MediaStream([...(p.screenStream ? p.screenStream.getTracks() : []), t]); }
+    else setRemoteAudio(p, new MediaStream([t]));
+    hooks.change();
+  });
+  room.on(L.RoomEvent.TrackUnsubscribed, (track, pub, part) => {
+    const p = V.peers.get(idOf(part));
+    if (!p) return;
+    if (pub.source === src.Camera) p.camStream = null;
+    else if (isScreen(pub) && p.screenStream) {
+      const rest = p.screenStream.getTracks().filter((x) => x !== track.mediaStreamTrack);
+      p.screenStream = rest.some((x) => x.kind === 'video') ? new MediaStream(rest) : null;
+    }
+    hooks.change();
+  });
+  room.on(L.RoomEvent.ConnectionQualityChanged, (q, part) => {
+    if (part.isLocal) return;
+    const p = V.peers.get(idOf(part));
+    if (p) { p.net = q === 'lost' ? 'failed' : q === 'poor' ? 'unstable' : 'ok'; hooks.change(); }
+  });
+  room.on(L.RoomEvent.Reconnecting, () => { for (const p of V.peers.values()) p.net = 'unstable'; hooks.change(); });
+  room.on(L.RoomEvent.Reconnected, () => { for (const p of V.peers.values()) p.net = 'ok'; hooks.change(); });
+  room.on(L.RoomEvent.Disconnected, () => {
+    if (!lk || lk.room !== room || !V.channelId) return;   // we left on purpose
+    lk = null;
+    rejoinVoice();
+  });
+  await room.connect(url, token, { rtcConfig: { iceServers: V.ice || [] } });
+  lk = { room, L, mic: null, screen: [], cam: [] };
+  for (const part of room.remoteParticipants.values()) sfuPeer(idOf(part));
+  lk.mic = await room.localParticipant.publishTrack(V.sendTrack, { source: src.Microphone, name: 'mic', dtx: true, red: true });
+  if (V.sharing && V.screenStream) await sfuPublishScreen();
+  if (V.camera && V.camStream) await sfuPublishCamera();
+}
+async function sfuPublishScreen() {
+  const src = lk.L.Track.Source, q = QUALITY[settings.quality] || QUALITY.motion;
+  for (const t of V.screenStream.getTracks()) {
+    lk.screen.push(await lk.room.localParticipant.publishTrack(t, t.kind === 'video'
+      ? { source: src.ScreenShare, name: 'screen', simulcast: false, videoEncoding: { maxBitrate: q.bitrate, maxFramerate: q.fps } }
+      : { source: src.ScreenShareAudio, name: 'screen-audio' }));
+  }
+}
+async function sfuPublishCamera() {
+  const src = lk.L.Track.Source;
+  for (const t of V.camStream.getVideoTracks()) {
+    lk.cam.push(await lk.room.localParticipant.publishTrack(t, { source: src.Camera, name: 'camera', simulcast: true, videoEncoding: { maxBitrate: 600_000, maxFramerate: 24 } }));
+  }
+}
+function sfuUnpublish(list) {
+  const room = lk && lk.room;
+  for (const pub of list.splice(0)) { try { room.localParticipant.unpublishTrack(pub.track, false); } catch {} }
 }

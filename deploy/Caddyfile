@@ -1,4 +1,10 @@
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy partyline:3000
+	# the optional media server for big voice channels (see voice-server.sh)
+	handle /rtc* {
+		reverse_proxy host.docker.internal:7880
+	}
+	handle {
+		reverse_proxy partyline:3000
+	}
 }

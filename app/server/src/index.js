@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import { config } from './config.js';
 import * as M from './model.js';
-import { attachHub, hub } from './hub.js';
+import { attachHub, hub, voiceChannelOf } from './hub.js';
 
 M.ensureDefaultServer();
 M.syncAdmins();
@@ -64,8 +64,28 @@ app.get('/api/ice', auth, wrap((req) => {
     const credential = crypto.createHmac('sha1', config.turnSecret).update(username).digest('base64');
     ice.push({ urls: config.turnUrls, username, credential });
   }
-  return { iceServers: ice };
+  return { iceServers: ice, sfu: !!(config.livekit.url && config.livekit.secret) };
 }));
+
+/* A pass for the media server, valid for the voice channel you're in (LiveKit access token, HS256 JWT). */
+const b64url = (o) => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
+app.get('/api/voice-token', auth, wrap((req, res) => {
+  const lk = config.livekit;
+  if (!lk.url || !lk.secret) { res.status(404).json({ error: 'No media server is set up.' }); return undefined; }
+  const channelId = Number(req.query.channelId);
+  if (!channelId || voiceChannelOf(req.user.id) !== channelId) { res.status(403).json({ error: 'Join the voice channel first.' }); return undefined; }
+  const t = Math.floor(Date.now() / 1000);
+  const body = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({
+    iss: lk.key, sub: String(req.user.id), name: req.user.name, nbf: t - 10, exp: t + 6 * 3600,
+    video: { room: `party-line-${channelId}`, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: false },
+  })}`;
+  const sig = crypto.createHmac('sha256', lk.secret).update(body).digest('base64url');
+  return { url: lk.url, token: `${body}.${sig}` };
+}));
+app.get('/vendor/livekit-client.js', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js'));
+});
 
 app.get('/api/channels/:id/messages', auth, wrap((req) => {
   const c = M.getChannel(Number(req.params.id));

@@ -11,6 +11,9 @@ services:
       TURN_URLS: turn:${DOMAIN}:3478?transport=udp,turn:${DOMAIN}:3478?transport=tcp
       TURN_SECRET: ${TURN_SECRET}
       TRUST_PROXY: "1"
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      LIVEKIT_KEY: ${LIVEKIT_KEY:-}
+      LIVEKIT_SECRET: ${LIVEKIT_SECRET:-}
     volumes:
       - partyline-data:/data
 
@@ -23,6 +26,8 @@ services:
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -56,6 +61,26 @@ services:
       - --denied-peer-ip=169.254.0.0-169.254.255.255
       - --denied-peer-ip=172.16.0.0-172.31.255.255
       - --denied-peer-ip=192.168.0.0-192.168.255.255
+
+  # Optional media server for voice channels with more than about 10 people.
+  # Turn it on with ./voice-server.sh on (it sets COMPOSE_PROFILES=sfu and LIVEKIT_URL in .env).
+  livekit:
+    image: livekit/livekit-server:v1.8.4
+    profiles: ["sfu"]
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_KEY}: ${LIVEKIT_SECRET}"
+      LIVEKIT_CONFIG: |
+        port: 7880
+        log_level: warn
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          node_ip: ${PUBLIC_IP}
+          use_external_ip: false
+        room:
+          empty_timeout: 60
 
 volumes:
   partyline-data:

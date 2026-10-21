@@ -111,9 +111,21 @@ Updates keep everything. People in voice are dropped for a few seconds and recon
 ## How much can it handle?
 
 - **Text chat, friends and private messages** go through your server. The smallest server handles hundreds of people.
-- **Voice and screen sharing** go directly between people, the same as the old site, so they cost your server almost nothing. One voice channel works well with up to about 10 people.
+- **Voice and screen sharing** go directly between people, the same as the old site, so they cost your server almost nothing. One voice channel works well with up to about 10 people. For bigger channels, turn on the media server (see "Bigger voice channels" below).
 - **The voice relay (TURN)** steps in only for people on strict networks (some school, office or hotel Wi-Fi). Their voice then passes through your server, which uses some of its monthly traffic. Hetzner includes 20 TB, which is plenty.
 - **Photos and videos** are stored on the server's disk. The smallest plan has 40 GB.
+
+## Bigger voice channels (optional)
+
+By default, voice and screen shares go directly between people. That costs your server nothing and works well up to about 10 people in one channel. If your group often has more, turn on the **media server**: everyone then sends their voice once to your server, and it passes it on to everyone else.
+
+```
+/opt/party-line/deploy/voice-server.sh on
+```
+
+Turn it off again with `voice-server.sh off`. People already in voice switch over the next time they join a channel.
+
+With it on, voice uses your server's traffic. That's roughly 1 GB per person per 10 hours of talking, or more with cameras and screen shares, which is still small next to Hetzner's 20 TB. If your provider has its own firewall in the dashboard, also open TCP 7881 and UDP 7882 there.
 
 ## If something's wrong
 
