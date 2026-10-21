@@ -806,7 +806,7 @@ chatInput.addEventListener('input', () => {
   if (t && chatInput.value.trim() && Date.now() - typingSentAt > 3000) { typingSentAt = Date.now(); live.send('typing', t); }
 });
 chatInput.addEventListener('click', updateMentionPop);
-chatInput.addEventListener('blur', () => setTimeout(closeMentionPop, 150));
+chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== chatInput) closeMentionPop(); }, 150));
 
 function startReply(msg) {
   S.replyTo = msg;

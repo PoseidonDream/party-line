@@ -21,7 +21,8 @@ export default async function (ok) {
     await a.waitForSelector('#mentionPop:not([hidden]) li:has-text("Deniz Can")');
     ok('typing @ suggests people', true);
     await a.press('#chatInput', 'Enter');
-    ok('picking a suggestion fills in the name', (await a.inputValue('#chatInput')) === 'hey @Deniz Can ');
+    const picked = await a.inputValue('#chatInput');
+    ok(`picking a suggestion fills in the name (${JSON.stringify(picked)})`, picked === 'hey @Deniz Can ');
     await a.type('#chatInput', 'look at this');
     await a.press('#chatInput', 'Enter');
     await a.waitForSelector('.msg .mention:has-text("@Deniz Can")');
