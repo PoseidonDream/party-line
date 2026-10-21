@@ -80,6 +80,15 @@ export function changePassword(userId, oldPass, newPass) {
   if (String(newPass || '').length < 4) fail('Pick a password with at least 4 characters.');
   run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(newPass), userId);
 }
+/* Admin reset: a new temporary password, and the person is signed out everywhere. */
+const WORDS = ['amber', 'brass', 'comet', 'falcon', 'harbor', 'lantern', 'meteor', 'otter', 'pixel', 'radio', 'raven', 'signal', 'tiger', 'velvet'];
+export function resetPassword(userId) {
+  const pick = () => WORDS[crypto.randomInt(WORDS.length)];
+  const temp = `${pick()}-${pick()}-${crypto.randomInt(100, 1000)}`;
+  run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(temp), userId);
+  run('DELETE FROM sessions WHERE user_id = ?', userId);
+  return temp;
+}
 export function rename(userId, name) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');

@@ -95,10 +95,16 @@ Connect with `ssh root@YOUR-IP`, then:
 | To… | Run |
 |---|---|
 | Update to the newest Party Line | `/opt/party-line/deploy/update.sh` |
-| Make a backup of all chats, accounts and pictures | `/opt/party-line/deploy/backup.sh` |
+| Make a backup right now | `/opt/party-line/deploy/backup.sh` |
+| Put a backup back | `/opt/party-line/deploy/backup.sh restore /opt/party-line/deploy/backups/FILE.tgz` |
 | See what the server is doing | `cd /opt/party-line/deploy && docker compose logs -f --tail 100` |
 | Restart it | `cd /opt/party-line/deploy && docker compose restart` |
 | Change the group password | edit `/opt/party-line/deploy/.env`, then run `docker compose up -d` in that folder |
+
+**Backups happen by themselves every night at 4:17** (server time). The newest 7 are kept in `/opt/party-line/deploy/backups/`. They live on the same server, so for real safety also turn on your provider's backup option (about €1 a month on Hetzner), or now and then copy the newest file to your own computer:
+```
+scp root@YOUR-IP:/opt/party-line/deploy/backups/*.tgz .
+```
 
 Updates keep everything. People in voice are dropped for a few seconds and reconnect on their own.
 
@@ -113,4 +119,4 @@ Updates keep everything. People in voice are dropped for a few seconds and recon
 
 - **The address doesn't open:** check that DuckDNS shows your server's IP, then wait a few minutes. HTTPS certificates are set up automatically the first time someone visits.
 - **"Couldn't connect voice with…":** check that the firewall ports are open. `setup.sh` opens them, but some providers also have their own firewall in the dashboard. Open TCP 80 and 443, UDP 443, TCP and UDP 3478, and UDP 49160–49200.
-- **Forgot a password:** an admin can't see passwords. The simplest fix is to make a new account with a different name.
+- **Someone forgot their password:** as admin, click their name or picture → **Reset password**. You get a temporary password to send them, and they can change it in Settings → Change password.

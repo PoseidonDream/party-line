@@ -232,6 +232,16 @@ const handlers = {
     return {};
   },
 
+  'admin.resetPassword'(c, user, d) {
+    if (!user.is_admin) fail('Only an admin can reset passwords.');
+    const target = M.getUser(Number(d.userId));
+    if (!target) fail('That person doesn’t exist.');
+    if (target.id === user.id) fail('Change your own password in Settings.');
+    const temp = M.resetPassword(target.id);
+    for (const tc of [...(byUser.get(target.id) || [])]) tc.ws.close(4001, 'auth');   // signed out on every device
+    return { password: temp, name: target.name };
+  },
+
   /* ---- feedback ---- */
   'feedback.send'(c, user, d) {
     const id = M.addFeedback(d.anonymous ? null : user.id, d.kind, d.body);

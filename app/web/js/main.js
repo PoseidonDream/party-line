@@ -1067,13 +1067,15 @@ function openUserPop(id, anchor) {
   fb.disabled = fs === 'outgoing';
   fb.lastChild.textContent = fs === 'incoming' ? 'Accept request' : fs === 'outgoing' ? 'Request sent' : 'Add friend';
   const srv = S.popServer && S.servers.get(S.popServer);
-  const admin = !isMe && srv && canManage(srv);
+  const srvAdmin = !isMe && srv && canManage(srv);
+  const admin = srvAdmin || (!isMe && S.me.admin);
   $('#popAdmin').hidden = !admin;
   if (admin) {
-    const inSrvVoice = vst && srv.channels.some((c) => c.id === vst.channelId);
+    const inSrvVoice = srvAdmin && vst && srv.channels.some((c) => c.id === vst.channelId);
     $('#admVoiceKick').hidden = !inSrvVoice; $('#admMute').hidden = !inSrvVoice;
     $('#admMute').textContent = vst && vst.serverMuted ? 'Unmute for everyone' : 'Mute for everyone';
-    $('#admKick').hidden = srv.isDefault && !S.me.admin;
+    $('#admKick').hidden = !srvAdmin || (srv.isDefault && !S.me.admin);
+    $('#admReset').hidden = !S.me.admin;
   }
   pop.hidden = false;
   const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
@@ -1102,6 +1104,14 @@ $('#admKick').addEventListener('click', async () => {
   const id = S.popUser, srv = S.servers.get(S.popServer);
   closeUserPop();
   if (srv && await confirmBox(`Remove ${nameOf(id)} from ${srv.name}?`, 'They can come back with an invite link.', 'Remove')) act(() => live.req('admin.kick', { serverId: srv.id, userId: id }));
+});
+
+$('#admReset').addEventListener('click', async () => {
+  const id = S.popUser;
+  closeUserPop();
+  if (!await confirmBox(`Reset ${nameOf(id)}'s password?`, 'They’re signed out everywhere and get a temporary password from you. They can change it in Settings.', 'Reset')) return;
+  const r = await act(() => live.req('admin.resetPassword', { userId: id }));
+  if (r) await confirmBox(`New password for ${r.name}`, 'Send this to them privately. They sign in with it, then change it in Settings → Change password.', 'Done', r.password);
 });
 
 /* ================= servers ================= */

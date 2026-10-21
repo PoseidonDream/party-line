@@ -40,6 +40,11 @@ fi
 
 echo "== Starting Party Line (the first build takes a few minutes) =="
 docker compose up -d --build
+
+echo "== Nightly backups at 4:17 (keeps the last 7) =="
+cat > /etc/cron.d/party-line-backup <<CRON
+17 4 * * * root $DIR/deploy/backup.sh >> /var/log/party-line-backup.log 2>&1
+CRON
 . ./.env
 echo
 echo "Done! Open https://$DOMAIN in a minute or two."
