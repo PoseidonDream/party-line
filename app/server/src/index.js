@@ -46,6 +46,7 @@ app.post('/api/register', throttle, wrap((req) => {
   const { name, password, groupPassword } = req.body || {};
   const r = M.register(name, password, groupPassword);
   hub.userChanged(r.user);
+  hub.joinedServers(r.user.id);
   return { token: r.token, user: M.publicUser(r.user) };
 }));
 app.post('/api/login', throttle, wrap((req) => {
@@ -75,6 +76,9 @@ app.get('/api/dms/:userId/messages', auth, wrap((req) => {
   const d = M.dmWith(req.user.id, Number(req.params.userId), false);
   return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [] };
 }));
+
+/* Search messages you can see: in one server (serverId), in your private chats (serverId=-1), or everywhere. */
+app.get('/api/search', auth, wrap((req) => ({ messages: M.search(req.user.id, req.query.q, Number(req.query.serverId) || 0) })));
 
 /* Uploads: the raw file is the request body. */
 const IMAGE = /^image\/(png|jpeg|gif|webp|avif|bmp)$/;

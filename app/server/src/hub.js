@@ -20,6 +20,7 @@ const fail = (msg) => { throw new M.UserError(msg); };
 
 export const hub = {
   userChanged(u) { toAll({ t: 'user', user: Object.assign(M.publicUser(u), { online: online(u.id) }) }); },
+  joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId }); },
 };
 
 function readyFor(user) {
@@ -52,7 +53,7 @@ const handlers = {
     if (d.channelId) {
       const ch = M.getChannel(Number(d.channelId));
       if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');
-      const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments);
+      const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
       return { msg: m };
     }
@@ -61,7 +62,7 @@ const handlers = {
     const shares = M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s));
     if (M.friendState(user.id, other.id) !== 'friends' && !shares) fail(`Add ${other.name} as a friend first.`);
     const dm = M.dmWith(user.id, other.id, true);
-    const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments);
+    const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id });
     return { msg: m };
@@ -81,6 +82,24 @@ const handlers = {
     if (!ok) fail('You can only delete your own messages.');
     M.deleteMessage(m.id);
     broadcastAbout(m, { t: 'msg.del', id: m.id, channelId: m.channel_id, dmId: m.dm_id });
+    return {};
+  },
+  react(c, user, d) {
+    const m = M.getMessage(Number(d.id));
+    if (!m || !canSee(user.id, m)) fail('That message is gone.');
+    const reactions = M.react(user.id, m.id, d.emoji, !!d.on);
+    broadcastAbout(m, { t: 'reactions', id: m.id, channelId: m.channel_id, dmId: m.dm_id, reactions });
+    return {};
+  },
+  typing(c, user, d) {
+    if (d.channelId) {
+      const ch = M.getChannel(Number(d.channelId));
+      if (!ch || !M.isMember(user.id, ch.server_id)) return {};
+      for (const id of M.memberIds(ch.server_id)) if (id !== user.id) toUser(id, { t: 'typing', userId: user.id, channelId: ch.id });
+    } else if (d.toUserId) {
+      const other = Number(d.toUserId);
+      if (M.friendState(user.id, other) === 'friends' || M.serverIdsOf(user.id).some((s) => M.isMember(other, s))) toUser(other, { t: 'typing', userId: user.id, dmUserId: user.id });
+    }
     return {};
   },
   read(c, user, d) {
@@ -253,6 +272,11 @@ const handlers = {
   'feedback.delete'(c, user, d) { if (!user.is_admin) fail('Admins only.'); M.deleteFeedback(Number(d.id)); return {}; },
 };
 
+function canSee(userId, m) {
+  if (m.channel_id) { const ch = M.getChannel(m.channel_id); return !!ch && M.isMember(userId, ch.server_id); }
+  const dm = M.getDm(m.dm_id);
+  return !!dm && (dm.user_a === userId || dm.user_b === userId);
+}
 function broadcastAbout(m, msg) {
   if (m.channel_id) toServer(M.getChannel(m.channel_id).server_id, msg);
   else if (m.dm_id) { const dm = M.getDm(m.dm_id); toUsers([dm.user_a, dm.user_b], msg); }

@@ -157,6 +157,7 @@ export function serverView(serverId, viewerId) {
     if (c.kind !== 'text') continue;
     c.lastId = one('SELECT MAX(id) AS m FROM messages WHERE channel_id = ?', c.id).m || 0;
     c.unread = unreadCount(viewerId, `c:${c.id}`, 'channel_id', c.id);
+    c.mentions = c.unread ? mentionCount(viewerId, `c:${c.id}`, c.id) : 0;
   }
   return { id: s.id, name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId) };
 }
@@ -172,18 +173,73 @@ function attachmentsFrom(userId, list) {
   }
   return out;
 }
-export const publicMessage = (m) => m && ({
+const basicMessage = (m) => ({
   id: m.id, channelId: m.channel_id, dmId: m.dm_id, userId: m.user_id, body: m.body,
   attachments: m.attachments ? JSON.parse(m.attachments) : [], at: m.created_at, editedAt: m.edited_at,
+  replyTo: m.reply_to || null, reply: null, reactions: [],
 });
-export function postMessage(userId, where, body, attachments) {
+const placeholders = (n) => Array(n).fill('?').join(',');
+/* Adds each message's reactions and a short preview of the message it replies to. */
+function decorate(rows) {
+  const out = rows.map(basicMessage);
+  if (!out.length) return out;
+  const byId = new Map(out.map((m) => [m.id, m]));
+  for (const r of all(`SELECT message_id, emoji, user_id FROM reactions WHERE message_id IN (${placeholders(out.length)}) ORDER BY created_at`, ...out.map((m) => m.id))) {
+    const msg = byId.get(r.message_id);
+    let e = msg.reactions.find((x) => x.emoji === r.emoji);
+    if (!e) { e = { emoji: r.emoji, users: [] }; msg.reactions.push(e); }
+    e.users.push(r.user_id);
+  }
+  const replyIds = [...new Set(out.filter((m) => m.replyTo).map((m) => m.replyTo))];
+  if (replyIds.length) {
+    const found = new Map(all(`SELECT id, user_id, body, attachments FROM messages WHERE id IN (${placeholders(replyIds.length)})`, ...replyIds).map((r) => [r.id, r]));
+    for (const m of out) {
+      if (!m.replyTo) continue;
+      const r = found.get(m.replyTo);
+      m.reply = r ? { id: r.id, userId: r.user_id, body: r.body.slice(0, 140), hasMedia: !!r.attachments } : { id: m.replyTo, deleted: true };
+    }
+  }
+  return out;
+}
+export const publicMessage = (m) => m && decorate([m])[0];
+export function postMessage(userId, where, body, attachments, replyTo) {
   body = cleanBody(body);
   const att = attachmentsFrom(userId, attachments);
   if (!body && !att.length) fail('Empty message.');
-  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now()).lastInsertRowid);
+  const parent = replyTo ? getMessage(Number(replyTo)) : null;
+  const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
+  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null).lastInsertRowid);
   markRead(userId, where.channelId ? `c:${where.channelId}` : `d:${where.dmId}`, id);
   return publicMessage(one('SELECT * FROM messages WHERE id = ?', id));
+}
+/* Mentions are written in messages as <@userId>. */
+export const mentionedIds = (body) => [...new Set([...String(body || '').matchAll(/<@(\d+)>/g)].map((x) => Number(x[1])))];
+const EMOJI = /^(?=.*\p{Extended_Pictographic})[^\s]{1,16}$/u;
+export function react(userId, messageId, emoji, on) {
+  emoji = String(emoji || '');
+  if (!EMOJI.test(emoji)) fail('That’s not an emoji.');
+  if (on) {
+    const kinds = one('SELECT COUNT(DISTINCT emoji) AS n FROM reactions WHERE message_id = ?', messageId).n;
+    if (kinds >= 20 && !one('SELECT 1 AS x FROM reactions WHERE message_id = ? AND emoji = ?', messageId, emoji)) fail('That message has enough reactions.');
+    run('INSERT OR IGNORE INTO reactions (message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?)', messageId, userId, emoji, now());
+  } else run('DELETE FROM reactions WHERE message_id = ? AND user_id = ? AND emoji = ?', messageId, userId, emoji);
+  return publicMessage(getMessage(messageId)).reactions;
+}
+export function search(userId, text, serverId) {
+  text = String(text || '').trim().slice(0, 100);
+  if (text.length < 2) return [];
+  const like = `%${text.replace(/[\\%_]/g, (c) => '\\' + c)}%`;
+  const rows = all(`SELECT m.* FROM messages m
+      LEFT JOIN channels c ON c.id = m.channel_id
+      LEFT JOIN members mb ON mb.server_id = c.server_id AND mb.user_id = ?
+      LEFT JOIN dms d ON d.id = m.dm_id
+    WHERE (mb.user_id IS NOT NULL OR d.user_a = ? OR d.user_b = ?)
+      AND m.body LIKE ? ESCAPE '\\'
+      AND (? = 0 OR c.server_id = ?)
+      AND (? != -1 OR m.dm_id IS NOT NULL)
+    ORDER BY m.id DESC LIMIT 50`, userId, userId, userId, like, serverId > 0 ? serverId : 0, serverId > 0 ? serverId : 0, serverId);
+  return decorate(rows);
 }
 export const getMessage = (id) => one('SELECT * FROM messages WHERE id = ?', id);
 export function editMessage(id, body) {
@@ -197,11 +253,16 @@ export function history(col, targetId, before, limit = 50) {
   const rows = before
     ? all(`SELECT * FROM messages WHERE ${col} = ? AND id < ? ORDER BY id DESC LIMIT ?`, targetId, before, limit)
     : all(`SELECT * FROM messages WHERE ${col} = ? ORDER BY id DESC LIMIT ?`, targetId, limit);
-  return rows.reverse().map(publicMessage);
+  return decorate(rows.reverse());
 }
 export function markRead(userId, target, lastId) {
   run(`INSERT INTO reads (user_id, target, last_id) VALUES (?, ?, ?)
        ON CONFLICT (user_id, target) DO UPDATE SET last_id = MAX(last_id, excluded.last_id)`, userId, target, lastId);
+}
+function mentionCount(userId, target, channelId) {
+  const r = one('SELECT last_id FROM reads WHERE user_id = ? AND target = ?', userId, target);
+  return one(`SELECT COUNT(*) AS n FROM (SELECT 1 FROM messages WHERE channel_id = ? AND id > ? AND body LIKE ? LIMIT 99)`,
+    channelId, r ? r.last_id : 0, `%<@${userId}>%`).n;
 }
 function unreadCount(userId, target, col, targetId) {
   const r = one('SELECT last_id FROM reads WHERE user_id = ? AND target = ?', userId, target);

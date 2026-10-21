@@ -239,7 +239,7 @@ live.on('msg.del', (d) => {
   if (msgKey() === key) renderMessages(true);
 });
 live.on('read', (d) => {
-  if (d.target.startsWith('c:')) { const f = findChannel(Number(d.target.slice(2))); if (f && f.channel.lastId <= d.id) f.channel.unread = 0; }
+  if (d.target.startsWith('c:')) { const f = findChannel(Number(d.target.slice(2))); if (f && f.channel.lastId <= d.id) { f.channel.unread = 0; f.channel.mentions = 0; } }
   else for (const x of S.dms.values()) if (`d:${x.id}` === d.target && x.lastId <= d.id) x.unread = 0;
   renderRail(); renderSide();
 });
@@ -257,6 +257,7 @@ const dmKeyById = (dmId) => { for (const x of S.dms.values()) if (x.id === dmId)
 /* ================= navigation ================= */
 function setView(v) {
   S.view = v;
+  cancelReply(); closeMentionPop(); closeSearch();
   if (v.serverId) S.lastChan[v.serverId] = { kind: v.kind, channelId: v.channelId };
   store.set('lastChan', S.lastChan);
   store.set('lastView', v);
@@ -308,7 +309,7 @@ function markViewedRead() {
   if (document.hidden) return;
   if (S.view.kind === 'text') {
     const f = findChannel(S.view.channelId);
-    if (f && (f.channel.unread || f.channel.lastId)) { f.channel.unread = 0; live.send('read', { target: `c:${f.channel.id}`, id: f.channel.lastId || 0 }); }
+    if (f && (f.channel.unread || f.channel.lastId)) { f.channel.unread = 0; f.channel.mentions = 0; live.send('read', { target: `c:${f.channel.id}`, id: f.channel.lastId || 0 }); }
   } else if (S.view.kind === 'dm') {
     const x = S.dms.get(S.view.userId);
     if (x && x.id) { x.unread = 0; live.send('read', { target: `d:${x.id}`, id: x.lastId || 0 }); }
@@ -320,17 +321,26 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && S.
 function onMessage(key, msg) {
   const m = S.msgs.get(key);
   if (m && m.loaded && !m.list.some((x) => x.id === msg.id)) m.list.push(msg);
+  if (typing.has(key)) { typing.get(key).delete(msg.userId); renderTyping(); }
   const mine = msg.userId === S.me.id;
   const viewing = msgKey() === key && !document.hidden;
   if (key.startsWith('c:')) {
     const f = findChannel(msg.channelId);
-    if (f) { f.channel.lastId = msg.id; if (!mine && !viewing) f.channel.unread = (f.channel.unread || 0) + 1; }
+    if (f) {
+      f.channel.lastId = msg.id;
+      if (!mine && !viewing) f.channel.unread = (f.channel.unread || 0) + 1;
+      if (!mine && !viewing && mentionsMe(msg)) {
+        f.channel.mentions = (f.channel.mentions || 0) + 1;
+        chime('msg', V.deafened);
+        notify(`${nameOf(msg.userId)} in #${f.channel.name}`, decodeMentions(msg.body), () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
+      }
+    }
   } else {
     const x = S.dms.get(Number(key.slice(2)));
     if (x && !mine && !viewing) x.unread = (x.unread || 0) + 1;
     if (!mine && !viewing) {
       chime('msg', V.deafened);
-      notify(nameOf(msg.userId), msg.body || 'Sent a photo or video', () => setView({ kind: 'dm', userId: msg.userId }));
+      notify(nameOf(msg.userId), decodeMentions(msg.body) || 'Sent a photo or video', () => setView({ kind: 'dm', userId: msg.userId }));
     }
   }
   if (msgKey() === key) { appendMessage(msg); if (viewing) markViewedRead(); }
@@ -347,6 +357,7 @@ function updateBadge() {
   let n = 0;
   for (const x of S.dms.values()) n += x.unread || 0;
   for (const st of S.friends.values()) if (st === 'incoming') n++;
+  for (const s of S.servers.values()) for (const c of s.channels) n += c.mentions || 0;
   document.title = n ? `(${n}) Party Line` : 'Party Line';
   if (desktop && desktop.setBadge) desktop.setBadge(n);
 }
@@ -376,7 +387,9 @@ function renderRail() {
     b.textContent = serverInitials(s.name);
     b.addEventListener('click', () => openServer(s.id));
     li.appendChild(b);
-    if (V.channelId && s.channels.some((c) => c.id === V.channelId)) {
+    const pings = s.channels.reduce((a, c) => a + (c.mentions || 0), 0);
+    if (pings && !on) { const bd = document.createElement('span'); bd.className = 'rail-badge'; bd.textContent = pings > 99 ? '99+' : pings; li.appendChild(bd); }
+    else if (V.channelId && s.channels.some((c) => c.id === V.channelId)) {
       const dot = document.createElement('span'); dot.className = 'rail-badge'; dot.style.background = 'var(--ok)'; dot.textContent = '♪'; li.appendChild(dot);
     }
     list.appendChild(li);
@@ -405,7 +418,7 @@ function renderSide() {
       if (c.unread && !current) b.classList.add('unread');
       b.innerHTML = '<span class="glyph" aria-hidden="true">#</span>';
       const n = document.createElement('span'); n.className = 'chan-name'; n.textContent = c.name; b.appendChild(n);
-      if (c.unread && !current) { const bd = document.createElement('span'); bd.className = 'chan-badge'; bd.textContent = c.unread > 99 ? '99+' : c.unread; b.appendChild(bd); }
+      if (c.mentions && !current) { const bd = document.createElement('span'); bd.className = 'chan-badge'; bd.title = 'Mentions of you'; bd.textContent = c.mentions > 99 ? '99+' : c.mentions; b.appendChild(bd); }
       b.addEventListener('click', () => setView({ kind: 'text', serverId: s.id, channelId: c.id }));
       li.appendChild(b);
       tl.appendChild(li);
@@ -517,21 +530,54 @@ function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S
 
 /* ================= messages ================= */
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
-function linkify(el, text) {
+const TOKEN_RE = new RegExp(`${URL_RE.source}|<@(\\d+)>`, 'g');
+/* Message text with clickable links and @mentions. Mentions are stored as <@userId>. */
+function richText(el, text) {
   let last = 0;
-  for (const m of text.matchAll(URL_RE)) {
+  for (const m of text.matchAll(TOKEN_RE)) {
     if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
-    const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
-    el.appendChild(a); last = m.index + m[0].length;
+    if (m[1]) {
+      const id = Number(m[1]);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'mention' + (id === S.me.id ? ' me' : '');
+      b.textContent = `@${nameOf(id)}`;
+      b.addEventListener('click', (e) => openUserPop(id, e.currentTarget));
+      el.appendChild(b);
+    } else {
+      const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      el.appendChild(a);
+    }
+    last = m.index + m[0].length;
   }
   if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
 }
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Everyone you can mention here: the server's members, or the two of you in a private chat.
+const mentionables = () => (S.view.kind === 'dm' ? [S.view.userId, S.me.id] : (curServer() || { members: [] }).members);
+/* "@Deniz Can" -> "<@12>". Longest names first, so "Deniz Can" wins over "Deniz". */
+function encodeMentions(text) {
+  const people = mentionables().map(user).filter((u) => u.name).sort((a, b) => b.name.length - a.name.length);
+  for (const u of people) text = text.replace(new RegExp(`(^|[^\\p{L}\\p{N}_])@${escapeRe(u.name)}(?![\\p{L}\\p{N}_])`, 'giu'), `$1<@${u.id}>`);
+  return text;
+}
+const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`);
+const mentionsMe = (msg) => !!msg.body && msg.body.includes(`<@${S.me.id}>`);
 let lastRendered = { author: null, at: 0 };
 function messageEl(msg, prev) {
-  const cont = prev && prev.userId === msg.userId && msg.at - prev.at < 5 * 60_000 && fmtDay(prev.at) === fmtDay(msg.at);
+  const cont = !msg.reply && prev && prev.userId === msg.userId && msg.at - prev.at < 5 * 60_000 && fmtDay(prev.at) === fmtDay(msg.at);
   const li = document.createElement('li');
-  li.className = 'msg' + (cont ? ' cont' : '');
+  li.className = 'msg' + (cont ? ' cont' : '') + (msg.reply ? ' has-reply' : '') + (mentionsMe(msg) ? ' mentioned' : '');
   li.dataset.id = msg.id;
+  if (msg.reply) {
+    const r = document.createElement('button'); r.type = 'button'; r.className = 'msg-reply';
+    if (msg.reply.deleted) r.textContent = 'Original message was deleted';
+    else {
+      r.appendChild(avEl(msg.reply.userId));
+      const n = document.createElement('b'); n.textContent = nameOf(msg.reply.userId); r.appendChild(n);
+      const t = document.createElement('span'); t.textContent = msg.reply.body ? decodeMentions(msg.reply.body) : 'Photo or video'; r.appendChild(t);
+      r.addEventListener('click', () => jumpTo(msgKey(), msg.reply.id));
+    }
+    li.appendChild(r);
+  }
   const av = avEl(msg.userId); av.style.cursor = 'pointer';
   av.addEventListener('click', (e) => openUserPop(msg.userId, e.currentTarget));
   li.appendChild(av);
@@ -545,29 +591,98 @@ function messageEl(msg, prev) {
   li.appendChild(head);
   if (msg.body) {
     const body = document.createElement('div'); body.className = 'msg-body';
-    linkify(body, msg.body);
+    richText(body, msg.body);
     if (msg.editedAt) { const e = document.createElement('span'); e.className = 'msg-edited'; e.textContent = '(edited)'; body.appendChild(e); }
     li.appendChild(body);
   }
   for (const a of msg.attachments || []) li.appendChild(mediaEl(a));
+  if (msg.reactions && msg.reactions.length) li.appendChild(reactionsEl(msg));
   const mine = msg.userId === S.me.id;
   const srv = msg.channelId ? (findChannel(msg.channelId) || {}).server : null;
+  const tools = document.createElement('div'); tools.className = 'msg-tools';
+  const tool = (icon, label, fn, cls = '') => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'msg-tool ' + cls; b.title = label; b.setAttribute('aria-label', label);
+    b.innerHTML = iconSvg(icon); b.addEventListener('click', fn); tools.appendChild(b);
+  };
+  tool('smile', 'Add reaction', (e) => openEmojiPop(msg, e.currentTarget));
+  tool('reply', 'Reply', () => startReply(msg));
+  if (mine && msg.body) tool('pencil', 'Edit', () => editMessage(li, msg));
   if (mine || S.me.admin || (srv && canManage(srv))) {
-    const tools = document.createElement('div'); tools.className = 'msg-tools';
-    if (mine && msg.body) {
-      const e = document.createElement('button'); e.type = 'button'; e.className = 'msg-tool'; e.title = 'Edit'; e.setAttribute('aria-label', 'Edit message');
-      e.innerHTML = iconSvg('pencil'); e.addEventListener('click', () => editMessage(li, msg));
-      tools.appendChild(e);
-    }
-    const d = document.createElement('button'); d.type = 'button'; d.className = 'msg-tool del'; d.title = 'Delete'; d.setAttribute('aria-label', 'Delete message');
-    d.innerHTML = iconSvg('trash');
-    d.addEventListener('click', async (ev) => {
+    tool('trash', 'Delete', async (ev) => {
       if (ev.shiftKey || await confirmBox('Delete this message?', 'It’s removed for everyone. Hold Shift while clicking to skip this question.')) act(() => live.req('msg.delete', { id: msg.id }));
-    });
-    tools.appendChild(d);
-    li.appendChild(tools);
+    }, 'del');
   }
+  li.appendChild(tools);
   return li;
+}
+
+/* ---------- reactions ---------- */
+const QUICK_EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👀', '💯', '🙏', '😡', '✅'];
+function reactionsEl(msg) {
+  const row = document.createElement('div'); row.className = 'reactions';
+  for (const r of msg.reactions) {
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'reaction' + (r.users.includes(S.me.id) ? ' mine' : '');
+    b.textContent = `${r.emoji} ${r.users.length}`;
+    b.title = `${r.users.map(nameOf).join(', ')} reacted with ${r.emoji}`;
+    b.setAttribute('aria-pressed', String(r.users.includes(S.me.id)));
+    b.addEventListener('click', () => toggleReaction(msg, r.emoji));
+    row.appendChild(b);
+  }
+  const add = document.createElement('button'); add.type = 'button'; add.className = 'reaction add'; add.title = 'Add reaction'; add.setAttribute('aria-label', 'Add reaction');
+  add.innerHTML = iconSvg('smile'); add.addEventListener('click', (e) => openEmojiPop(msg, e.currentTarget));
+  row.appendChild(add);
+  return row;
+}
+function toggleReaction(msg, emoji) {
+  const r = (msg.reactions || []).find((x) => x.emoji === emoji);
+  live.req('react', { id: msg.id, emoji, on: !(r && r.users.includes(S.me.id)) }).catch((e) => toast(e.message, 3000));
+}
+let emojiFor = null;
+function openEmojiPop(msg, anchor) {
+  const pop = $('#emojiPop');
+  if (!pop.hidden && emojiFor === msg.id) { closeEmojiPop(); return; }
+  emojiFor = msg.id;
+  pop.textContent = '';
+  for (const e of QUICK_EMOJI) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = e; b.setAttribute('aria-label', `React with ${e}`);
+    b.addEventListener('click', () => { toggleReaction(msg, e); closeEmojiPop(); });
+    pop.appendChild(b);
+  }
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth))}px`;
+  pop.style.top = `${r.top - pop.offsetHeight - 6 < 8 ? r.bottom + 6 : r.top - pop.offsetHeight - 6}px`;
+  pop.firstChild.focus();
+}
+function closeEmojiPop() { $('#emojiPop').hidden = true; emojiFor = null; }
+document.addEventListener('pointerdown', (e) => { if (!$('#emojiPop').hidden && !e.target.closest('#emojiPop, .msg-tool, .reaction.add')) closeEmojiPop(); });
+live.on('reactions', (d) => {
+  const key = d.channelId ? `c:${d.channelId}` : dmKeyById(d.dmId);
+  const m = key && S.msgs.get(key);
+  const msg = m && m.list.find((x) => x.id === d.id);
+  if (!msg) return;
+  msg.reactions = d.reactions;
+  if (msgKey() === key) renderMessages(true);
+});
+
+/* ---------- jumping to a message (replies and search) ---------- */
+async function jumpTo(key, id) {
+  if (msgKey() !== key) {
+    if (key.startsWith('c:')) { const f = findChannel(Number(key.slice(2))); if (!f) return; setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }); }
+    else setView({ kind: 'dm', userId: Number(key.slice(2)) });
+  }
+  for (let i = 0; i < 60; i++) {
+    const m = S.msgs.get(key);
+    if (m && m.loaded && (m.list.some((x) => x.id === id) || !m.hasMore)) break;
+    if (!m || m.loading) { await new Promise((r) => setTimeout(r, 100)); continue; }
+    await loadHistory(key, true);
+  }
+  const el = document.querySelector(`.msg[data-id="${id}"]`);
+  if (!el) { toast('That message is gone.', 2500); return; }
+  el.scrollIntoView({ block: 'center' });
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 2200);
 }
 function mediaEl(a) {
   const wrap = document.createElement('div'); wrap.className = 'msg-media';
@@ -645,7 +760,7 @@ function editMessage(li, msg) {
   if (li.querySelector('.msg-editbox')) return;
   const body = li.querySelector('.msg-body');
   const box = document.createElement('div'); box.className = 'msg-editbox';
-  const ta = document.createElement('textarea'); ta.value = msg.body; ta.maxLength = 4000;
+  const ta = document.createElement('textarea'); ta.value = decodeMentions(msg.body); ta.maxLength = 4000;
   const hint = document.createElement('small'); hint.textContent = 'Enter to save · Esc to cancel';
   box.appendChild(ta); box.appendChild(hint);
   if (body) body.replaceWith(box); else li.appendChild(box);
@@ -655,7 +770,7 @@ function editMessage(li, msg) {
     if (e.key === 'Escape') { e.preventDefault(); done(); }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      const t = ta.value.trim();
+      const t = encodeMentions(ta.value.trim());
       if (!t || t === msg.body) { done(); return; }
       await act(() => live.req('msg.edit', { id: msg.id, body: t }));
       done();
@@ -663,11 +778,88 @@ function editMessage(li, msg) {
   });
 }
 
+/* ---------- who's typing ---------- */
+const typing = new Map();   // message key -> Map(userId -> show until)
+live.on('typing', (d) => {
+  const key = d.channelId ? `c:${d.channelId}` : `d:${d.dmUserId}`;
+  if (!typing.has(key)) typing.set(key, new Map());
+  typing.get(key).set(d.userId, Date.now() + 6000);
+  renderTyping();
+});
+function renderTyping() {
+  const key = msgKey(), m = key && typing.get(key), t = Date.now();
+  const names = m ? [...m].filter(([, until]) => until > t).map(([id]) => nameOf(id)) : [];
+  $('#typingLine').textContent = !names.length ? '' : names.length === 1 ? `${names[0]} is typing…`
+    : names.length === 2 ? `${names[0]} and ${names[1]} are typing…` : 'Several people are typing…';
+}
+setInterval(renderTyping, 1000);
+
 /* ---------- composer ---------- */
 const chatInput = $('#chatInput');
 function autosize() { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(220, chatInput.scrollHeight) + 'px'; }
-chatInput.addEventListener('input', autosize);
+const composeTarget = () => (S.view.kind === 'text' ? { channelId: S.view.channelId } : S.view.kind === 'dm' ? { toUserId: S.view.userId } : null);
+let typingSentAt = 0;
+chatInput.addEventListener('input', () => {
+  autosize();
+  updateMentionPop();
+  const t = composeTarget();
+  if (t && chatInput.value.trim() && Date.now() - typingSentAt > 3000) { typingSentAt = Date.now(); live.send('typing', t); }
+});
+chatInput.addEventListener('click', updateMentionPop);
+chatInput.addEventListener('blur', () => setTimeout(closeMentionPop, 150));
+
+function startReply(msg) {
+  S.replyTo = msg;
+  $('#replyText').textContent = `Replying to ${nameOf(msg.userId)}`;
+  $('#replyBar').hidden = false;
+  chatInput.focus();
+}
+function cancelReply() { S.replyTo = null; $('#replyBar').hidden = true; }
+$('#replyX').addEventListener('click', cancelReply);
+
+/* Typing "@" shows the people you can mention. */
+let mention = null;   // { start, end, items, index }
+function updateMentionPop() {
+  const pos = chatInput.selectionStart, before = chatInput.value.slice(0, pos);
+  const m = /(^|\s)@([^\s@]{0,24})$/u.exec(before);
+  if (!m) { closeMentionPop(); return; }
+  const q = m[2].toLowerCase();
+  const items = mentionables().filter((id) => id !== S.me.id).map(user)
+    .filter((u) => u.name.toLowerCase().includes(q))
+    .sort((a, b) => (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) || a.name.localeCompare(b.name)).slice(0, 8);
+  if (!items.length) { closeMentionPop(); return; }
+  mention = { start: pos - m[2].length - 1, end: pos, items, index: 0 };
+  renderMentionPop();
+}
+function renderMentionPop() {
+  const pop = $('#mentionPop');
+  pop.textContent = '';
+  mention.items.forEach((u, i) => {
+    const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('aria-selected', String(i === mention.index));
+    li.appendChild(avEl(u.id));
+    const n = document.createElement('span'); n.textContent = u.name; li.appendChild(n);
+    li.addEventListener('pointerdown', (e) => { e.preventDefault(); pickMention(u); });
+    pop.appendChild(li);
+  });
+  pop.hidden = false;
+}
+function closeMentionPop() { mention = null; $('#mentionPop').hidden = true; }
+function pickMention(u) {
+  const v = chatInput.value, ins = `@${u.name} `;
+  chatInput.value = v.slice(0, mention.start) + ins + v.slice(mention.end);
+  const caret = mention.start + ins.length;
+  chatInput.setSelectionRange(caret, caret);
+  closeMentionPop();
+  chatInput.focus();
+}
+
 chatInput.addEventListener('keydown', (e) => {
+  if (mention) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); mention.index = (mention.index + (e.key === 'ArrowDown' ? 1 : -1) + mention.items.length) % mention.items.length; renderMentionPop(); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(mention.items[mention.index]); return; }
+    if (e.key === 'Escape') { e.preventDefault(); closeMentionPop(); return; }
+  }
+  if (e.key === 'Escape' && S.replyTo) { e.preventDefault(); cancelReply(); return; }
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !isPhone()) { e.preventDefault(); $('#chatForm').requestSubmit(); }
   if (e.key === 'ArrowUp' && !chatInput.value) {
     const m = S.msgs.get(msgKey());
@@ -679,9 +871,9 @@ chatInput.addEventListener('keydown', (e) => {
 $('#chatForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (S.sending) return;
-  const body = chatInput.value.trim();
+  const body = encodeMentions(chatInput.value.trim());
   if (!body && !S.attach.length) return;
-  const target = S.view.kind === 'text' ? { channelId: S.view.channelId } : S.view.kind === 'dm' ? { toUserId: S.view.userId } : null;
+  const target = composeTarget();
   if (!target) return;
   if (!live.open) { toast('Not connected to the server right now. Your message is still in the box.', 4000); return; }
   S.sending = true;
@@ -691,9 +883,10 @@ $('#chatForm').addEventListener('submit', async (e) => {
       if (!a.id) { const r = await upload('/api/upload', a.file, (p) => setAttachProgress(a, p)); a.id = r.id; }
       ids.push({ id: a.id });
     }
-    await live.req('msg.send', Object.assign({ body, attachments: ids }, target));
+    await live.req('msg.send', Object.assign({ body, attachments: ids, replyTo: S.replyTo ? S.replyTo.id : null }, target));
     chatInput.value = ''; autosize();
-    clearAttach();
+    clearAttach(); cancelReply();
+    typingSentAt = 0;
   } catch (ex) { toast(ex.message, 5000); }
   finally { S.sending = false; renderTray(); }
 });
@@ -1112,6 +1305,49 @@ $('#admReset').addEventListener('click', async () => {
   if (!await confirmBox(`Reset ${nameOf(id)}'s password?`, 'They’re signed out everywhere and get a temporary password from you. They can change it in Settings.', 'Reset')) return;
   const r = await act(() => live.req('admin.resetPassword', { userId: id }));
   if (r) await confirmBox(`New password for ${r.name}`, 'Send this to them privately. They sign in with it, then change it in Settings → Change password.', 'Done', r.password);
+});
+
+/* ================= search ================= */
+const searchScope = () => (S.view.serverId ? S.view.serverId : -1);
+function openSearch() {
+  const s = curServer();
+  $('#searchNote').textContent = s ? `Searching messages in ${s.name}.` : 'Searching your private chats.';
+  $('#searchResults').textContent = '';
+  $('#searchPanel').hidden = false;
+  $('#searchInput').focus(); $('#searchInput').select();
+}
+function closeSearch() { $('#searchPanel').hidden = true; }
+$('#searchBtn').addEventListener('click', () => ($('#searchPanel').hidden ? openSearch() : closeSearch()));
+$('#searchClose').addEventListener('click', closeSearch);
+$('#searchInput').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeSearch(); } });
+document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && S.ready) { e.preventDefault(); openSearch(); } });
+$('#searchForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = $('#searchInput').value.trim();
+  const ol = $('#searchResults');
+  if (q.length < 2) { $('#searchNote').textContent = 'Type at least 2 letters.'; return; }
+  $('#searchNote').textContent = 'Searching…';
+  let res;
+  try { res = (await api(`/api/search?q=${encodeURIComponent(q)}&serverId=${searchScope()}`)).messages; }
+  catch (ex) { $('#searchNote').textContent = ex.message; return; }
+  $('#searchNote').textContent = res.length ? `${res.length === 50 ? '50+' : res.length} result${res.length === 1 ? '' : 's'}. Click one to jump to it.` : `Nothing found for “${q}”.`;
+  ol.textContent = '';
+  for (const msg of res) {
+    const key = msg.channelId ? `c:${msg.channelId}` : dmKeyById(msg.dmId);
+    if (!key) continue;
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'search-hit';
+    const where = msg.channelId ? `#${(findChannel(msg.channelId) || { channel: { name: '?' } }).channel.name}` : `@${nameOf(Number(key.slice(2)))}`;
+    const head = document.createElement('div'); head.className = 'search-head';
+    head.appendChild(avEl(msg.userId));
+    const n = document.createElement('b'); n.textContent = nameOf(msg.userId); head.appendChild(n);
+    const w = document.createElement('span'); w.textContent = `${where} · ${fmtDay(msg.at)} ${fmtTime(msg.at)}`; head.appendChild(w);
+    b.appendChild(head);
+    const body = document.createElement('div'); body.className = 'search-body'; body.textContent = decodeMentions(msg.body);
+    b.appendChild(body);
+    b.addEventListener('click', () => { closeSearch(); jumpTo(key, msg.id); });
+    li.appendChild(b); ol.appendChild(li);
+  }
 });
 
 /* ================= servers ================= */

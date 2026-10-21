@@ -96,6 +96,20 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 `);
 
+/* Upgrades for databases made by older versions. */
+const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD COLUMN reply_to INTEGER');
+db.exec(`
+CREATE TABLE IF NOT EXISTS reactions (
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (message_id, user_id, emoji)
+);
+CREATE INDEX IF NOT EXISTS reactions_message ON reactions(message_id);
+`);
+
 const cache = new Map();
 /* Prepared statements are cached by their SQL text. */
 export function q(sql) {
