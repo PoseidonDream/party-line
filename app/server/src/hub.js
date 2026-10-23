@@ -306,6 +306,7 @@ const handlers = {
       },
       voice: voiceList,
       people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size })),
+      directory: M.userDirectory().map((u) => Object.assign(u, { online: online(u.id), openApps: (byUser.get(u.id) || new Set()).size })),
       log: devLog.slice(-300),
     };
   },
@@ -362,6 +363,7 @@ export function attachHub(server) {
     const c = { id: nextConn++, ws, userId: user.id, alive: true };
     conns.set(c.id, c);
     const first = !online(user.id);
+    M.touchUser(user.id);
     if (!byUser.has(user.id)) byUser.set(user.id, new Set());
     byUser.get(user.id).add(c);
     send(c, readyFor(user));
@@ -389,6 +391,7 @@ export function attachHub(server) {
       set && set.delete(c);
       const v = voice.get(user.id);
       if (v && v.connId === c.id) leaveVoice(user.id);
+      M.touchUser(user.id);
       if (!online(user.id)) { byUser.delete(user.id); toWatchers(user.id, { t: 'presence', userId: user.id, online: false }); }
     });
   });

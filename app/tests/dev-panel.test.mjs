@@ -7,6 +7,8 @@ export default async function (ok) {
   try {
     const a = await signUp(browser, srv.url, 'Poseidon');
     const b = await signUp(browser, srv.url, 'Bora');
+    const c = await signUp(browser, srv.url, 'Cem');   // signs up, then leaves
+    await c.context().close();
     await joinVoice(a); await joinVoice(b);
     await a.waitForSelector('#tiles .tile:has-text("Bora") .tile-sub:has-text("Connected")', { timeout: 15000 });
 
@@ -19,6 +21,14 @@ export default async function (ok) {
     await a.waitForSelector('#devPanel .dev-card:has-text("Online now") b:text-is("2")');
     await a.waitForSelector('#devPanel .dev-chan:has-text("Lobby")');
     ok('Server tab shows who’s online and in voice', true);
+
+    await a.click('#devPanel [data-tab="everyone"]');
+    await a.waitForSelector('#devPanel .dev-table tr:has-text("Cem") td:has-text("just now")');
+    await a.waitForSelector('#devPanel .dev-table tr:has-text("Bora") td:has-text("online now")');
+    ok('Everyone tab lists people who signed up before, with when they were last online', true);
+    await a.fill('#devPanel .dev-search', 'ce');
+    ok('you can search it', (await a.locator('#devPanel .dev-table tbody tr').count()) === 1);
+    await a.screenshot({ path: `${RESULTS}/dev-everyone.png` });
 
     await a.click('#devPanel [data-tab="voice"]');
     await a.waitForFunction(() => { const td = [...document.querySelectorAll('#devPanel .dev-table td')]; return td.some((x) => /^[1-9]\d* kbps$/.test(x.textContent)); }, null, { timeout: 8000 });

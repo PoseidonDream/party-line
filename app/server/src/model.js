@@ -340,6 +340,20 @@ export const setFeedbackDone = (id, done) => run('UPDATE feedback SET done = ? W
 export const deleteFeedback = (id) => run('DELETE FROM feedback WHERE id = ?', id);
 
 export const allUsers = () => all('SELECT * FROM users').map(publicUser);
+export const touchUser = (id) => run('UPDATE users SET last_seen = ? WHERE id = ?', now(), id);
+/* Everyone who ever made an account, for the developer panel. */
+export function userDirectory() {
+  return all(`SELECT u.id, u.name, u.avatar, u.is_admin, u.created_at,
+      COALESCE(u.last_seen, (SELECT MAX(last_seen) FROM sessions WHERE user_id = u.id)) AS last_seen,
+      (SELECT COUNT(*) FROM sessions WHERE user_id = u.id) AS sessions,
+      (SELECT COUNT(*) FROM messages WHERE user_id = u.id) AS messages,
+      (SELECT COUNT(*) FROM members WHERE user_id = u.id) AS servers,
+      (SELECT COUNT(*) FROM friends WHERE user_id = u.id AND state = 'friends') AS friends
+    FROM users u ORDER BY last_seen DESC`).map((u) => ({
+    id: u.id, name: u.name, avatar: u.avatar, admin: !!u.is_admin, createdAt: u.created_at, lastSeen: u.last_seen,
+    devices: u.sessions, messages: u.messages, servers: u.servers, friends: u.friends,
+  }));
+}
 
 /* Who you can see: people who share a server with you, friends and friend requests, and people you've chatted with. */
 const VISIBLE = `

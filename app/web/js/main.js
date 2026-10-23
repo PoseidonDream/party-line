@@ -1337,13 +1337,13 @@ $('#admKick').addEventListener('click', async () => {
   if (srv && await confirmBox(`Remove ${nameOf(id)} from ${srv.name}?`, 'They can come back with an invite link.', 'Remove')) act(() => live.req('admin.kick', { serverId: srv.id, userId: id }));
 });
 
-$('#admReset').addEventListener('click', async () => {
-  const id = S.popUser;
-  closeUserPop();
+$('#admReset').addEventListener('click', () => { const id = S.popUser; closeUserPop(); resetPassword(id); });
+async function resetPassword(id, name) {
+  if (name && !S.users.has(id)) S.users.set(id, { id, name, avatar: null, online: false });
   if (!await confirmBox(`Reset ${nameOf(id)}'s password?`, 'They’re signed out everywhere and get a temporary password from you. They can change it in Settings.', 'Reset')) return;
   const r = await act(() => live.req('admin.resetPassword', { userId: id }));
   if (r) await confirmBox(`New password for ${r.name}`, 'Send this to them privately. They sign in with it, then change it in Settings → Change password.', 'Done', r.password);
-});
+}
 
 /* ================= search ================= */
 const searchScope = () => (S.view.serverId ? S.view.serverId : -1);
@@ -1617,6 +1617,9 @@ initDev({
   rejoin: () => Voice.rejoinVoice(),
   restartMic: () => Voice.setupMic(settings.micId),
   onlinePeople: () => [...S.users.values()].filter((u) => u.online && u.id !== S.me.id).map((u) => u.id),
+  isMe: (id) => !!S.me && S.me.id === id,
+  avatar: (u) => { if (!S.users.has(u.id)) S.users.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, admin: u.admin, online: false }); return avEl(u.id); },
+  resetPassword,
 });
 $('#mDev').addEventListener('click', () => { closeMenu(); openDev(); });
 $('#devOpen').addEventListener('click', () => { $('#settings').close(); openDev(); });

@@ -55,6 +55,7 @@ function build() {
       <button type="button" class="btn icon-btn" data-close aria-label="Close developer panel"><svg class="ic"><use href="#i-x"/></svg></button></div>
     <div class="tabs dev-tabs" role="tablist">
       <button type="button" class="tab" role="tab" data-tab="overview">Server</button>
+      <button type="button" class="tab" role="tab" data-tab="everyone">Everyone</button>
       <button type="button" class="tab" role="tab" data-tab="voice">My voice</button>
       <button type="button" class="tab" role="tab" data-tab="log">Log</button>
       <button type="button" class="tab" role="tab" data-tab="people">Check a friend</button>
@@ -81,8 +82,9 @@ async function loadStats() {
 }
 async function render() {
   dlg.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-  if (tab === 'overview' || (tab === 'log' && !stats)) await loadStats();
+  if (tab === 'overview' || tab === 'everyone' || (tab === 'log' && !stats)) await loadStats();
   if (tab === 'overview') renderOverview();
+  else if (tab === 'everyone') renderEveryone();
   else if (tab === 'voice') renderVoice();
   else if (tab === 'log') renderLog();
   else renderPeople();
@@ -121,6 +123,67 @@ function renderOverview() {
   }
   b.appendChild(el('h3', 'dev-h', 'Online'));
   b.appendChild(el('p', 'hint', stats.people.map((p) => `${ctx.nameOf(p.userId)}${p.devices > 1 ? ` (${p.devices} devices)` : ''}`).join(', ') || 'Nobody.'));
+}
+
+/* ---------- Everyone (every account that ever signed up) ---------- */
+let peopleFilter = '';
+const ago = (ts) => {
+  if (!ts) return 'never';
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (s < 90) return 'just now';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  if (s < 30 * 86400) return `${Math.round(s / 86400)} days ago`;
+  return new Date(ts).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+};
+function renderEveryone() {
+  const b = body(); b.textContent = '';
+  if (!stats || stats.error) { b.appendChild(el('p', 'error', stats ? stats.error : 'Loading…')); return; }
+  const list = stats.directory || [];
+  const online = list.filter((u) => u.online).length;
+  const recent = list.filter((u) => u.lastSeen && Date.now() - u.lastSeen < 7 * 86400_000).length;
+  b.appendChild(el('p', 'hint', `${list.length} account${list.length === 1 ? '' : 's'} · ${online} online now · ${recent} active this week`));
+  const search = el('input', 'input dev-search');
+  search.type = 'search'; search.placeholder = 'Find someone'; search.value = peopleFilter; search.setAttribute('aria-label', 'Find someone');
+  search.addEventListener('input', () => { peopleFilter = search.value; draw(); });
+  b.appendChild(search);
+  const wrap = el('div');
+  b.appendChild(wrap);
+  function draw() {
+    wrap.textContent = '';
+    const q = peopleFilter.trim().toLowerCase();
+    const rows = list.filter((u) => !q || u.name.toLowerCase().includes(q));
+    const tbl = el('table', 'dev-table');
+    tbl.innerHTML = '<thead><tr><th>Name</th><th>Last online</th><th>Joined</th><th>Messages</th><th>Servers</th><th>Friends</th><th>Devices</th><th></th></tr></thead>';
+    const tb = el('tbody');
+    for (const u of rows) {
+      const tr = el('tr');
+      const name = el('td'), who = el('span', 'dev-name');
+      who.appendChild(ctx.avatar(u));
+      who.appendChild(el('span', null, u.name + (u.admin ? ' (admin)' : '')));
+      name.appendChild(who); tr.appendChild(name);
+      const st = el('td', u.online ? 'ok' : null, u.online ? `online now${u.openApps > 1 ? ` · ${u.openApps} apps` : ''}` : ago(u.lastSeen));
+      tr.appendChild(st);
+      tr.appendChild(el('td', null, new Date(u.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })));
+      for (const k of ['messages', 'servers', 'friends', 'devices']) tr.appendChild(el('td', null, String(u[k])));
+      const acts = el('td', 'dev-acts');
+      if (u.online && !ctx.isMe(u.id)) {
+        const d = el('button', 'btn small', 'Diagnostics'); d.type = 'button';
+        d.addEventListener('click', () => { tab = 'people'; render(); live.req('dev.ask', { userId: u.id }).catch((e) => toast(e.message, 3000)); });
+        acts.appendChild(d);
+      }
+      if (!ctx.isMe(u.id)) {
+        const r = el('button', 'btn small', 'Reset password'); r.type = 'button';
+        r.addEventListener('click', () => ctx.resetPassword(u.id, u.name));
+        acts.appendChild(r);
+      }
+      tr.appendChild(acts);
+      tb.appendChild(tr);
+    }
+    tbl.appendChild(tb);
+    wrap.appendChild(rows.length ? tbl : el('p', 'hint', 'Nobody by that name.'));
+  }
+  draw();
 }
 
 /* ---------- My voice ---------- */

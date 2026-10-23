@@ -713,3 +713,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .k-voice .dev-kind { background: var(--lamp); color: var(--on-lamp); }
 .k-error .dev-kind { background: var(--danger); color: var(--on-danger); }
 @media (max-width: 700px) { .dev-log li { grid-template-columns: 1fr; gap: 0; } }
+.dev-search { max-width: 320px; height: 38px; }
+.dev-name { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-body); font-weight: 600; }
+.dev-name .mini-av { width: 26px; height: 26px; font-size: 11px; }
+.dev-table td.ok { color: var(--ok); font-weight: 700; }
+.dev-acts .btn + .btn { margin-left: 6px; }

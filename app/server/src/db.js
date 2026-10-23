@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 /* Upgrades for databases made by older versions. */
 const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
 if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD COLUMN reply_to INTEGER');
+if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (
   message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
