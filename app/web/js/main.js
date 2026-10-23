@@ -2,6 +2,7 @@
 import { api, upload, live, store, setToken, hasToken, absUrl } from './net.js';
 import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize } from './util.js';
 import * as Voice from './voice.js';
+import { initDev, openDev, log } from './dev.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
@@ -465,6 +466,7 @@ function renderSide() {
     }
   }
   $('#mRename').hidden = !manage;
+  $('#mDev').hidden = !S.me.admin;
   $('#mDelete').hidden = !manage || s.isDefault;
 }
 function renderHomeSide() {
@@ -1501,6 +1503,7 @@ function openSettings() {
   syncSettingsForm();
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
   $('#pwNote').hidden = true; $('#pwOld').value = ''; $('#pwNew').value = '';
+  $('#devOpen').hidden = !S.me.admin;
   $('#appInfo').textContent = desktop ? `Party Line desktop app ${desktop.version || ''} · Server: ${location.host}` : `Server: ${location.host}`;
   refreshDevices();
   $('#settings').showModal();
@@ -1605,6 +1608,19 @@ $('#fbForm').addEventListener('submit', async (e) => {
   $('#fbSend').disabled = false;
 });
 
+/* ================= developer panel ================= */
+initDev({
+  isAdmin: () => !!(S.me && S.me.admin),
+  nameOf,
+  diagnostics: Voice.diagnostics,
+  channelName: (id) => { const f = findChannel(id); return f ? `${f.channel.name} (${f.server.name})` : `channel ${id}`; },
+  rejoin: () => Voice.rejoinVoice(),
+  restartMic: () => Voice.setupMic(settings.micId),
+  onlinePeople: () => [...S.users.values()].filter((u) => u.online && u.id !== S.me.id).map((u) => u.id),
+});
+$('#mDev').addEventListener('click', () => { closeMenu(); openDev(); });
+$('#devOpen').addEventListener('click', () => { $('#settings').close(); openDev(); });
+
 /* ================= start ================= */
 Voice.initVoice({
   myId: () => (S.me ? S.me.id : 0),
@@ -1612,7 +1628,7 @@ Voice.initVoice({
   speaking: renderSpeaking,
   micIssue: (kind) => { if (kind && V.channelId) { micPanelOpen = true; renderMicPanel(); } },
   system: (what, id) => {
-    if (what === 'audio-blocked') $('#audioUnlockRow').hidden = false;
+    if (what === 'audio-blocked') { $('#audioUnlockRow').hidden = false; log('voice', 'The browser blocked playing sound until a click'); }
     else if (what === 'voice-failed') toast(`Couldn’t connect voice with ${nameOf(id)}. A strict network may be blocking it.`, 6000);
     else toast(what, 4000);
   },

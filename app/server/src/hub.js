@@ -1,12 +1,28 @@
 /* The live part: one WebSocket per open app. Carries new messages, who's online, who's in which voice
    channel, and relays the WebRTC handshakes that connect voices and screen shares directly between people. */
 import { WebSocketServer } from 'ws';
+import fs from 'node:fs';
+import path from 'node:path';
 import * as M from './model.js';
+import { config } from './config.js';
 
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
 const voice = new Map();     // userId -> { channelId, serverId, connId, muted, deafened, sharing, screenId, serverMuted, since }
 let nextConn = 1;
+const startedAt = Date.now();
+/* Developer log: voice events and errors reported by everyone's app, newest last. Kept in memory only. */
+const devLog = [];
+function addDevLog(entry) {
+  devLog.push(entry);
+  if (devLog.length > 500) devLog.splice(0, devLog.length - 500);
+  for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'dev.log', entry });
+}
+function folderSize(dir) {
+  let files = 0, bytes = 0;
+  try { for (const f of fs.readdirSync(dir)) { try { const st = fs.statSync(path.join(dir, f)); if (st.isFile()) { files++; bytes += st.size; } } catch {} } } catch {}
+  return { files, bytes };
+}
 
 const send = (c, msg) => { if (c && c.ws.readyState === 1) c.ws.send(JSON.stringify(msg)); };
 const toUser = (userId, msg, except) => { for (const c of byUser.get(userId) || []) if (c !== except) send(c, msg); };
@@ -263,6 +279,50 @@ const handlers = {
     const temp = M.resetPassword(target.id);
     for (const tc of [...(byUser.get(target.id) || [])]) tc.ws.close(4001, 'auth');   // signed out on every device
     return { password: temp, name: target.name };
+  },
+
+  /* ---- developer panel (admins) ---- */
+  'dev.report'(c, user, d) {
+    const t = Date.now();
+    c.reports = (c.reports || []).filter((x) => t - x < 60_000);
+    if (c.reports.length >= 30) return {};   // a broken app can't flood the log
+    c.reports.push(t);
+    addDevLog({ at: t, userId: user.id, kind: String(d.kind || 'info').slice(0, 20), text: String(d.text || '').slice(0, 500) });
+    return {};
+  },
+  'dev.stats'(c, user) {
+    if (!user.is_admin) fail('Admins only.');
+    const mem = process.memoryUsage();
+    let dbBytes = 0;
+    for (const f of ['party-line.db', 'party-line.db-wal']) { try { dbBytes += fs.statSync(path.join(config.dataDir, f)).size; } catch {} }
+    const voiceList = [...voice].map(([id, v]) => Object.assign(voiceView(id, v), { connId: v.connId }));
+    return {
+      server: {
+        uptime: Math.round((Date.now() - startedAt) / 1000), node: process.version, version: process.env.GIT_COMMIT || '',
+        rss: mem.rss, heap: mem.heapUsed, dbBytes, uploads: folderSize(path.join(config.dataDir, 'uploads')),
+        users: M.allUsers().length, online: byUser.size, connections: conns.size,
+        turn: !!(config.turnUrls.length && config.turnSecret), sfu: !!(config.livekit.url && config.livekit.secret),
+        groupPassword: !!config.groupPassword,
+      },
+      voice: voiceList,
+      people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size })),
+      log: devLog.slice(-300),
+    };
+  },
+  'dev.ask'(c, user, d) {
+    if (!user.is_admin) fail('Admins only.');
+    const target = Number(d.userId);
+    if (!online(target)) fail('They’re not online.');
+    toUser(target, { t: 'dev.ask', from: user.id });
+    return {};
+  },
+  'dev.answer'(c, user, d) {
+    const admin = M.getUser(Number(d.to));
+    if (!admin || !admin.is_admin) return {};
+    let data = d.data;
+    try { if (JSON.stringify(data).length > 60_000) data = { error: 'too big' }; } catch { data = { error: 'unreadable' }; }
+    toUser(admin.id, { t: 'dev.answer', userId: user.id, device: c.id, data });
+    return {};
   },
 
   /* ---- feedback ---- */

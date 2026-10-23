@@ -1,0 +1,234 @@
+/* Developer panel (admins only) and the event log every app keeps.
+   Voice events and errors are also reported to the server, so an admin can see what went wrong on a friend's device. */
+import { live } from './net.js';
+import { fmtTime, fmtSize, toast } from './util.js';
+
+/* ---------- the log ---------- */
+export const events = [];   // this device, newest last
+const listeners = new Set();
+export function log(kind, text) {
+  const e = { at: Date.now(), kind, text: String(text).slice(0, 500), mine: true };
+  events.push(e);
+  if (events.length > 300) events.shift();
+  for (const fn of listeners) fn(e);
+  if (kind === 'voice' || kind === 'error') { try { live.send('dev.report', { kind, text: e.text }); } catch {} }
+}
+window.addEventListener('error', (e) => log('error', `${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno})`));
+window.addEventListener('unhandledrejection', (e) => log('error', `Unhandled: ${e.reason && (e.reason.message || e.reason)}`));
+live.on('down', () => log('voice', 'Lost connection to the server'));
+live.on('open', () => log('info', 'Connected to the server'));
+
+/* ---------- the panel ---------- */
+let ctx = null, dlg = null, tab = 'overview', timer = 0, stats = null, lastDiag = null, serverLog = [];
+const answers = new Map();   // userId -> { at, data, prev }
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const dur = (s) => (s < 3600 ? `${Math.floor(s / 60)}m ${s % 60}s` : s < 86400 ? `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m` : `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`);
+
+export function initDev(c) {
+  ctx = c;
+  // An admin asked this app how its voice is doing: answer with the same numbers the panel shows.
+  live.on('dev.ask', async (d) => {
+    const data = await ctx.diagnostics();
+    data.events = events.slice(-40);
+    data.userAgent = navigator.userAgent;
+    live.send('dev.answer', { to: d.from, data });
+    toast(`${ctx.nameOf(d.from)} checked your voice connection to help fix problems.`, 4000);
+  });
+  live.on('dev.log', (d) => { serverLog.push(d.entry); if (serverLog.length > 500) serverLog.shift(); if (dlg && dlg.open && tab === 'log') renderLog(); });
+  live.on('dev.answer', (d) => {
+    const prev = answers.get(d.userId);
+    answers.set(d.userId, { at: Date.now(), data: d.data, prev: prev && prev.data });
+    if (dlg && dlg.open && tab === 'people') renderPeople();
+  });
+  listeners.add(() => { if (dlg && dlg.open && tab === 'log') renderLog(); });
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd' && ctx.isAdmin()) { e.preventDefault(); openDev(); }
+  });
+}
+
+function build() {
+  dlg = el('dialog', 'dev-panel');
+  dlg.id = 'devPanel';
+  dlg.setAttribute('aria-labelledby', 'devTitle');
+  dlg.innerHTML = `
+    <div class="set-head"><h2 id="devTitle">Developer</h2>
+      <button type="button" class="btn icon-btn" data-close aria-label="Close developer panel"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <div class="tabs dev-tabs" role="tablist">
+      <button type="button" class="tab" role="tab" data-tab="overview">Server</button>
+      <button type="button" class="tab" role="tab" data-tab="voice">My voice</button>
+      <button type="button" class="tab" role="tab" data-tab="log">Log</button>
+      <button type="button" class="tab" role="tab" data-tab="people">Check a friend</button>
+    </div>
+    <div class="dev-body" id="devBody"></div>`;
+  document.body.appendChild(dlg);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('close', () => { clearInterval(timer); timer = 0; });
+  dlg.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+}
+export function openDev() {
+  if (!ctx || !ctx.isAdmin()) return;
+  if (!dlg) build();
+  if (!dlg.open) dlg.showModal();
+  render();
+  clearInterval(timer);
+  let n = 0;
+  timer = setInterval(() => { n++; if (tab === 'voice') renderVoice(); else if (tab === 'overview' && n % 5 === 0) render(); }, 1000);
+}
+
+async function loadStats() {
+  try { stats = await live.req('dev.stats', {}); serverLog = stats.log.slice(); }
+  catch (e) { stats = { error: e.message }; }
+}
+async function render() {
+  dlg.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  if (tab === 'overview' || (tab === 'log' && !stats)) await loadStats();
+  if (tab === 'overview') renderOverview();
+  else if (tab === 'voice') renderVoice();
+  else if (tab === 'log') renderLog();
+  else renderPeople();
+}
+const body = () => dlg.querySelector('#devBody');
+
+/* ---------- Server ---------- */
+function renderOverview() {
+  const b = body(); b.textContent = '';
+  if (!stats || stats.error) { b.appendChild(el('p', 'error', stats ? stats.error : 'Loading…')); return; }
+  const s = stats.server;
+  const grid = el('div', 'dev-cards');
+  const card = (label, value, sub, bad) => { const c = el('div', 'dev-card' + (bad ? ' bad' : '')); c.append(el('span', 'dev-label', label), el('b', null, value)); if (sub) c.appendChild(el('small', null, sub)); grid.appendChild(c); };
+  card('Up for', dur(s.uptime), s.version ? `version ${s.version.slice(0, 7)}` : `Node ${s.node}`);
+  card('Online now', String(s.online), `${s.connections} open app${s.connections === 1 ? '' : 's'}`);
+  card('Accounts', String(s.users), s.groupPassword ? 'group password on' : 'anyone can sign up', !s.groupPassword);
+  card('Memory', fmtSize(s.rss), `${fmtSize(s.heap)} in use`);
+  card('Database', fmtSize(s.dbBytes));
+  card('Photos and videos', fmtSize(s.uploads.bytes), `${s.uploads.files} file${s.uploads.files === 1 ? '' : 's'}`);
+  card('Voice relay', s.turn ? 'On' : 'Off', s.turn ? 'friends on strict networks can connect' : 'not set up, strict networks may fail', !s.turn);
+  card('Media server', s.sfu ? 'On' : 'Off', s.sfu ? 'voice goes through the server' : 'voice goes directly between people');
+  b.appendChild(grid);
+  b.appendChild(el('h3', 'dev-h', 'Voice channels'));
+  if (!stats.voice.length) b.appendChild(el('p', 'hint', 'Nobody is in voice.'));
+  const byChan = new Map();
+  for (const v of stats.voice) { if (!byChan.has(v.channelId)) byChan.set(v.channelId, []); byChan.get(v.channelId).push(v); }
+  for (const [chId, list] of byChan) {
+    const box = el('div', 'dev-chan');
+    box.appendChild(el('b', null, `${ctx.channelName(chId)} · ${list.length} ${list.length === 1 ? 'person' : 'people'}`));
+    const ul = el('ul', 'dev-list');
+    for (const v of list) {
+      const flags = [v.serverMuted ? 'muted by admin' : v.muted ? 'muted' : null, v.deafened ? 'deafened' : null, v.sharing ? 'sharing screen' : null, v.camera ? 'camera on' : null].filter(Boolean);
+      ul.appendChild(el('li', null, `${ctx.nameOf(v.userId)} — in for ${dur(Math.round((Date.now() - v.since) / 1000))}${flags.length ? ' · ' + flags.join(', ') : ''}`));
+    }
+    box.appendChild(ul); b.appendChild(box);
+  }
+  b.appendChild(el('h3', 'dev-h', 'Online'));
+  b.appendChild(el('p', 'hint', stats.people.map((p) => `${ctx.nameOf(p.userId)}${p.devices > 1 ? ` (${p.devices} devices)` : ''}`).join(', ') || 'Nobody.'));
+}
+
+/* ---------- My voice ---------- */
+function peerTable(d, prev) {
+  const tbl = el('table', 'dev-table');
+  tbl.innerHTML = '<thead><tr><th>Friend</th><th>Link</th><th>Path</th><th>Ping</th><th>Loss</th><th>Jitter</th><th>In</th><th>Out</th><th>Level</th></tr></thead>';
+  const tb = el('tbody');
+  for (const p of d.peers) {
+    const q = prev && prev.peers.find((x) => x.userId === p.userId);
+    const secs = prev ? Math.max(0.5, (d.at - prev.at) / 1000) : 1;
+    const kbps = (now, old) => (now != null && old != null ? `${Math.max(0, Math.round(((now - old) * 8) / 1000 / secs))} kbps` : '–');
+    const lossPct = p.in && p.in.packets ? `${((100 * Math.max(0, p.in.lost)) / (p.in.packets + Math.max(0, p.in.lost))).toFixed(1)}%` : '–';
+    const tr = el('tr');
+    const inKbps = kbps(p.in && p.in.bytes, q && q.in && q.in.bytes);
+    const deadIn = prev && inKbps === '0 kbps';
+    const cells = [
+      ctx.nameOf(p.userId),
+      p.state ? `${p.state}${p.ice && p.ice !== p.state ? ` / ${p.ice}` : ''}` : p.net,
+      p.path ? `${p.path.relayed ? 'relayed' : 'direct'} ${p.path.protocol || ''} (${p.path.local}→${p.path.remote})` : d.mode === 'media server' ? 'media server' : '–',
+      p.path && p.path.rttMs != null ? `${p.path.rttMs} ms` : '–',
+      lossPct,
+      p.in ? `${p.in.jitterMs} ms` : '–',
+      inKbps,
+      kbps(p.out && p.out.bytes, q && q.out && q.out.bytes),
+      p.in ? String(p.in.level) : p.hearing ? 'yes' : 'no',
+    ];
+    cells.forEach((c, i) => { const td = el('td', null, c); if ((i === 1 && /failed|disconnected/.test(c)) || (i === 6 && deadIn)) td.className = 'bad'; tr.appendChild(td); });
+    tb.appendChild(tr);
+  }
+  tbl.appendChild(tb);
+  return tbl;
+}
+function micSummary(d) {
+  const ul = el('ul', 'dev-facts');
+  const add = (k, v, bad) => { const li = el('li', bad ? 'bad' : null); li.append(el('span', null, k), el('b', null, v)); ul.appendChild(li); };
+  add('In voice', d.inVoice ? `${ctx.channelName(d.inVoice)} (${d.mode})` : 'no');
+  add('Microphone', d.mic ? `${d.mic.label || 'mic'} · ${d.mic.state}${d.mic.muted ? ' · muted by computer' : ''}` : 'not started', !!(d.mic && (d.mic.state !== 'live' || d.mic.muted)));
+  add('Sending', d.send ? (d.send.live ? 'yes' : d.muted ? 'no (muted)' : d.deafened ? 'no (deafened)' : d.ptt ? 'no (push to talk)' : 'no') + (d.send.state !== 'live' ? ` · track ${d.send.state}` : '') : '–', !!(d.send && d.send.state !== 'live'));
+  add('Mic problem', d.micIssue || 'none', !!d.micIssue);
+  add('Noise filter', `${d.noise}${d.noise === 'strong' ? (d.filterRunning ? ' (running)' : ' (not running)') : ''}`);
+  add('Audio engine', d.audio ? `${d.audio.state} · ${d.audio.sampleRate} Hz` : '–', !!(d.audio && d.audio.state !== 'running'));
+  return ul;
+}
+async function renderVoice() {
+  const d = await ctx.diagnostics();
+  const prev = lastDiag; lastDiag = d;
+  if (!dlg.open || tab !== 'voice') return;
+  const b = body(); b.textContent = '';
+  b.appendChild(micSummary(d));
+  if (d.peers.length) b.appendChild(peerTable(d, prev));
+  else b.appendChild(el('p', 'hint', d.inVoice ? 'Nobody else is in your voice channel.' : 'Join a voice channel to see live connection numbers.'));
+  const row = el('div', 'pop-btns dev-actions');
+  const btn = (label, fn) => { const x = el('button', 'btn small', label); x.type = 'button'; x.addEventListener('click', fn); row.appendChild(x); };
+  btn('Rejoin voice', () => ctx.rejoin());
+  btn('Restart mic', () => ctx.restartMic());
+  btn('Copy report', () => navigator.clipboard.writeText(JSON.stringify({ diagnostics: d, events: events.slice(-80) }, null, 2)).then(() => toast('Copied.', 1500)));
+  b.appendChild(row);
+  b.appendChild(el('p', 'hint', 'In and Out should stay above about 10 kbps while you’re connected. 0 kbps in red means audio stopped arriving from that friend.'));
+}
+
+/* ---------- Log ---------- */
+let logFilter = 'all';
+function renderLog() {
+  const b = body(); b.textContent = '';
+  const filters = el('div', 'dev-filters');
+  for (const [k, label] of [['all', 'Everyone'], ['voice', 'Voice problems'], ['error', 'Errors'], ['mine', 'This device']]) {
+    const x = el('button', 'tab', label); x.type = 'button'; x.setAttribute('aria-selected', String(logFilter === k));
+    x.addEventListener('click', () => { logFilter = k; renderLog(); });
+    filters.appendChild(x);
+  }
+  b.appendChild(filters);
+  const all = logFilter === 'mine' ? events.slice() : serverLog.filter((e) => logFilter === 'all' || e.kind === logFilter);
+  const ol = el('ol', 'dev-log');
+  for (const e of all.slice(-300).reverse()) {
+    const li = el('li', `k-${e.kind}`);
+    li.append(el('time', null, `${new Date(e.at).toLocaleDateString([], { day: 'numeric', month: 'short' })} ${fmtTime(e.at)}:${String(new Date(e.at).getSeconds()).padStart(2, '0')}`),
+      el('span', 'dev-kind', e.kind), el('b', null, e.mine ? 'this device' : ctx.nameOf(e.userId)), el('span', 'dev-text', e.text));
+    ol.appendChild(li);
+  }
+  if (!all.length) b.appendChild(el('p', 'hint', 'Nothing logged yet. Voice problems and errors from everyone’s app show up here as they happen.'));
+  b.appendChild(ol);
+}
+
+/* ---------- Check a friend ---------- */
+async function renderPeople() {
+  const b = body(); b.textContent = '';
+  b.appendChild(el('p', 'hint', 'Get a friend’s live voice numbers from their device. They get a short note that you checked.'));
+  const people = ctx.onlinePeople();
+  if (!people.length) b.appendChild(el('p', 'hint', 'Nobody else is online.'));
+  for (const id of people) {
+    const box = el('div', 'dev-chan');
+    const head = el('div', 'dev-row');
+    head.appendChild(el('b', null, ctx.nameOf(id)));
+    const ask = el('button', 'btn small', answers.has(id) ? 'Check again' : 'Get diagnostics'); ask.type = 'button';
+    ask.addEventListener('click', () => live.req('dev.ask', { userId: id }).then(() => { ask.textContent = 'Asking…'; }).catch((e) => toast(e.message, 3000)));
+    head.appendChild(ask);
+    box.appendChild(head);
+    const a = answers.get(id);
+    if (a) {
+      box.appendChild(el('small', 'hint', `Checked at ${fmtTime(a.at)} · ${a.data.userAgent ? a.data.userAgent.replace(/.*\) /, '').slice(0, 80) : ''}`));
+      box.appendChild(micSummary(a.data));
+      if (a.data.peers && a.data.peers.length) box.appendChild(peerTable(a.data, a.prev));
+      if (a.data.events && a.data.events.length) {
+        const ol = el('ol', 'dev-log small');
+        for (const e of a.data.events.slice(-12).reverse()) { const li = el('li', `k-${e.kind}`); li.append(el('time', null, fmtTime(e.at)), el('span', 'dev-kind', e.kind), el('span', 'dev-text', e.text)); ol.appendChild(li); }
+        box.appendChild(ol);
+      }
+    }
+    b.appendChild(box);
+  }
+}

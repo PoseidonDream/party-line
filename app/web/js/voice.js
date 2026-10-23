@@ -2,6 +2,7 @@
    the server only passes the handshakes along. The microphone runs through an optional noise filter. */
 import { api, live, absUrl } from './net.js';
 import { settings, saveSettings, friendVols, clampLevel, audioCtx, makeAnalyser, level, toast } from './util.js';
+import { log } from './dev.js';
 
 export const V = {
   channelId: null, serverId: null, joining: false,
@@ -88,9 +89,9 @@ async function installMic(raw, real) {
   localMeter = makeAnalyser(send);
   const track = raw.getAudioTracks()[0];
   if (!track || !real) return;
-  track.addEventListener('ended', () => { if (V.rawStream === raw) { V.noMic = true; applyMic(); setIssue('disconnected'); } });
-  track.addEventListener('mute', () => setTimeout(() => { if (V.rawStream === raw && track.muted && !V.noMic) setIssue('osmuted'); }, 1500));
-  track.addEventListener('unmute', () => { if (V.rawStream === raw && V.micIssue === 'osmuted') setIssue(null); });
+  track.addEventListener('ended', () => { log('voice', `Microphone stopped (${track.label || 'mic'})`); if (V.rawStream === raw) { V.noMic = true; applyMic(); setIssue('disconnected'); } });
+  track.addEventListener('mute', () => { log('voice', 'The computer muted the microphone'); setTimeout(() => { if (V.rawStream === raw && track.muted && !V.noMic) setIssue('osmuted'); }, 1500); });
+  track.addEventListener('unmute', () => { log('info', 'Microphone unmuted by the computer'); if (V.rawStream === raw && V.micIssue === 'osmuted') setIssue(null); });
 }
 function setIssue(kind) { if (V.micIssue !== kind) { V.micIssue = kind; hooks.micIssue(kind); hooks.change(); } }
 export async function setupMic(deviceId = settings.micId) {
@@ -110,6 +111,7 @@ export async function setupMic(deviceId = settings.micId) {
     if (!V.micStream) await installMic(silentStream(), false);
     V.noMic = true;
     setIssue(issueFromError(err));
+    log('voice', `Microphone didn’t start: ${err && (err.name + ' ' + err.message)}`);
   }
   applyMic(); hooks.change();
   return err;
@@ -151,6 +153,7 @@ export async function joinVoice(channelId) {
     catch { if (!V.ice) { V.ice = [{ urls: 'stun:stun.l.google.com:19302' }]; V.sfu = false; } }
     if (V.channelId) closeAllPeers();
     const r = await live.req('voice.join', { channelId, muted: V.muted, deafened: V.deafened });
+    log('info', `Joined voice channel ${channelId} (${V.sfu ? 'media server' : 'direct'}, ${r.peers.length} already there)`);
     V.channelId = channelId;
     V.serverMuted = false;
     if (V.sfu) {
@@ -163,6 +166,7 @@ export async function joinVoice(channelId) {
 }
 export function leaveVoice(notifyServer = true) {
   if (!V.channelId) return;
+  log('info', notifyServer ? 'Left voice' : 'Removed from voice');
   if (notifyServer) live.send('voice.leave', {});
   if (V.sharing) stopShare(false);
   if (V.camera) stopCamera(false);
@@ -175,6 +179,7 @@ export function leaveVoice(notifyServer = true) {
 export async function rejoinVoice() {
   const id = V.channelId;
   if (!id) return;
+  log('voice', 'Rejoining voice after a lost connection');
   closeAllPeers();
   V.channelId = null;
   try { await joinVoice(id); } catch { leaveVoice(false); hooks.system('You were disconnected from voice.'); }
@@ -228,8 +233,10 @@ function getPeer(id) {
     else if (e.track.kind === 'video' || (p.screenId && st.id === p.screenId)) { p.screenStream = st; hooks.change(); }
     else setRemoteAudio(p, st);
   };
+  pc.onconnectionstatechange = () => log(pc.connectionState === 'failed' ? 'voice' : 'info', `Voice link with #${id}: ${pc.connectionState}`);
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
+    if (s === 'disconnected' || s === 'failed') log('voice', `Voice path to #${id}: ${s}${s === 'failed' ? ', retrying' : ''}`);
     p.net = (s === 'connected' || s === 'completed') ? 'ok' : s === 'failed' ? 'failed' : s === 'disconnected' ? 'unstable' : 'connecting';
     if (s === 'failed') {
       try { pc.restartIce(); } catch {}
@@ -503,10 +510,12 @@ async function sfuConnect(channelId) {
     const p = V.peers.get(idOf(part));
     if (p) { p.net = q === 'lost' ? 'failed' : q === 'poor' ? 'unstable' : 'ok'; hooks.change(); }
   });
+  room.on(L.RoomEvent.Reconnecting, () => log('voice', 'Media server connection dropped, reconnecting'));
   room.on(L.RoomEvent.Reconnecting, () => { for (const p of V.peers.values()) p.net = 'unstable'; hooks.change(); });
   room.on(L.RoomEvent.Reconnected, () => { for (const p of V.peers.values()) p.net = 'ok'; hooks.change(); });
-  room.on(L.RoomEvent.Disconnected, () => {
+  room.on(L.RoomEvent.Disconnected, (reason) => {
     if (!lk || lk.room !== room || !V.channelId) return;   // we left on purpose
+    log('voice', `Media server disconnected (${reason})`);
     lk = null;
     rejoinVoice();
   });
@@ -534,4 +543,46 @@ async function sfuPublishCamera() {
 function sfuUnpublish(list) {
   const room = lk && lk.room;
   for (const pub of list.splice(0)) { try { room.localParticipant.unpublishTrack(pub.track, false); } catch {} }
+}
+
+/* ================= diagnostics (developer panel) ================= */
+export async function diagnostics() {
+  const raw = V.rawStream && V.rawStream.getAudioTracks()[0];
+  let ctx = null;
+  try { const c = audioCtx(); ctx = { state: c.state, sampleRate: c.sampleRate, baseLatency: c.baseLatency }; } catch {}
+  const out = {
+    at: Date.now(), inVoice: V.channelId, mode: lk ? 'media server' : 'direct', joining: V.joining,
+    muted: V.muted, deafened: V.deafened, serverMuted: V.serverMuted, ptt: settings.ptt, sharing: V.sharing, camera: V.camera,
+    mic: raw ? { label: raw.label, state: raw.readyState, muted: raw.muted, enabled: raw.enabled } : null,
+    send: V.sendTrack ? { state: V.sendTrack.readyState, enabled: V.sendTrack.enabled, live: micLive() } : null,
+    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), audio: ctx,
+    peers: [],
+  };
+  for (const p of V.peers.values()) {
+    const d = { userId: p.id, net: p.net, hearing: !!(p.stream && p.stream.getAudioTracks().some((t) => t.readyState === 'live')),
+      audioEl: p.audioEl ? { paused: p.audioEl.paused, muted: p.audioEl.muted, volume: +p.audioEl.volume.toFixed(2) } : null };
+    if (p.pc) {
+      const pc = p.pc;
+      Object.assign(d, { state: pc.connectionState, ice: pc.iceConnectionState, signaling: pc.signalingState });
+      try {
+        const rep = await pc.getStats();
+        const by = new Map(); rep.forEach((s) => by.set(s.id, s));
+        let pair = null;
+        rep.forEach((s) => { if (s.type === 'transport' && s.selectedCandidatePairId) pair = by.get(s.selectedCandidatePairId); });
+        if (!pair) rep.forEach((s) => { if (s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
+        if (pair) {
+          const lc = by.get(pair.localCandidateId) || {}, rc = by.get(pair.remoteCandidateId) || {};
+          d.path = { local: lc.candidateType, remote: rc.candidateType, protocol: lc.protocol, relayed: lc.candidateType === 'relay' || rc.candidateType === 'relay',
+            rttMs: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null };
+        }
+        rep.forEach((s) => {
+          if (s.type === 'inbound-rtp' && s.kind === 'audio') d.in = { bytes: s.bytesReceived, packets: s.packetsReceived, lost: s.packetsLost, jitterMs: Math.round((s.jitter || 0) * 1000), level: +(s.audioLevel || 0).toFixed(3), concealed: s.concealedSamples, samples: s.totalSamplesReceived };
+          if (s.type === 'outbound-rtp' && s.kind === 'audio') d.out = { bytes: s.bytesSent, packets: s.packetsSent };
+          if (s.type === 'inbound-rtp' && s.kind === 'video') d.videoIn = { bytes: s.bytesReceived, fps: s.framesPerSecond, width: s.frameWidth, height: s.frameHeight };
+        });
+      } catch (e) { d.statsError = String(e); }
+    }
+    out.peers.push(d);
+  }
+  return out;
 }
