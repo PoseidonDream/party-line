@@ -11,6 +11,7 @@ export const V = {
   camera: false, camStream: null,
   rawStream: null, micStream: null, sendTrack: null, noMic: true, micIssue: null, fx: null,
   peers: new Map(),   // userId -> peer
+  members: new Map(), // userId -> voice channel they're in (everyone the server told us about)
   speaking: new Set(),
   ice: null,
 };
@@ -161,6 +162,7 @@ export async function joinVoice(channelId) {
       try { await sfuConnect(channelId); }
       catch (e) { leaveVoice(); throw new Error(`Couldn’t connect to voice: ${e.message}`); }
     } else for (const id of r.peers) getPeer(id);   // we're the newcomer, so we start the handshakes
+    for (const id of r.peers) V.members.set(id, channelId);
     if (V.sharing) sendVoiceState();
     applyMic(); applyAllVolumes();
   } finally { V.joining = false; hooks.change(); }
@@ -197,6 +199,7 @@ export function setPtt(held) { if (V.pttHeld === held) return; V.pttHeld = held;
 /* Called with every voice state the server reports, ours included. */
 export function onVoiceState(st) {
   const me = hooks.myId();
+  V.members.set(st.userId, st.channelId);
   if (st.userId === me) {
     if (V.channelId && st.channelId === V.channelId && st.serverMuted !== V.serverMuted) { V.serverMuted = st.serverMuted; applyMic(); hooks.change(); }
     if (st.channelId === V.channelId) V.serverId = st.serverId;
@@ -207,7 +210,7 @@ export function onVoiceState(st) {
   else if (p && !st.sharing && p.screenStream) { p.screenStream = null; p.screenId = null; hooks.change(); }
   if (p && !st.camera && p.camStream) { p.camStream = null; p.camId = null; hooks.change(); }
 }
-export function onVoiceLeft(userId) { if (userId !== hooks.myId()) closePeer(userId); }
+export function onVoiceLeft(userId) { V.members.delete(userId); if (userId !== hooks.myId()) closePeer(userId); }
 
 /* ================= peer connections ================= */
 const signal = (to, data) => live.send('rtc', { to, data });
@@ -599,11 +602,22 @@ export async function diagnostics() {
    Every 2 s, check that sound is still arriving from each friend. If it stops (a Wi-Fi dropout, a sleeping
    network card, a router hiccup), repair it without anyone pressing anything: first an ICE restart (find a
    new network path), then, if that doesn't bring sound back, a completely fresh connection. */
+const missing = new Map();   // userId -> since when they're in our channel with no connection
 async function heal() {
   if (!V.channelId) return;
   keepAudioAlive();
   if (lk) return;   // the media server reconnects by itself
   const t = Date.now();
+  // Someone is in your channel but there's no voice connection to them at all: connect, or ask them to.
+  for (const [id, ch] of V.members) {
+    if (ch !== V.channelId || id === hooks.myId() || V.peers.has(id)) { missing.delete(id); continue; }
+    if (!missing.has(id)) { missing.set(id, t); continue; }
+    if (t - missing.get(id) > 10000) {
+      missing.set(id, t);
+      log('voice', `No voice connection with #${id}; connecting`);
+      if (hooks.myId() < id) getPeer(id); else signal(id, { reset: true });
+    }
+  }
   for (const p of [...V.peers.values()]) {
     const pc = p.pc;
     if (!pc) continue;
