@@ -2281,14 +2281,24 @@ function connectTo(m, preexisting) {
   p.name = p.name || cleanName(m.name);
   p.joinedAt = p.joinedAt || Number(m.joinedAt) || 0;
   p.preexisting = !!preexisting;
-  attachData(p, S.peer.connect(m.id, Object.assign({ metadata: { kind: 'data' } }, DATA_OPTS)));
+  const conn = S.peer.connect(m.id, Object.assign({ metadata: { kind: 'data' } }, DATA_OPTS));
+  if (conn) conn.dialedByMe = true;
+  attachData(p, conn);
   renderAll();
 }
 
 function attachData(p, conn) {
   if (!conn) return;
   const old = p.data;
+  if (old && old !== conn) {
+    // Both of you dialed at the same moment, so there are two links. Each side must keep the same one,
+    // or each closes the link the other kept and you end up half-connected with no voice. Keep the one
+    // dialed by the lower address.
+    const dialer = (c) => (c.dialedByMe ? S.peer.id : c.peer);
+    if (dialer(old) < dialer(conn)) { try { conn.close(); } catch {} return; }
+  }
   p.data = conn;
+  p.linkedAt = Date.now();
   if (old && old !== conn) { try { old.close(); } catch {} }
   const onOpen = () => {
     sendState(p);
@@ -3072,6 +3082,20 @@ setInterval(async () => {
   if (actx && actx.state !== 'running') actx.resume().catch(() => {});
   const t = Date.now();
   for (const p of [...S.peers.values()]) {
+    // A link that opened but never carried their hello: drop it and link up again.
+    if (p.data && p.data.open && !p.gotState && p.linkedAt && t - p.linkedAt > 15000) { console.warn('[link] no hello from', p.id, '- relinking'); try { p.data.close(); } catch {} continue; }
+    // In the same voice channel but no voice link at all: dial, or ask them to.
+    if (inMyVC(p) && !p.call && !p.callTimer) {
+      if (!p.noCallAt) p.noCallAt = t;
+      else if (t - p.noCallAt > 10000) {
+        p.noCallAt = t;
+        console.warn('[voice] no voice link with', p.name, '- dialing');
+        if (S.peer && S.peer.id < p.id) syncVoiceLink(p);
+        else { try { if (p.data && p.data.open) p.data.send({ t: 'redial' }); } catch {} }
+      }
+      continue;
+    }
+    p.noCallAt = 0;
     const pc = p.call && p.call.peerConnection;
     if (!inMyVC(p) || !pc) { p.flowAt = 0; continue; }
     let bytes = null;
