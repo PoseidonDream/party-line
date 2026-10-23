@@ -2303,8 +2303,28 @@ function attachData(p, conn) {
   };
   if (conn.open) onOpen(); else conn.on('open', onOpen);
   conn.on('data', (msg) => { if (S.peers.get(p.id) === p) onPeerMessage(p, msg); });
-  conn.on('close', () => { if (p.data === conn) removePeer(p.id, true); });
+  conn.on('close', () => { if (p.data === conn) lostPeer(p); });
   conn.on('error', () => {});
+}
+
+/* A link to a friend dropped (usually a network blip). Instead of losing them until someone rejoins,
+   keep trying to link up again for a few minutes. The lower address dials first; the other side
+   joins in after 20 s in case that can't get through. */
+function lostPeer(p) {
+  const m = { id: p.id, name: p.name, joinedAt: p.joinedAt }, wasHere = p.gotState;
+  removePeer(p.id, false);
+  if (!wasHere || S.leaving || !S.inRoom) return;
+  console.warn('[link] lost', m.name, '- relinking');
+  const started = Date.now(), first = S.peer && S.peer.id < m.id;
+  const tick = () => {
+    if (!S.inRoom || S.leaving || !S.peer) return;
+    const q = S.peers.get(m.id);
+    if (q && q.data && q.data.open) return;   // back
+    if (Date.now() - started > 3 * 60 * 1000) { if (!q || !q.gotState) sysMsg(`${m.name} left the server.`); return; }
+    if ((first || Date.now() - started > 20000) && !S.peer.disconnected && (!q || !q.data)) connectTo(m, false);
+    setTimeout(tick, 5000);
+  };
+  setTimeout(tick, first ? 1500 : 5000);
 }
 
 function attachVoice(p, call) {
@@ -2316,12 +2336,12 @@ function attachVoice(p, call) {
   call.on('close', () => {
     if (p.call !== call) return;   // hung up on purpose, or replaced by a newer call
     p.call = null;
-    if (!p.data || !p.data.open) { removePeer(p.id, true); return; }
+    if (!p.data || !p.data.open) { lostPeer(p); return; }
     p.net = null;
-    if (inMyVC(p) || isLegacy(p)) {   // dropped while we should be talking: try again a few times
+    if (inMyVC(p) || isLegacy(p)) {   // dropped while we should be talking: keep trying, a little slower each time
       p.callTries = (p.callTries || 0) + 1;
-      if (p.callTries > 4) p.net = 'failed';
-      else { p.net = 'connecting'; setTimeout(() => { if (S.peers.get(p.id) === p) syncVoiceLink(p); }, 1500 * p.callTries); }
+      p.net = p.callTries > 4 ? 'failed' : 'connecting';
+      setTimeout(() => { if (S.peers.get(p.id) === p && !p.call) syncVoiceLink(p); }, Math.min(10000, 1500 * p.callTries));
     }
     updateTile(p.id);
   });
@@ -2473,6 +2493,8 @@ function onPeerMessage(p, msg) {
     if (S.roster && S.roster.has(p.id)) S.roster.get(p.id).name = p.name;
     syncPeer(p);
     renderAll();
+  } else if (msg.t === 'redial') {
+    if (inMyVC(p)) { p.redialAt = p.flowAt = Date.now(); p.lastBytes = 0; redial(p); }
   } else if (msg.t === 'chat') {
     const c = channelFromWire(msg.ch, 'text');
     if (c && typeof msg.text === 'string' && msg.text.trim()) {
@@ -3021,6 +3043,7 @@ function joinVoice(chId) {
   const already = voiceMembers(chId).length;
   if (already >= CROWD) toast(`${c.name} already has ${already} people. Voice works best with up to ${CROWD} in one channel.`, 7000, { label: 'Open another', fn: moveToOverflow });
   S.me.vc = chId; S.stageFocus = null;
+  holdVoiceLock();
   chime('join');
   sendState();
   syncRouting();
@@ -3032,6 +3055,7 @@ function leaveVoice() {
   if (!S.me.vc) return;
   stopShare(true);
   S.me.vc = null; S.stageFocus = null; S.pttHeld = false;
+  releaseVoiceLock();
   chime('leave');
   sendState();
   syncRouting();
@@ -3039,6 +3063,35 @@ function leaveVoice() {
   saveResume();
   if (S.view.kind === 'voice') setTextView(S.lastText);
 }
+/* Self-healing voice. Every 2 s, check that sound is still arriving from each friend in your voice channel.
+   If it stops for 9 s (a Wi-Fi dropout, a sleeping network card), hang up and dial again, and ask them to do
+   the same. Also wake the audio engine if Chrome paused it: a paused engine means friends hear silence. */
+function redial(p) { hangUp(p); p.callTries = 0; p.net = 'connecting'; syncVoiceLink(p); updateTile(p.id); }
+setInterval(async () => {
+  if (!S.inRoom || !S.me.vc) return;
+  if (actx && actx.state !== 'running') actx.resume().catch(() => {});
+  const t = Date.now();
+  for (const p of [...S.peers.values()]) {
+    const pc = p.call && p.call.peerConnection;
+    if (!inMyVC(p) || !pc) { p.flowAt = 0; continue; }
+    let bytes = null;
+    try { (await pc.getStats()).forEach((s) => { if (s.type === 'inbound-rtp' && s.kind === 'audio') bytes = (bytes || 0) + (s.bytesReceived || 0); }); } catch {}
+    if (S.peers.get(p.id) !== p) continue;
+    if (bytes != null && bytes > (p.lastBytes || 0)) { p.lastBytes = bytes; p.flowAt = t; continue; }
+    if (!p.flowAt) { p.flowAt = t; continue; }
+    if (t - p.flowAt > 9000 && t - (p.redialAt || 0) > 15000) {
+      console.warn('[voice] no sound from', p.name, 'for', Math.round((t - p.flowAt) / 1000), 's - redialing');
+      p.redialAt = p.flowAt = t; p.lastBytes = 0;
+      try { if (p.data && p.data.open) p.data.send({ t: 'redial' }); } catch {}
+      redial(p);
+    }
+  }
+}, 2000);
+// While you're in voice, hold a Web Lock: Chrome never freezes or discards a tab that holds one.
+let voiceLock = null;
+function holdVoiceLock() { if (!voiceLock && navigator.locks) navigator.locks.request('party-line-voice', () => new Promise((r) => { voiceLock = r; })).catch(() => {}); }
+function releaseVoiceLock() { if (voiceLock) { voiceLock(); voiceLock = null; } }
+
 function voiceMembers(chId) {
   const list = [];
   if (S.me.vc === chId) list.push({ id: 'me', o: S.me, at: S.me.joinedAt });
@@ -3109,6 +3162,7 @@ function teardown() {
   S.micIssue = null; S.micPanelOpen = false; clearTimeout(S.micFixedTimer);
   setLocalAnalyser(null); setRawAnalyser(null);
   S.inRoom = false; S.stageFocus = null; S.pttHeld = false; S.recovering = false;
+  releaseVoiceLock();
   S.mutedSince = 0; S.afkWarned = false; renderAfk(0);
   S.roomTag = ''; S.histHadLocal = false; S.resumed = false; clearTimeout(histTimer);
   S.me.serverMuted = false; S.kicked = new Set(); S.serverMutes = new Set();
