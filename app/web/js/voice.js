@@ -15,7 +15,7 @@ export const V = {
   ice: null,
 };
 let hooks = { myId: () => 0, change: () => {}, speaking: () => {}, micIssue: () => {}, system: () => {} };
-export function initVoice(h) { hooks = Object.assign(hooks, h); setInterval(speakLoop, 120); }
+export function initVoice(h) { hooks = Object.assign(hooks, h); setInterval(speakLoop, 120); setInterval(heal, 2000); }
 
 /* ================= microphone ================= */
 export function issueFromError(err) {
@@ -156,6 +156,7 @@ export async function joinVoice(channelId) {
     log('info', `Joined voice channel ${channelId} (${V.sfu ? 'media server' : 'direct'}, ${r.peers.length} already there)`);
     V.channelId = channelId;
     V.serverMuted = false;
+    holdCallLock();
     if (V.sfu) {
       try { await sfuConnect(channelId); }
       catch (e) { leaveVoice(); throw new Error(`Couldn’t connect to voice: ${e.message}`); }
@@ -172,6 +173,7 @@ export function leaveVoice(notifyServer = true) {
   if (V.camera) stopCamera(false);
   closeAllPeers();
   V.channelId = null; V.serverId = null; V.serverMuted = false;
+  releaseCallLock();
   stopMic();
   hooks.change();
 }
@@ -215,7 +217,8 @@ function getPeer(id) {
   const pc = new RTCPeerConnection({ iceServers: V.ice || [] });
   p = { id, pc, polite: hooks.myId() > id, makingOffer: false, ignoreOffer: false, micSender: null, screenSenders: [],
     audioEl: null, stream: null, gain: null, source: null, analyser: null, screenStream: null, screenId: null,
-    camStream: null, camId: null, camSenders: [], net: 'connecting', failNotified: false };
+    camStream: null, camId: null, camSenders: [], net: 'connecting', failNotified: false,
+    createdAt: Date.now(), flowingAt: 0, lastBytes: -1, healStage: 0, healAt: 0 };
   V.peers.set(id, p);
   if (!V.micStream) V.micStream = silentStream();
   p.micSender = pc.addTrack(V.sendTrack || V.micStream.getAudioTracks()[0], V.micStream);
@@ -249,6 +252,11 @@ function getPeer(id) {
 }
 export async function onRtc(from, data) {
   if (!V.channelId || !data || lk) return;
+  if (data.reset) {   // they rebuilt their side of a broken connection
+    closePeer(from);
+    if (hooks.myId() < from) getPeer(from);
+    return;
+  }
   const p = getPeer(from);
   const pc = p.pc;
   try {
@@ -586,3 +594,70 @@ export async function diagnostics() {
   }
   return out;
 }
+
+/* ================= self-healing =================
+   Every 2 s, check that sound is still arriving from each friend. If it stops (a Wi-Fi dropout, a sleeping
+   network card, a router hiccup), repair it without anyone pressing anything: first an ICE restart (find a
+   new network path), then, if that doesn't bring sound back, a completely fresh connection. */
+async function heal() {
+  if (!V.channelId) return;
+  keepAudioAlive();
+  if (lk) return;   // the media server reconnects by itself
+  const t = Date.now();
+  for (const p of [...V.peers.values()]) {
+    const pc = p.pc;
+    if (!pc) continue;
+    if (pc.connectionState === 'closed') { log('voice', `Voice connection with #${p.id} closed; rebuilding it`); rebuildPeer(p.id); continue; }
+    let bytes = null;
+    try { (await pc.getStats()).forEach((s) => { if (s.type === 'inbound-rtp' && s.kind === 'audio') bytes = (bytes || 0) + (s.bytesReceived || 0); }); } catch {}
+    if (V.peers.get(p.id) !== p) continue;
+    if (bytes != null && bytes > p.lastBytes) {
+      p.lastBytes = bytes; p.flowingAt = t;
+      if (p.healStage) { log('voice', `Voice with #${p.id} is back`); p.healStage = 0; p.failNotified = false; }
+      continue;
+    }
+    const quiet = t - (p.flowingAt || p.createdAt);
+    const ice = pc.iceConnectionState;
+    if (!p.healStage && (quiet > 8000 || ice === 'failed' || (ice === 'disconnected' && quiet > 4000))) {
+      p.healStage = 1; p.healAt = t;
+      log('voice', `No sound from #${p.id} for ${Math.round(quiet / 1000)} s (${ice}); looking for a new network path`);
+      try { pc.restartIce(); } catch {}
+    } else if (p.healStage === 1 && t - p.healAt > 12000) {
+      p.healStage = 2; p.healAt = t;
+      log('voice', `Rebuilding the voice connection with #${p.id}`);
+      rebuildPeer(p.id);
+    } else if (p.healStage === 2 && t - p.healAt > 20000) {
+      p.healAt = t;   // still nothing: keep trying every 20 s while you're both in the channel
+      log('voice', `Still no sound from #${p.id}; trying again`);
+      rebuildPeer(p.id);
+    }
+  }
+}
+function rebuildPeer(id) {
+  const stage = (V.peers.get(id) || {}).healStage || 2;
+  closePeer(id);
+  signal(id, { reset: true });
+  if (hooks.myId() < id) { const p = getPeer(id); p.healStage = stage; p.healAt = Date.now(); }
+}
+/* The audio engine runs the noise filter and loud-volume boost. Chrome can pause it (a headset reconnecting,
+   the computer waking up); a paused engine means friends hear silence. Also replay anything paused. */
+function keepAudioAlive() {
+  try {
+    const c = audioCtx();
+    if (c.state !== 'running' && !keepAudioAlive.warned) { keepAudioAlive.warned = true; log('voice', `Audio engine was ${c.state}; restarting it`); }
+    if (c.state === 'running') keepAudioAlive.warned = false;
+  } catch {}
+  if (V.sendTrack && V.sendTrack.readyState === 'ended' && !V.noMic && !keepAudioAlive.micBusy) {
+    keepAudioAlive.micBusy = true;
+    log('voice', 'Microphone stream ended; starting it again');
+    setupMic(settings.micId).finally(() => { keepAudioAlive.micBusy = false; });
+  }
+  for (const p of V.peers.values()) if (p.audioEl && p.audioEl.paused && p.stream) p.audioEl.play().catch(() => {});
+}
+/* While you're in voice, hold a Web Lock: Chrome never freezes or discards a tab that holds one. */
+let lockRelease = null;
+function holdCallLock() {
+  if (lockRelease || !navigator.locks) return;
+  navigator.locks.request('party-line-voice', () => new Promise((resolve) => { lockRelease = resolve; })).catch(() => {});
+}
+function releaseCallLock() { if (lockRelease) { lockRelease(); lockRelease = null; } }

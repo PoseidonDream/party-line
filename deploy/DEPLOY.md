@@ -130,6 +130,14 @@ Turn it off again with `voice-server.sh off`. People already in voice switch ove
 
 With it on, voice uses your server's traffic. That's roughly 1 GB per person per 10 hours of talking, or more with cameras and screen shares, which is still small next to Hetzner's 20 TB. If your provider has its own firewall in the dashboard, also open TCP 7881 and UDP 7882 there.
 
+## Developer panel (for you)
+
+Signed in as the admin (Poseidon), press **Ctrl+Shift+D**, or open the server menu → **Developer**. You'll see:
+- **Server:** how long it's been up, memory and storage, who's online, and who's in which voice channel.
+- **My voice:** live numbers for each voice connection: direct or relayed, ping, lost packets, and how much sound is coming in and going out. "0 kbps" in red means sound stopped arriving from that friend.
+- **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
+- **Check a friend:** pulls a friend's live voice numbers to your screen. They get a short note that you checked.
+
 ## If something's wrong
 
 - **The address doesn't open:** check that DuckDNS shows your server's IP, then wait a few minutes. HTTPS certificates are set up automatically the first time someone visits.
