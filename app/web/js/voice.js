@@ -503,7 +503,7 @@ async function sfuConnect(channelId) {
     const p = sfuPeer(idOf(part)), t = track.mediaStreamTrack;
     if (pub.source === src.Camera) p.camStream = new MediaStream([t]);
     else if (isScreen(pub)) { p.screenStream = new MediaStream([...(p.screenStream ? p.screenStream.getTracks() : []), t]); }
-    else setRemoteAudio(p, new MediaStream([t]));
+    else { p.lkAudio = track; setRemoteAudio(p, new MediaStream([t])); }
     hooks.change();
   });
   room.on(L.RoomEvent.TrackUnsubscribed, (track, pub, part) => {
@@ -572,16 +572,18 @@ export async function diagnostics() {
   for (const p of V.peers.values()) {
     const d = { userId: p.id, net: p.net, hearing: !!(p.stream && p.stream.getAudioTracks().some((t) => t.readyState === 'live')),
       audioEl: p.audioEl ? { paused: p.audioEl.paused, muted: p.audioEl.muted, volume: +p.audioEl.volume.toFixed(2) } : null };
-    if (p.pc) {
-      const pc = p.pc;
-      Object.assign(d, { state: pc.connectionState, ice: pc.iceConnectionState, signaling: pc.signalingState });
+    // Direct mode: one connection per friend. Media server mode: this friend's audio receiver and our mic sender.
+    const sources = p.pc ? [p.pc] : [p.lkAudio && p.lkAudio.receiver, lk && lk.mic && lk.mic.track && lk.mic.track.sender].filter(Boolean);
+    if (p.pc) Object.assign(d, { state: p.pc.connectionState, ice: p.pc.iceConnectionState, signaling: p.pc.signalingState });
+    else if (lk) d.state = lk.room.state;
+    for (const source of sources) {
       try {
-        const rep = await pc.getStats();
+        const rep = await source.getStats();
         const by = new Map(); rep.forEach((s) => by.set(s.id, s));
         let pair = null;
         rep.forEach((s) => { if (s.type === 'transport' && s.selectedCandidatePairId) pair = by.get(s.selectedCandidatePairId); });
         if (!pair) rep.forEach((s) => { if (s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
-        if (pair) {
+        if (pair && !d.path) {
           const lc = by.get(pair.localCandidateId) || {}, rc = by.get(pair.remoteCandidateId) || {};
           d.path = { local: lc.candidateType, remote: rc.candidateType, protocol: lc.protocol, relayed: lc.candidateType === 'relay' || rc.candidateType === 'relay',
             rttMs: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null };

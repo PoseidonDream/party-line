@@ -64,7 +64,7 @@ jobs:
           set -o pipefail
           if ! npx electron-builder --publish never 2>&1 | tee build.log; then
             # Show the end of the log as annotations, so the reason is visible on the run's summary page.
-            grep -vE '^\s+at ' build.log | tail -25 | while IFS= read -r line; do echo "::error::$line"; done
+            echo "::error title=Build failed::$(grep -vE '^\s+at ' build.log | tail -15 | awk '{sub(/\r$/,""); gsub(/%/,"%25"); printf "%s%%0A", $0}')"
             exit 1
           fi
         env:

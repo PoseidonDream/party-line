@@ -25,13 +25,16 @@ jobs:
       - run: npx playwright-core install --with-deps chromium
         working-directory: app/tests
       - name: Tests with voice going directly between people
-        run: npm test
         working-directory: app/tests
+        run: npm test 2>&1 | tee direct.log; ok=${PIPESTATUS[0]}; [ $ok = 0 ] || echo "::error title=Failed tests::$(grep -B1 -A2 '✗' direct.log | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}')"; exit $ok
+        shell: bash
       - name: Tests with voice going through the media server
         working-directory: app/tests
         run: |
           curl -sSL https://github.com/livekit/livekit/releases/download/v1.8.4/livekit_1.8.4_linux_amd64.tar.gz | tar xz livekit-server
-          PL_LIVEKIT=$PWD/livekit-server npm test
+          PL_LIVEKIT=$PWD/livekit-server npm test 2>&1 | tee sfu.log; ok=${PIPESTATUS[0]}
+          [ $ok = 0 ] || echo "::error title=Failed tests (media server)::$(grep -B1 -A2 '✗' sfu.log | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}')"; exit $ok
+        shell: bash
       - uses: actions/upload-artifact@v4
         if: always()
         with:
