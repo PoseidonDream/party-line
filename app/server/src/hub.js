@@ -111,6 +111,7 @@ function readyFor(user) {
     voice: [...voice].filter(([, v]) => mine.has(v.serverId)).map(([id, v]) => voiceView(id, v)),
     music: Bot.musicStates(mine),
     events: [...mine].flatMap((id) => M.eventsOf(id)),
+    sounds: [...mine].flatMap((id) => M.soundsOf(id)),
     commands: Bot.COMMAND_LIST,
     serverNow: Date.now(),
   };
@@ -318,6 +319,38 @@ const handlers = {
   'presence.activity'(c, user, d) {
     c.activity = typeof d.name === 'string' ? d.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null;
     announce(user.id);
+    return {};
+  },
+  /* ---- soundboard ---- */
+  'sound.add'(c, user, d) {
+    const srv = M.getServer(Number(d.serverId));
+    if (!srv || !M.isMember(user.id, srv.id)) fail('You’re not in that server.');
+    M.addSound(user.id, srv.id, d);
+    toServer(srv.id, { t: 'sounds', serverId: srv.id, sounds: M.soundsOf(srv.id) });
+    return {};
+  },
+  'sound.delete'(c, user, d) {
+    const snd = M.getSound(Number(d.id));
+    if (!snd) return {};
+    if (snd.user_id !== user.id && !M.canManage(user, M.getServer(snd.server_id))) fail('Only whoever added the sound (or an admin) can remove it.');
+    M.deleteSound(snd.id);
+    toServer(snd.server_id, { t: 'sounds', serverId: snd.server_id, sounds: M.soundsOf(snd.server_id) });
+    return {};
+  },
+  'sound.play'(c, user, d) {
+    const v = voice.get(user.id);
+    if (!v || v.connId !== c.id) fail('Join a voice channel to use the soundboard.');
+    const now = Date.now();
+    if (now - (c.lastSound || 0) < 1500) return {};   // one sound every 1.5 s per person
+    c.lastSound = now;
+    const msg = { t: 'sound', userId: user.id };
+    if (d.builtin) { if (!/^[a-z]{2,16}$/.test(String(d.builtin))) fail('Unknown sound.'); msg.builtin = d.builtin; }
+    else {
+      const snd = M.getSound(Number(d.id));
+      if (!snd || snd.server_id !== v.serverId) fail('That sound is gone.');
+      Object.assign(msg, { url: `/uploads/${snd.upload_id}`, name: snd.name, emoji: snd.emoji });
+    }
+    for (const [id, x] of voice) if (x.channelId === v.channelId) toUser(id, msg);
     return {};
   },
   /* ---- events ---- */

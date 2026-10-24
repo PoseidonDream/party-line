@@ -4,12 +4,13 @@ import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, h
 import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
 import { initMusic, updateMusic, listening, listenAgain } from './music.js';
+import { builtinSounds, playSound, soundLength } from './sounds.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), sounds: new Map(), soundFlash: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -152,6 +153,8 @@ live.on('ready', (d) => {
   S.dms = new Map(d.dms.map((x) => [x.userId, x]));
   S.voice = new Map(d.voice.map((v) => [v.userId, v]));
   S.music = new Map((d.music || []).map((x) => [x.channelId, x.state]));
+  S.sounds = new Map();
+  for (const x of d.sounds || []) { if (!S.sounds.has(x.serverId)) S.sounds.set(x.serverId, []); S.sounds.get(x.serverId).push(x); }
   S.events = new Map();
   for (const e of d.events || []) { if (!S.events.has(e.serverId)) S.events.set(e.serverId, []); S.events.get(e.serverId).push(e); }
   S.commands = d.commands || [];
@@ -258,6 +261,15 @@ live.on('music', (d) => {
   if (d.state) S.music.set(d.channelId, d.state); else S.music.delete(d.channelId);
   S.serverNow = d.serverNow;
   renderSide(); syncMusic();
+});
+live.on('sounds', (d) => { S.sounds.set(d.serverId, d.sounds); if (!$('#soundPop').hidden) renderSoundboard(); });
+live.on('sound', (d) => {
+  if (V.deafened || (d.userId !== S.me.id && Voice.peerPrefs(d.userId).mute)) return;
+  playSound(d.builtin ? { builtin: d.builtin } : { url: absUrl(d.url) }, (settings.soundVolume ?? 60) / 100);
+  const b = d.builtin && builtinSounds().find((x) => x.id === d.builtin);
+  S.soundFlash.set(d.userId, (b && b.emoji) || d.emoji || '🔊');
+  if (S.view.kind === 'voice') renderVoiceView();
+  setTimeout(() => { S.soundFlash.delete(d.userId); if (S.view.kind === 'voice') renderVoiceView(); }, 2500);
 });
 live.on('events', (d) => { S.events.set(d.serverId, d.events); renderHeader(); if ($('#eventsDlg').open) renderEvents(); });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
@@ -1287,6 +1299,7 @@ function renderVoiceView() {
     else d.appendChild(avEl(p.userId, 'avatar'));
     const meta = document.createElement('div'); meta.className = 'tile-meta';
     const n = document.createElement('span'); n.className = 'tile-name'; n.textContent = nameOf(p.userId) + (isMe ? ' (you)' : ''); addCrown(n, p.userId); meta.appendChild(n);
+    if (S.soundFlash.has(p.userId)) { const f = document.createElement('span'); f.className = 'tile-sound'; f.textContent = S.soundFlash.get(p.userId); f.title = 'Played a sound'; n.appendChild(f); }
     const sub = document.createElement('span'); sub.className = 'tile-sub';
     sub.textContent = p.serverMuted ? 'Muted by admin' : p.deafened ? 'Deafened' : p.muted ? 'Muted' : !inThis || isMe ? 'In voice'
       : !peer || peer.net === 'connecting' ? 'Connecting…' : peer.net === 'failed' ? 'Can’t connect' : peer.net === 'unstable' ? 'Unstable connection' : 'Connected';
@@ -1904,6 +1917,64 @@ $('#fbForm').addEventListener('submit', async (e) => {
     if (S.me.admin) loadInbox();
   } catch (ex) { $('#fbError').textContent = ex.message; $('#fbError').hidden = false; }
   $('#fbSend').disabled = false;
+});
+
+/* ================= soundboard ================= */
+function voiceServerId() { const f = V.channelId && findChannel(V.channelId); return f ? f.server.id : null; }
+function renderSoundboard() {
+  const grid = $('#soundGrid'); grid.textContent = '';
+  const sid = voiceServerId(), srv = sid && S.servers.get(sid);
+  const btn = (emoji, name, fn, del) => {
+    const wrap = document.createElement('div'); wrap.className = 'sound';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sound-btn'; b.title = `Play ${name}`;
+    b.innerHTML = `<span class="sound-emoji-big" aria-hidden="true"></span><span class="sound-name"></span>`;
+    b.firstChild.textContent = emoji; b.lastChild.textContent = name;
+    b.addEventListener('click', fn); wrap.appendChild(b);
+    if (del) { const x = document.createElement('button'); x.type = 'button'; x.className = 'sound-del'; x.title = `Remove ${name}`; x.setAttribute('aria-label', x.title); x.innerHTML = iconSvg('x'); x.addEventListener('click', del); wrap.appendChild(x); }
+    grid.appendChild(wrap);
+  };
+  const play = (data) => live.req('sound.play', data).catch((ex) => toast(ex.message, 3000));
+  for (const s of builtinSounds()) btn(s.emoji, s.name, () => play({ builtin: s.id }));
+  for (const s of (sid && S.sounds.get(sid)) || []) {
+    const mayDelete = s.userId === S.me.id || (srv && canManage(srv));
+    btn(s.emoji, s.name, () => play({ id: s.id }), mayDelete ? async () => { if (await confirmBox(`Remove ${s.name}?`, 'It’s removed from the soundboard for everyone in this server.', 'Remove')) act(() => live.req('sound.delete', { id: s.id })); } : null);
+  }
+}
+function openSoundboard() {
+  if (!V.channelId) return;
+  renderSoundboard();
+  $('#soundVol').value = settings.soundVolume ?? 60;
+  $('#soundForm').hidden = true; $('#soundAddBtn').hidden = false;
+  const pop = $('#soundPop'); pop.hidden = false;
+  const r = $('#soundBtn').getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left))}px`;
+  pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+  $('#soundBtn').setAttribute('aria-expanded', 'true');
+}
+function closeSoundboard() { $('#soundPop').hidden = true; $('#soundBtn').setAttribute('aria-expanded', 'false'); }
+$('#soundBtn').addEventListener('click', () => ($('#soundPop').hidden ? openSoundboard() : closeSoundboard()));
+document.addEventListener('pointerdown', (e) => { if (!$('#soundPop').hidden && !e.target.closest('#soundPop, #soundBtn, #confirmDlg')) closeSoundboard(); });
+$('#soundVol').addEventListener('input', () => { settings.soundVolume = Number($('#soundVol').value); saveSettings(); });
+let soundFile = null;
+$('#soundAddBtn').addEventListener('click', () => { soundFile = null; $('#soundName').value = ''; $('#soundEmoji').value = '🔊'; $('#soundFileName').textContent = 'Pick a short clip: up to 7 seconds and 1 MB.'; $('#soundForm').hidden = false; $('#soundAddBtn').hidden = true; });
+$('#soundPick').addEventListener('click', () => $('#soundFile').click());
+$('#soundFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  if (f.size > 1048576) { toast('That file is over 1 MB. Use a shorter clip.', 4000); return; }
+  let secs = 0;
+  try { secs = await soundLength(f); } catch { toast('That doesn’t look like an audio file this device can play.', 4000); return; }
+  if (secs > 7.5) { toast(`That clip is ${Math.round(secs)} seconds long. Sounds can be up to 7 seconds.`, 4500); return; }
+  soundFile = f;
+  $('#soundFileName').textContent = `${f.name} · ${secs.toFixed(1)} s`;
+  if (!$('#soundName').value) $('#soundName').value = f.name.replace(/\.\w+$/, '').slice(0, 24);
+});
+$('#soundForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!soundFile) { toast('Choose an audio file first.', 3000); return; }
+  const sid = voiceServerId();
+  const r = await act(async () => { const up = await upload('/api/upload', soundFile); return live.req('sound.add', { serverId: sid, uploadId: up.id, name: $('#soundName').value, emoji: $('#soundEmoji').value.trim() }); }, 'Sound added to the soundboard.');
+  if (r) { $('#soundForm').hidden = true; $('#soundAddBtn').hidden = false; }
 });
 
 /* ================= events ================= */

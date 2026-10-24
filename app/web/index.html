@@ -35,6 +35,7 @@
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
     <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+    <symbol id="i-soundboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M15 15.5v4l3-2z"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
@@ -314,6 +315,7 @@
       <div class="vs-btns">
         <button type="button" class="ub" id="camBtn"><svg class="ic"><use href="#i-video"/></svg><span class="sr lbl">Turn on camera</span></button>
         <button type="button" class="ub" id="shareBtn"><svg class="ic"><use href="#i-screen"/></svg><span class="sr lbl">Share screen</span></button>
+        <button type="button" class="ub" id="soundBtn" title="Soundboard" aria-controls="soundPop" aria-expanded="false"><svg class="ic"><use href="#i-soundboard"/></svg><span class="sr">Soundboard</span></button>
         <button type="button" class="ub" id="musicBack" hidden title="Listen to the music again"><svg class="ic"><use href="#i-music"/></svg><span class="sr">Listen to the music again</span></button>
         <button type="button" class="ub" id="noiseBtn"><svg class="ic"><use href="#i-wave"/></svg><span class="sr lbl">Noise filter</span></button>
         <button type="button" class="ub danger" id="vcLeaveBtn" title="Disconnect from voice"><svg class="ic"><use href="#i-phone-off"/></svg><span class="sr">Disconnect from voice</span></button>
@@ -524,6 +526,19 @@
 </dialog>
 
 <datalist id="volTicks"><option value="0"></option><option value="100"></option><option value="150"></option></datalist>
+<div class="popover sound-pop" id="soundPop" role="dialog" aria-label="Soundboard" hidden>
+  <div class="sound-head"><b>Soundboard</b><small>Everyone in your voice channel hears it</small></div>
+  <div class="sound-grid" id="soundGrid"></div>
+  <label class="sound-vol"><svg class="ic"><use href="#i-volume"/></svg><span class="sr">Soundboard volume, only for you</span><input type="range" id="soundVol" min="0" max="100" step="1"></label>
+  <button type="button" class="btn small" id="soundAddBtn"><svg class="ic"><use href="#i-plus"/></svg>Add a sound</button>
+  <form class="sound-form" id="soundForm" hidden>
+    <input type="file" id="soundFile" accept="audio/*" hidden>
+    <div class="row"><input class="input sound-emoji" id="soundEmoji" maxlength="8" value="🔊" aria-label="Emoji"><input class="input" id="soundName" maxlength="24" placeholder="Name" aria-label="Name" required></div>
+    <small class="hint" id="soundFileName">Pick a short clip: up to 7 seconds and 1 MB.</small>
+    <div class="row-btns"><button type="button" class="btn small" id="soundPick">Choose file</button><button type="submit" class="btn small primary">Add</button></div>
+  </form>
+</div>
+
 <div class="popover status-pop" id="statusPop" role="dialog" aria-label="Your status" hidden>
   <div class="status-opts" role="radiogroup" aria-label="Status">
     <button type="button" role="radio" data-status="online"><span class="status-dot online"></span><span><b>Online</b></span></button>

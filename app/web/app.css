@@ -851,3 +851,25 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .link-btn.danger { color: var(--danger); }
 .time-tag { padding: 0 4px; border-radius: 4px; background: var(--panel-2); font-weight: 600; }
 .ev-btns .btn { width: auto; flex: none; }
+/* Soundboard */
+.sound-pop { width: 320px; gap: 10px; }
+.sound-head { display: grid; }
+.sound-head small { color: var(--dim); font-size: 12px; }
+.sound-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-height: 260px; overflow: auto; }
+.sound { position: relative; }
+.sound-btn { width: 100%; display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--fg); cursor: pointer; }
+.sound-btn:hover { border-color: var(--lamp, #f4a52a); }
+.sound-btn:active { transform: scale(.96); }
+.sound-emoji-big { font-size: 22px; line-height: 1.1; }
+.sound-name { font-size: 12px; font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sound-del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; display: none; place-items: center; border: 0; border-radius: 50%; background: var(--panel); color: var(--danger); }
+.sound-del .ic { width: 12px; height: 12px; }
+.sound:hover .sound-del, .sound-del:focus-visible { display: grid; }
+@media (hover: none) { .sound-del { display: grid; } }
+.sound-vol { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+.sound-vol input { flex: 1; }
+.sound-form { display: grid; gap: 6px; }
+.sound-form .row { display: flex; gap: 6px; }
+.sound-emoji { width: 56px; text-align: center; }
+.tile-sound { margin-left: 6px; font-size: 18px; animation: pop-in .25s ease; display: inline-block; }
+@keyframes pop-in { from { transform: scale(.3); opacity: 0; } }

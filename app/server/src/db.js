@@ -133,6 +133,15 @@ CREATE TABLE IF NOT EXISTS event_rsvps (
   state TEXT NOT NULL,
   PRIMARY KEY (event_id, user_id)
 );
+CREATE TABLE IF NOT EXISTS sounds (
+  id INTEGER PRIMARY KEY,
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  emoji TEXT,
+  upload_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS link_previews (
   url TEXT PRIMARY KEY,
   data TEXT,

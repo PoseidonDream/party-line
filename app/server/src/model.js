@@ -326,6 +326,21 @@ export function eventsToRemind() {
   for (const e of rows) run('UPDATE events SET reminded = 1 WHERE id = ?', e.id);
   return rows;
 }
+/* ---------- soundboard: each server's uploaded sounds (up to 30, 1 MB each) ---------- */
+const soundView = (r) => ({ id: r.id, serverId: r.server_id, userId: r.user_id, name: r.name, emoji: r.emoji || '🔊', url: `/uploads/${r.upload_id}` });
+export const soundsOf = (serverId) => all('SELECT * FROM sounds WHERE server_id = ? ORDER BY id', serverId).map(soundView);
+export const getSound = (id) => one('SELECT * FROM sounds WHERE id = ?', id);
+export function addSound(userId, serverId, d) {
+  const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  if (!name) fail('Give the sound a name.');
+  const up = one('SELECT * FROM uploads WHERE id = ? AND user_id = ?', String(d.uploadId || ''), userId);
+  if (!up || !up.type.startsWith('audio/')) fail('Pick an audio file (MP3, WAV, OGG or M4A).');
+  if (up.size > 1048576) fail('Sounds can be up to 1 MB. Use a shorter clip.');
+  if (one('SELECT COUNT(*) AS n FROM sounds WHERE server_id = ?', serverId).n >= 30) fail('This server already has 30 sounds. Remove one first.');
+  const emoji = EMOJI.test(String(d.emoji || '')) ? String(d.emoji) : '🔊';
+  run('INSERT INTO sounds (server_id, user_id, name, emoji, upload_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', serverId, userId, name, emoji, up.id, now());
+}
+export const deleteSound = (id) => run('DELETE FROM sounds WHERE id = ?', id);
 export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
 export function history(col, targetId, before, limit = 50) {
   const rows = before
@@ -449,6 +464,7 @@ export function unusedUploads(olderThan = 60 * 60_000) {
   const used = new Set();
   for (const r of all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) for (const a of JSON.parse(r.attachments)) used.add(a.id);
   for (const r of all('SELECT avatar FROM users WHERE avatar IS NOT NULL')) used.add(String(r.avatar).replace('/uploads/', ''));
+  for (const r of all('SELECT upload_id FROM sounds')) used.add(r.upload_id);
   return all('SELECT id FROM uploads WHERE created_at < ?', now() - olderThan).map((r) => r.id).filter((id) => !used.has(id));
 }
 export const forgetUpload = (id) => run('DELETE FROM uploads WHERE id = ?', id);
