@@ -7,7 +7,7 @@ const env = process.env;
 const list = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
 export const config = {
-  port: Number(env.PORT) || 3000,
+  port: env.PORT !== undefined && env.PORT !== '' ? Number(env.PORT) : 3000,   // 0 = any free port (tests)
   dataDir: path.resolve(env.DATA_DIR || path.join(here, '..', 'data')),
   webDir: path.resolve(env.WEB_DIR || path.join(here, '..', '..', 'web')),
   // Needed to make a new account. Leave empty to let anyone sign up.

@@ -214,5 +214,5 @@ setInterval(cleanUploads, 60 * 60_000).unref();
 
 const server = http.createServer(app);
 attachHub(server);
-server.listen(config.port, () => console.log(`Party Line server on http://localhost:${config.port} (data in ${config.dataDir})`));
+server.listen(config.port, () => console.log(`Party Line server on http://localhost:${server.address().port} (data in ${config.dataDir})`));
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { server.close(); process.exit(0); });

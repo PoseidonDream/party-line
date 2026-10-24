@@ -50,6 +50,17 @@ const curServer = () => (S.view.serverId ? S.servers.get(S.view.serverId) : null
 const canManage = (srv) => !!S.me && (S.me.admin || (srv && srv.ownerId === S.me.id));
 /* What my roles let me do in a server: channels, messages, voice, kick, server. */
 const can = (srv, perm) => canManage(srv) || !!(srv && S.me && (srv.memberRoles && srv.memberRoles[S.me.id] || []).some((rid) => (srv.roles || []).some((r) => r.id === rid && r.perms.includes(perm))));
+/* Group chats and 1-on-1 call rooms are hidden servers: not in the server bar, shown under Private chats. */
+const isPrivate = (srv) => !!(srv && srv.kind && srv.kind !== 'server');
+function groupName(srv) {
+  if (!srv) return '';
+  if (srv.kind === 'pair') { const other = srv.members.find((id) => id !== S.me.id); return `Call with ${nameOf(other)}`; }
+  if (srv.name) return srv.name;
+  const others = srv.members.filter((id) => id !== S.me.id).map(nameOf);
+  return others.slice(0, 3).join(', ') + (others.length > 3 ? ` +${others.length - 3}` : '');
+}
+const groupText = (srv) => srv.channels.find((c) => c.kind === 'text');
+const groupVoice = (srv) => srv.channels.find((c) => c.kind === 'voice');
 const rolesOf = (srv, userId) => (srv && srv.roles ? srv.roles.filter((r) => (srv.memberRoles[userId] || []).includes(r.id)).sort((a, b) => b.position - a.position) : []);
 /* A name's color: the highest role that has one. */
 const roleColor = (srv, userId) => { const r = rolesOf(srv, userId).find((x) => x.color); return r ? r.color : null; };
@@ -172,7 +183,7 @@ live.on('ready', (d) => {
     const last = store.get('lastView', null);
     if (last && last.kind === 'dm' && S.users.has(last.userId)) S.view = last;
     else if (last && last.serverId && S.servers.has(last.serverId)) openServer(last.serverId, true);
-    else if (S.servers.size) openServer([...S.servers.keys()][0], true);
+    else if (S.servers.size) openServer(([...S.servers.values()].find((x) => !isPrivate(x)) || [...S.servers.values()][0]).id, true);
     else S.view = { kind: 'friends' };
   } else if (S.view.serverId && !S.servers.has(S.view.serverId)) S.view = { kind: 'friends' };
   if (S.view.kind === 'voice' && !findChannel(S.view.channelId)) S.view = { kind: 'friends' };
@@ -395,6 +406,10 @@ function onMessage(key, msg) {
     if (f) {
       f.channel.lastId = msg.id;
       if (!mine && !viewing) f.channel.unread = (f.channel.unread || 0) + 1;
+      if (!mine && !viewing && f.server.kind === 'group' && !mentionsMe(msg)) {
+        if (!quiet()) chime('msg', V.deafened);
+        notify(`${nameOf(msg.userId)} in ${groupName(f.server)}`, decodeMentions(msg.body) || 'Sent a file', () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
+      }
       if (!mine && !viewing && mentionsMe(msg)) {
         f.channel.mentions = (f.channel.mentions || 0) + 1;
         if (!quiet()) chime('msg', V.deafened);
@@ -423,7 +438,7 @@ function updateBadge() {
   let n = 0;
   for (const x of S.dms.values()) n += x.unread || 0;
   for (const st of S.friends.values()) if (st === 'incoming') n++;
-  for (const s of S.servers.values()) for (const c of s.channels) n += c.mentions || 0;
+  for (const s of S.servers.values()) for (const c of s.channels) n += s.kind === 'group' ? c.unread || 0 : c.mentions || 0;
   document.title = n ? `(${n}) Party Line` : 'Party Line';
   if (desktop && desktop.setBadge) desktop.setBadge(n);
 }
@@ -434,14 +449,16 @@ function renderAll() {
   renderRail(); renderSide(); renderHeader(); renderMainView(); renderUserArea(); renderConn(); updateBadge();
 }
 function renderRail() {
-  const homeUnread = [...S.dms.values()].reduce((a, x) => a + (x.unread || 0), 0) + [...S.friends.values()].filter((s) => s === 'incoming').length;
-  const homeOn = !S.view.serverId;
+  const homeUnread = [...S.dms.values()].reduce((a, x) => a + (x.unread || 0), 0) + [...S.friends.values()].filter((s) => s === 'incoming').length
+    + [...S.servers.values()].filter((s) => s.kind === 'group').reduce((a, s) => a + s.channels.reduce((b, c) => b + (c.unread || 0), 0), 0);
+  const homeOn = !S.view.serverId || isPrivate(S.servers.get(S.view.serverId));
   $('#railHome').setAttribute('aria-current', String(homeOn));
   $('#railHomeItem').classList.toggle('current', homeOn);
   $('#railHomeBadge').hidden = !homeUnread; $('#railHomeBadge').textContent = homeUnread > 99 ? '99+' : homeUnread;
   const list = $('#railList');
   list.textContent = '';
   for (const s of S.servers.values()) {
+    if (isPrivate(s)) continue;
     const li = document.createElement('li');
     const on = S.view.serverId === s.id;
     const unread = s.channels.some((c) => c.unread);
@@ -465,7 +482,7 @@ function renderRail() {
 }
 function renderSide() {
   if (!S.ready) return;
-  const home = !S.view.serverId;
+  const home = !S.view.serverId || isPrivate(curServer());
   $('#room').classList.toggle('home', home);
   if (home) { renderHomeSide(); return; }
   const s = curServer();
@@ -575,8 +592,13 @@ function renderHomeSide() {
   list.textContent = '';
   const ids = new Set([...S.dms.keys()]);
   if (S.view.kind === 'dm') ids.add(S.view.userId);
-  const sorted = [...ids].sort((a, b) => ((S.dms.get(b) || {}).lastAt || Infinity) - ((S.dms.get(a) || {}).lastAt || Infinity));
-  for (const id of sorted) {
+  const groups = [...S.servers.values()].filter((g) => g.kind === 'group');
+  const items = [...[...ids].map((id) => ({ id, at: (S.dms.get(id) || {}).lastAt || Infinity })),
+    ...groups.map((g) => ({ g, at: Math.max((groupText(g) || {}).lastAt || 0, g.id) }))].sort((a, b) => b.at - a.at);
+  const sorted = items;
+  for (const it of items) {
+    if (it.g) { list.appendChild(groupItem(it.g)); continue; }
+    const id = it.id;
     const x = S.dms.get(id) || {};
     const li = document.createElement('li');
     const b = document.createElement('button');
@@ -591,6 +613,24 @@ function renderHomeSide() {
     li.appendChild(b); list.appendChild(li);
   }
   $('#dmEmpty').hidden = sorted.length > 0;
+}
+function groupItem(g) {
+  const li = document.createElement('li');
+  const t = groupText(g), unread = (t && t.unread) || 0;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'dm-item' + (unread ? ' unread' : '');
+  b.setAttribute('aria-current', String(S.view.serverId === g.id));
+  const av = document.createElement('span'); av.className = 'group-av'; av.setAttribute('aria-hidden', 'true');
+  for (const id of g.members.filter((x) => x !== S.me.id).slice(0, 2)) av.appendChild(avEl(id));
+  b.appendChild(av);
+  const n = document.createElement('span'); n.className = 'dm-name'; n.textContent = groupName(g);
+  const sub = document.createElement('small'); sub.className = 'dm-sub'; sub.textContent = `${g.members.length} members`; n.appendChild(sub);
+  b.appendChild(n);
+  if (voiceIn((groupVoice(g) || {}).id).length) b.insertAdjacentHTML('beforeend', `<span class="chan-music" title="Call in progress">${iconSvg('phone')}</span>`);
+  if (unread) { const c = document.createElement('span'); c.className = 'count-pill'; c.textContent = unread; b.appendChild(c); }
+  b.addEventListener('click', () => setView({ kind: 'text', serverId: g.id, channelId: t.id }));
+  li.appendChild(b);
+  return li;
 }
 function renderConn() {
   if (!S.ready) return;
@@ -607,7 +647,11 @@ function renderHeader() {
   const v = S.view, icon = $('#viewIcon');
   $('#copyInvite').hidden = !v.serverId;
   $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
-  $('#eventsBtn').hidden = !v.serverId;
+  const priv = isPrivate(S.servers.get(v.serverId)), grp = priv && S.servers.get(v.serverId).kind === 'group';
+  $('#eventsBtn').hidden = !v.serverId || priv;
+  if (priv) $('#copyInvite').hidden = true;
+  $('#callBtn').hidden = !((v.kind === 'dm' && !user(v.userId).bot) || (grp && v.kind === 'text'));
+  $('#groupAddBtn').hidden = $('#groupLeaveBtn').hidden = !grp;
   const soon = v.serverId ? upcoming(v.serverId).filter((e) => e.startsAt < Date.now() + 7 * 86_400_000).length : 0;
   $('#eventsCount').hidden = !soon; $('#eventsCount').textContent = soon;
   if (v.kind === 'friends') { icon.innerHTML = iconSvg('users'); $('#viewTitle').textContent = 'Friends'; $('#viewSub').textContent = ''; }
@@ -621,6 +665,11 @@ function renderHeader() {
     $('#viewTitle').textContent = f.channel.name;
     $('#viewSub').textContent = f.channel.topic || f.server.name;
     $('#viewSub').title = f.channel.topic || '';
+    if (isPrivate(f.server)) {
+      icon.innerHTML = iconSvg(v.kind === 'voice' ? 'phone' : 'users');
+      $('#viewTitle').textContent = groupName(f.server);
+      $('#viewSub').textContent = v.kind === 'voice' ? 'Call' : `${f.server.members.length} members: ${f.server.members.map(nameOf).join(', ')}`;
+    }
   }
 }
 function renderMainView() {
@@ -632,7 +681,7 @@ function renderMainView() {
   if (k === 'voice') renderVoiceView();
   if (k === 'text' || k === 'dm') {
     const f = k === 'text' && findChannel(S.view.channelId);
-    $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f ? `Message #${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
+    $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message #${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
   }
 }
 function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); }
@@ -922,6 +971,13 @@ function introEl() {
     const f = findChannel(S.view.channelId);
     g.textContent = '#'; li.appendChild(g);
     h.textContent = `Welcome to #${f ? f.channel.name : ''}`;
+    if (f && isPrivate(f.server)) {
+      g.innerHTML = iconSvg('users');
+      h.textContent = groupName(f.server);
+      p.textContent = `This is the start of your group chat with ${f.server.members.filter((id) => id !== S.me.id).map(nameOf).join(', ')}. Only the people in it can see it.`;
+      li.appendChild(h); li.appendChild(p);
+      return li;
+    }
     p.textContent = 'This is the start of the channel. Messages, photos, videos and files posted here are saved for everyone in the server.';
   }
   li.appendChild(h); li.appendChild(p);
@@ -1271,6 +1327,7 @@ function renderFriends() {
   const hs = $('#homeServers');
   hs.textContent = '';
   for (const s of S.servers.values()) {
+    if (isPrivate(s)) continue;
     const li = document.createElement('li');
     const b = document.createElement('button'); b.type = 'button'; b.className = 'home-server';
     const ic = document.createElement('span'); ic.className = 'rail-btn'; ic.style.setProperty('--h', hue(s.name)); ic.textContent = serverInitials(s.name);
@@ -1283,7 +1340,7 @@ function renderFriends() {
     b.addEventListener('click', () => openServer(s.id));
     li.appendChild(b); hs.appendChild(li);
   }
-  $('#homeEmpty').hidden = S.servers.size > 0;
+  $('#homeEmpty').hidden = [...S.servers.values()].some((x) => !isPrivate(x));
 }
 $('#frAddForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1457,7 +1514,7 @@ function renderUserArea() {
   vs.hidden = !V.channelId;
   if (V.channelId) {
     const f = findChannel(V.channelId);
-    $('#vsChan').textContent = f ? `${f.channel.name} / ${f.server.name}` : '';
+    $('#vsChan').textContent = f ? (isPrivate(f.server) ? groupName(f.server) : `${f.channel.name} / ${f.server.name}`) : '';
     const peers = [...V.peers.values()];
     const bad = peers.some((p) => p.net === 'failed');
     $('#vsState').lastChild.textContent = V.joining ? 'Connecting…' : bad ? 'Voice trouble' : 'Voice connected';
@@ -1965,6 +2022,78 @@ $('#fbForm').addEventListener('submit', async (e) => {
   } catch (ex) { $('#fbError').textContent = ex.message; $('#fbError').hidden = false; }
   $('#fbSend').disabled = false;
 });
+
+/* ================= group chats, calls and ringing ================= */
+let groupMode = 'create';
+function openGroupDlg(mode) {
+  groupMode = mode;
+  const g = mode === 'add' ? curServer() : null;
+  $('#grTitle').textContent = g ? `Add people to ${groupName(g)}` : 'New group chat';
+  $('#grNameField').hidden = !!g; $('#grName').value = '';
+  $('#grSubmit').textContent = g ? 'Add' : 'Create group';
+  const pick = $('#grPick'); pick.textContent = '';
+  const known = new Set([...S.friends].filter(([, st]) => st === 'friends').map(([id]) => id));
+  for (const s of S.servers.values()) if (!isPrivate(s)) for (const id of s.members) known.add(id);
+  const ids = [...known].filter((id) => id !== S.me.id && !user(id).bot && !(g && g.members.includes(id))).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+  for (const id of ids) {
+    const l = document.createElement('label'); l.className = 'role-member';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = id;
+    l.appendChild(cb); l.appendChild(avEl(id)); l.appendChild(document.createTextNode(nameOf(id)));
+    pick.appendChild(l);
+  }
+  $('#grEmpty').hidden = !!ids.length;
+  $('#groupDlg').showModal();
+}
+$('#newGroupBtn').addEventListener('click', () => openGroupDlg('create'));
+$('#groupAddBtn').addEventListener('click', () => openGroupDlg('add'));
+$('#groupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const userIds = [...$('#grPick').querySelectorAll('input:checked')].map((x) => Number(x.value));
+  if (groupMode === 'add') {
+    if (await act(() => live.req('group.add', { serverId: curServer().id, userIds }))) $('#groupDlg').close();
+    return;
+  }
+  const r = await act(() => live.req('group.create', { userIds, name: $('#grName').value }));
+  if (r) { $('#groupDlg').close(); const g = S.servers.get(r.id); if (g) setView({ kind: 'text', serverId: g.id, channelId: groupText(g).id }); }
+});
+$('#groupLeaveBtn').addEventListener('click', async () => {
+  const g = curServer();
+  if (g && await confirmBox(`Leave ${groupName(g)}?`, 'You won’t get its messages any more. Someone in it can add you back.', 'Leave')) { await act(() => live.req('server.leave', { id: g.id })); setView({ kind: 'friends' }); }
+});
+async function startCall() {
+  const v = S.view;
+  let serverId, channelId;
+  if (v.kind === 'dm') { const r = await act(() => live.req('call.start', { userId: v.userId })); if (!r) return; ({ serverId, channelId } = r); }
+  else { const g = curServer(); if (!g) return; serverId = g.id; channelId = groupVoice(g).id; }
+  setView({ kind: 'voice', serverId, channelId });
+  if (V.channelId !== channelId) joinVoice(channelId);
+}
+$('#callBtn').addEventListener('click', startCall);
+let ring = null;   // { serverId, channelId, timer, until }
+live.on('ring', (d) => {
+  if (V.channelId === d.channelId) return;
+  const g = S.servers.get(d.serverId);
+  if (!g) return;
+  stopRing();
+  ring = { serverId: d.serverId, channelId: d.channelId, until: Date.now() + 30_000 };
+  $('#ringAv').textContent = ''; $('#ringAv').appendChild(avEl(d.from));
+  $('#ringTitle').textContent = g.kind === 'pair' ? `${nameOf(d.from)} is calling` : `${nameOf(d.from)} started a call`;
+  $('#ringSub').textContent = g.kind === 'pair' ? 'Private call' : groupName(g);
+  $('#ringBar').hidden = false;
+  const tick = () => { if (!ring) return; if (Date.now() > ring.until) { stopRing(); return; } if (!quiet() && !V.deafened) chime('join'); };
+  tick(); ring.timer = setInterval(tick, 2000);
+  notify(g.kind === 'pair' ? `📞 ${nameOf(d.from)} is calling` : `📞 Call in ${groupName(g)}`, 'Open Party Line to join.', () => joinRing());
+});
+live.on('ring.stop', (d) => { if (ring && ring.channelId === d.channelId) stopRing(); });
+function stopRing() { if (ring) clearInterval(ring.timer); ring = null; $('#ringBar').hidden = true; }
+function joinRing() {
+  if (!ring) return;
+  const { serverId, channelId } = ring; stopRing();
+  setView({ kind: 'voice', serverId, channelId });
+  if (V.channelId !== channelId) joinVoice(channelId);
+}
+$('#ringJoin').addEventListener('click', joinRing);
+$('#ringDecline').addEventListener('click', stopRing);
 
 /* ================= channels: settings, categories, drag and drop ================= */
 function dropTarget(el, where) {

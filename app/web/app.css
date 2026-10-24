@@ -901,3 +901,21 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .role-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 99px; background: var(--panel-2); font-size: 12px; font-weight: 600; }
 .role-chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--rc); }
 @media (max-width: 600px) { .roles-wrap { grid-template-columns: 1fr; } }
+/* Group chats, calls and ringing */
+.group-av { position: relative; flex: none; width: 32px; height: 32px; }
+.group-av .mini-av { position: absolute; width: 22px; height: 22px; font-size: 9px; box-shadow: 0 0 0 2px var(--panel); }
+.group-av .mini-av:first-child { left: 0; top: 0; }
+.group-av .mini-av:nth-child(2) { right: 0; bottom: 0; }
+.group-av .mini-av:only-child { width: 32px; height: 32px; font-size: 13px; }
+.dm-name { min-width: 0; display: grid; }
+.dm-sub { color: var(--dim); font-size: 11px; font-weight: 500; }
+.group-pick { display: flex; flex-wrap: wrap; gap: 6px; max-height: 260px; overflow: auto; }
+.ring-bar { position: fixed; z-index: 60; left: 50%; top: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px;
+  width: min(460px, calc(100% - 32px)); border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); animation: ring-in .25s ease; }
+@keyframes ring-in { from { transform: translate(-50%, -20px); opacity: 0; } }
+.ring-av .mini-av { width: 40px; height: 40px; font-size: 16px; animation: ring-pulse 1.2s infinite; }
+@keyframes ring-pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok) 35%, transparent); } }
+.ring-text { flex: 1; min-width: 0; display: grid; }
+.ring-text small { color: var(--dim); }
+.danger-btn { color: var(--danger); }
+#callBtn { width: auto; }

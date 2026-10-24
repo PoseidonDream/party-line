@@ -133,6 +133,15 @@ Turn it off again with `voice-server.sh off`. People already in voice switch ove
 
 With it on, voice uses your server's traffic. That's roughly 1 GB per person per 10 hours of talking, or more with cameras and screen shares, which is still small next to Hetzner's 20 TB. If your provider has its own firewall in the dashboard, also open TCP 7881 and UDP 7882 there.
 
+## What friends can do
+
+- **Chat:** messages, replies, reactions, @mentions, editing, search (Ctrl+K), **pinned messages** (the Pinned button lists them), **link previews** (YouTube links play right in the chat), photos, videos and **any file** up to 25 MB, and **voice messages** (the mic button in the message box).
+- **Voice:** voice channels with screen sharing, camera, noise filter, push to talk, the **soundboard**, and Listen together (see Party Bot below).
+- **Private chats:** one-to-one chats, **group chats** for 3 to 10 people (the + next to Private chats), and **calls** in either (the Call button). Starting a call rings the others.
+- **You:** click your picture at the bottom left to set **Online, Idle, Do not disturb or Invisible** and a custom status. Settings has **About me** and a banner color. The desktop app shows **"Playing ..."** when you're in a known game (switch it off in the tray menu).
+- **Events:** the Events button in a server plans things like game night. Friends answer Going or Maybe, and Party Bot reminds everyone going 15 minutes before.
+- **Organising a server:** channel topics, **categories** (server menu), drag and drop to reorder channels, and **roles** with colors and permissions (server menu, Roles).
+
 ## Party Bot: music and fun commands
 
 Type these in any text channel or private chat. Type **/** to see the list.

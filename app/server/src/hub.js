@@ -87,6 +87,11 @@ const botHost = {
 };
 Bot.initBot(botHost);
 
+const groupText = (serverId) => (M.serverView(serverId, 0).channels.find((x) => x.kind === 'text') || {}).id;
+function sendServerTo(userId, serverId) {
+  toUser(userId, { t: 'server', server: M.serverView(serverId, userId), users: M.memberIds(serverId).map(userView),
+    voice: [...voice].filter(([, v]) => v.serverId === serverId).map(([id, v]) => voiceView(id, v)) });
+}
 /* Channels, categories or roles changed: everyone in the server gets its fresh view (unread counts are per person). */
 function refreshServer(serverId) {
   for (const id of M.memberIds(serverId)) if (online(id)) toUser(id, { t: 'server', server: M.serverView(serverId, id) });
@@ -126,7 +131,10 @@ function leaveVoice(userId, reason) {
   if (!v) return;
   voice.delete(userId);
   toServer(v.serverId, { t: 'voice.left', userId, channelId: v.channelId, serverId: v.serverId });
-  if (![...voice.values()].some((x) => x.channelId === v.channelId)) Bot.voiceEmptied(v.channelId);
+  if (![...voice.values()].some((x) => x.channelId === v.channelId)) {
+    Bot.voiceEmptied(v.channelId);
+    toServer(v.serverId, { t: 'ring.stop', channelId: v.channelId });
+  }
   if (reason) { const c = conns.get(v.connId); send(c, { t: 'voice.kicked', reason }); }
 }
 
@@ -225,7 +233,7 @@ const handlers = {
   'server.join'(c, user, d) {
     const code = String(d.invite || '').trim().replace(/^.*\/invite\//, '');
     const s = M.serverByInvite(code);
-    if (!s) fail('That invite doesn’t work. Ask for a new one.');
+    if (!s || (s.kind || 'server') !== 'server') fail('That invite doesn’t work. Ask for a new one.');
     if (!M.isMember(user.id, s.id)) {
       M.joinServer(user.id, s.id);
       toServer(s.id, { t: 'member', serverId: s.id, userId: user.id, user: userView(user.id) });
@@ -237,16 +245,49 @@ const handlers = {
     const s = M.getServer(Number(d.id));
     if (!s) return {};
     removeFromServer(user.id, s.id);
+    if (s.kind === 'group') {
+      if (!M.memberIds(s.id).length) M.deleteServer(s.id);
+      else { const t = M.getChannel(groupText(s.id)); if (t) botHost.post({ channelId: t.id }, `👋 **${user.name}** left the group.`); }
+    }
     return {};
   },
   'server.rename'(c, user, d) {
     const s = M.getServer(Number(d.id));
-    if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission to rename it.');
+    if (!s || !(M.can(user, s, 'server') || (s.kind === 'group' && M.isMember(user.id, s.id)))) fail('You need the Manage server permission to rename it.');
     const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     if (!name) fail('Give the server a name.');
     M.renameServer(s.id, name);
     toServer(s.id, { t: 'server.renamed', id: s.id, name });
     return {};
+  },
+  /* ---- group chats and calls ---- */
+  'group.create'(c, user, d) {
+    const id = M.createGroup(user.id, d.userIds, d.name);
+    for (const uid of M.memberIds(id)) sendServerTo(uid, id);
+    const names = M.memberIds(id).filter((x) => x !== user.id).map((x) => M.getUser(x).name).join(', ');
+    botHost.post({ channelId: groupText(id) }, `👋 **${user.name}** started a group chat with ${names}.`);
+    return { id };
+  },
+  'group.add'(c, user, d) {
+    const s = M.getServer(Number(d.serverId));
+    if (!s || s.kind !== 'group' || !M.isMember(user.id, s.id)) fail('That group is gone.');
+    const add = [...new Set((d.userIds || []).map(Number))].filter((id) => !M.isMember(id, s.id) && M.getUser(id) && M.canSeeUser(user.id, id));
+    if (!add.length) return {};
+    if (M.memberIds(s.id).length + add.length > 10) fail('Group chats can have up to 10 people.');
+    for (const id of add) M.joinServer(id, s.id);
+    for (const id of M.memberIds(s.id)) sendServerTo(id, s.id);
+    botHost.post({ channelId: groupText(s.id) }, `➕ **${user.name}** added ${add.map((id) => `**${M.getUser(id).name}**`).join(', ')} to the group.`);
+    return {};
+  },
+  /* A 1-on-1 call: the hidden room for the two of you. The client then joins its voice channel, which rings. */
+  'call.start'(c, user, d) {
+    const other = M.getUser(Number(d.userId));
+    if (!other || other.is_bot || other.id === user.id) fail('You can’t call them.');
+    if (M.friendState(user.id, other.id) !== 'friends' && !M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s))) fail(`Add ${other.name} as a friend first.`);
+    const room = M.pairRoom(user.id, other.id);
+    if (room.created) { sendServerTo(user.id, room.id); sendServerTo(other.id, room.id); }
+    const ch = M.serverView(room.id, user.id).channels.find((x) => x.kind === 'voice');
+    return { serverId: room.id, channelId: ch.id };
   },
   'server.delete'(c, user, d) {
     const s = M.getServer(Number(d.id));
@@ -375,8 +416,14 @@ const handlers = {
     else if (old) leaveVoice(user.id);
     const v = { channelId: ch.id, serverId: ch.server_id, connId: c.id, muted: !!d.muted, deafened: !!d.deafened,
       sharing: false, screenId: null, serverMuted: old ? old.serverMuted : false, since: Date.now() };
+    const wasEmpty = ![...voice.values()].some((x) => x.channelId === ch.id);
     voice.set(user.id, v);
     toServer(ch.server_id, { t: 'voice', state: voiceView(user.id, v) });
+    // Starting a call in a group chat or a 1-on-1 call room rings everyone else.
+    const srv = M.getServer(ch.server_id);
+    if (wasEmpty && srv.kind && srv.kind !== 'server') {
+      for (const id of M.memberIds(srv.id)) if (id !== user.id) toUser(id, { t: 'ring', from: user.id, serverId: srv.id, channelId: ch.id });
+    }
     return { peers: [...voice].filter(([id, x]) => id !== user.id && x.channelId === ch.id).map(([id]) => id) };
   },
   /* ---- status and profile ---- */

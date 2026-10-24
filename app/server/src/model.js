@@ -146,6 +146,33 @@ export function createServer(ownerId, name, isDefault = false) {
     return id;
   });
 }
+/* Group chats are small hidden servers (kind 'group') with one chat and one call room; a 1-on-1 call uses a
+   hidden room for the two people (kind 'pair'). Neither shows in the server bar, and neither has invites. */
+export function createGroup(ownerId, memberIds, name) {
+  const others = [...new Set((memberIds || []).map(Number))].filter((id) => id !== ownerId);
+  if (others.length < 2) fail('Pick at least two friends for a group chat.');
+  if (others.length > 9) fail('Group chats can have up to 10 people.');
+  for (const id of others) if (!getUser(id) || !canSeeUser(ownerId, id)) fail('You can only add people you know.');
+  return tx(() => {
+    const id = Number(run("INSERT INTO servers (name, owner_id, invite, is_default, created_at, kind) VALUES (?, ?, ?, 0, ?, 'group')",
+      String(name || '').replace(/\s+/g, ' ').trim().slice(0, 40), ownerId, inviteCode(), now()).lastInsertRowid);
+    run("INSERT INTO channels (server_id, kind, name, position, created_at) VALUES (?, 'text', 'chat', 0, ?)", id, now());
+    run("INSERT INTO channels (server_id, kind, name, position, created_at) VALUES (?, 'voice', 'Call', 1, ?)", id, now());
+    for (const uid of [ownerId, ...others]) joinServer(uid, id);
+    return id;
+  });
+}
+export function pairRoom(a, b) {
+  const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
+  const found = one('SELECT id FROM servers WHERE pair_key = ?', key);
+  if (found) return { id: found.id, created: false };
+  return tx(() => {
+    const id = Number(run("INSERT INTO servers (name, owner_id, invite, is_default, created_at, kind, pair_key) VALUES ('Call', NULL, ?, 0, ?, 'pair', ?)", inviteCode(), now(), key).lastInsertRowid);
+    run("INSERT INTO channels (server_id, kind, name, position, created_at) VALUES (?, 'voice', 'Call', 0, ?)", id, now());
+    joinServer(a, id); joinServer(b, id);
+    return { id, created: true };
+  });
+}
 export function ensureDefaultServer() {
   if (!one('SELECT id FROM servers WHERE is_default = 1')) createServer(null, 'Party Line', true);
 }
@@ -251,7 +278,8 @@ export function serverView(serverId, viewerId) {
   const channels = all('SELECT * FROM channels WHERE server_id = ? ORDER BY position, id', serverId).map(publicChannel);
   for (const c of channels) {
     if (c.kind !== 'text') continue;
-    c.lastId = one('SELECT MAX(id) AS m FROM messages WHERE channel_id = ?', c.id).m || 0;
+    const last = one('SELECT MAX(id) AS m, MAX(created_at) AS t FROM messages WHERE channel_id = ?', c.id);
+    c.lastId = last.m || 0; c.lastAt = last.t || 0;
     c.unread = unreadCount(viewerId, `c:${c.id}`, 'channel_id', c.id);
     c.mentions = c.unread ? mentionCount(viewerId, `c:${c.id}`, c.id) : 0;
   }
@@ -259,7 +287,7 @@ export function serverView(serverId, viewerId) {
   const memberRoles = {};
   for (const r of all('SELECT user_id, role_id FROM member_roles WHERE server_id = ?', serverId)) (memberRoles[r.user_id] ||= []).push(r.role_id);
   const categories = all('SELECT id, name, position FROM categories WHERE server_id = ? ORDER BY position, id', serverId);
-  return { id: s.id, name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories };
+  return { id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories };
 }
 
 /* ---------- messages ---------- */

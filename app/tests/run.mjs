@@ -27,7 +27,7 @@ for (const f of files) {
     await mod.default((name, ok) => { if (ok) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}`); } });
   } catch (e) {
     failed++;
-    console.log(`  ✗ ${e.message.split('\n')[0]}`);
+    console.log(`  ✗ ${e.message.split('\n').filter((l) => l.trim() && !/^=+/.test(l) && !/Call log/.test(l)).slice(0, 2).join(' — ')}`);
     if (process.env.VERBOSE) console.log(e.stack);
   }
 }
