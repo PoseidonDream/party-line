@@ -105,7 +105,7 @@ Connect with `ssh root@YOUR-IP`, then:
 | Restart it | `cd /opt/party-line/deploy && docker compose restart` |
 | Change the group password | edit `/opt/party-line/deploy/.env`, then run `docker compose up -d` in that folder |
 
-**Updates install by themselves.** Every 10 minutes the server checks GitHub for a newer Party Line and installs it, but only while nobody is in voice, so calls aren't cut off. (If people stay in voice for 12 hours straight, it updates anyway; everyone reconnects within seconds.) To turn this off, add the line `AUTO_UPDATE=0` to `/opt/party-line/deploy/.env`.
+**Updates install by themselves.** Every 10 minutes the server checks GitHub for a newer Party Line and installs it, but only while nobody is in voice, so calls aren't cut off. (If someone stays in voice for 2 hours straight, often a forgotten open tab, it updates anyway; everyone reconnects within seconds.) To turn this off, add the line `AUTO_UPDATE=0` to `/opt/party-line/deploy/.env`.
 
 **Backups happen by themselves every night at 4:17** (server time). The newest 7 are kept in `/opt/party-line/deploy/backups/`. They live on the same server, so for real safety also turn on your provider's backup option (about €1 a month on Hetzner), or now and then copy the newest file to your own computer:
 ```
