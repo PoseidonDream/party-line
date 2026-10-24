@@ -37,6 +37,8 @@ $('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 
 /* ================= small view helpers ================= */
 const user = (id) => S.users.get(id) || { id, name: 'Someone', avatar: null, online: false };
 const nameOf = (id) => user(id).name;
+/* Admins (developers) get a crown after their name wherever it shows. */
+const addCrown = (el, id) => { if (user(id).admin || (S.me && id === S.me.id && S.me.admin)) el.insertAdjacentHTML('beforeend', `<span class="crown" title="Developer">${iconSvg('crown')}</span>`); };
 const curServer = () => (S.view.serverId ? S.servers.get(S.view.serverId) : null);
 const canManage = (srv) => !!S.me && (S.me.admin || (srv && srv.ownerId === S.me.id));
 const msgKey = () => (S.view.kind === 'text' ? `c:${S.view.channelId}` : S.view.kind === 'dm' ? `d:${S.view.userId}` : null);
@@ -443,7 +445,7 @@ function renderSide() {
           mb.type = 'button'; mb.className = 'member' + (p.userId === S.me.id ? ' is-me' : '') + (V.speaking.has(p.userId) ? ' speaking' : '');
           mb.dataset.uid = p.userId;
           mb.appendChild(avEl(p.userId));
-          const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = nameOf(p.userId); mb.appendChild(nm);
+          const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = nameOf(p.userId); addCrown(nm, p.userId); mb.appendChild(nm);
           if (p.sharing) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; mb.appendChild(l); }
           if (p.deafened) mb.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
           else if (p.muted || p.serverMuted) mb.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
@@ -488,7 +490,7 @@ function renderHomeSide() {
     const w = document.createElement('span'); w.className = 'av-wrap'; w.appendChild(avEl(id));
     const dot = document.createElement('span'); dot.className = 'status-dot' + (user(id).online ? ' on' : ''); w.appendChild(dot);
     b.appendChild(w);
-    const n = document.createElement('span'); n.className = 'dm-name'; n.textContent = nameOf(id); b.appendChild(n);
+    const n = document.createElement('span'); n.className = 'dm-name'; n.textContent = nameOf(id); addCrown(n, id); b.appendChild(n);
     if (x.unread) { const c = document.createElement('span'); c.className = 'count-pill'; c.textContent = x.unread; b.appendChild(c); }
     b.addEventListener('click', () => setView({ kind: 'dm', userId: id }));
     li.appendChild(b); list.appendChild(li);
@@ -601,7 +603,7 @@ function messageEl(msg, prev) {
   li.appendChild(av);
   const head = document.createElement('div'); head.className = 'msg-head';
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.style.setProperty('--h', hue(nameOf(msg.userId))); nm.textContent = nameOf(msg.userId);
-  if (user(msg.userId).admin) nm.insertAdjacentHTML('beforeend', `<span class="crown" title="Admin">${iconSvg('crown')}</span>`);
+  addCrown(nm, msg.userId);
   head.appendChild(nm);
   const tm = document.createElement('time'); tm.className = 'msg-time'; tm.dateTime = new Date(msg.at).toISOString();
   tm.textContent = `${fmtDay(msg.at)} ${fmtTime(msg.at)}`; tm.title = new Date(msg.at).toLocaleString();
@@ -978,7 +980,7 @@ function renderFriends() {
       const dot = document.createElement('span'); dot.className = 'status-dot' + (user(id).online ? ' on' : ''); w.appendChild(dot);
       li.appendChild(w);
       const t = document.createElement('div'); t.className = 'fr-text';
-      const b = document.createElement('b'); b.textContent = nameOf(id); t.appendChild(b);
+      const b = document.createElement('b'); b.textContent = nameOf(id); addCrown(b, id); t.appendChild(b);
       const s = document.createElement('span');
       const vst = S.voice.get(id);
       s.textContent = st === 'incoming' ? 'Wants to be your friend' : st === 'outgoing' ? 'Friend request sent' : vst ? `In voice: ${(findChannel(vst.channelId) || { channel: { name: '' } }).channel.name}` : user(id).online ? 'Online' : 'Offline';
@@ -1071,7 +1073,7 @@ function renderVoiceView() {
     if (cam && inThis) { d.classList.add('has-cam'); d.appendChild(camVideo(p.userId, cam, isMe)); }
     else d.appendChild(avEl(p.userId, 'avatar'));
     const meta = document.createElement('div'); meta.className = 'tile-meta';
-    const n = document.createElement('span'); n.className = 'tile-name'; n.textContent = nameOf(p.userId) + (isMe ? ' (you)' : ''); meta.appendChild(n);
+    const n = document.createElement('span'); n.className = 'tile-name'; n.textContent = nameOf(p.userId) + (isMe ? ' (you)' : ''); addCrown(n, p.userId); meta.appendChild(n);
     const sub = document.createElement('span'); sub.className = 'tile-sub';
     sub.textContent = p.serverMuted ? 'Muted by admin' : p.deafened ? 'Deafened' : p.muted ? 'Muted' : !inThis || isMe ? 'In voice'
       : !peer || peer.net === 'connecting' ? 'Connecting…' : peer.net === 'failed' ? 'Can’t connect' : peer.net === 'unstable' ? 'Unstable connection' : 'Connected';
@@ -1167,7 +1169,7 @@ function micStatus() {
 function renderUserArea() {
   if (!S.me) return;
   paintAv($('#meAv'), S.me.id);
-  $('#meName').textContent = S.me.name;
+  $('#meName').textContent = S.me.name; addCrown($('#meName'), S.me.id);
   const st = micStatus();
   $('#meStatus').textContent = st.text; $('#meStatus').classList.toggle('bad', !!st.bad);
   const mic = $('#micBtn'), off = V.muted || V.deafened || V.serverMuted;
@@ -1282,7 +1284,7 @@ function openUserPop(id, anchor) {
   S.popUser = id; S.popServer = S.view.serverId || null;
   const isMe = id === S.me.id;
   paintAv($('#popAv'), id);
-  $('#popName').textContent = nameOf(id) + (isMe ? ' (you)' : '');
+  $('#popName').textContent = nameOf(id) + (isMe ? ' (you)' : ''); addCrown($('#popName'), id);
   const vst = S.voice.get(id);
   const sameVoice = !isMe && V.channelId && vst && vst.channelId === V.channelId;
   $('#popVolBox').hidden = !sameVoice;

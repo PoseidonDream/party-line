@@ -24,6 +24,10 @@ export default async function (ok) {
     await a.click('#navFriends'); await a.click('#frDev');
     await a.waitForSelector('#devPanel[open]'); await a.keyboard.press('Escape');
     ok('the Developer buttons on the Home page open the panel', true);
+    await b.click('#railList .rail-btn'); await b.click('#voiceList .chan:has-text("Lobby")');
+    await b.waitForSelector('#tiles .tile:has-text("Poseidon") .tile-name .crown');
+    await b.waitForSelector('#voiceList .member-name:has-text("Poseidon") .crown');
+    ok('Poseidon has a crown, friends don’t', await b.isVisible('#meName') && !(await b.locator('#meName .crown').count()) && !(await b.locator('#tiles .tile:has-text("Bora") .tile-name .crown').count()) && await a.locator('#meName .crown').count() === 1);
     await a.click('#railList .rail-btn');
 
     await a.click('#serverBtn'); await a.click('#mDev');
