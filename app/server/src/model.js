@@ -289,6 +289,43 @@ export function setEmbeds(id, embeds) {
   run('UPDATE messages SET embeds = ? WHERE id = ?', embeds.length ? JSON.stringify(embeds) : null, id);
   return publicMessage(getMessage(id));
 }
+/* ---------- events ---------- */
+/* Upcoming events of a server (and ones that started in the last 3 hours), soonest first. */
+export function eventsOf(serverId) {
+  const rows = all('SELECT * FROM events WHERE server_id = ? AND starts_at > ? ORDER BY starts_at LIMIT 50', serverId, now() - 3 * 3600_000);
+  return rows.map(eventView);
+}
+export function eventView(e) {
+  const rsvps = all('SELECT user_id, state FROM event_rsvps WHERE event_id = ?', e.id);
+  return { id: e.id, serverId: e.server_id, creatorId: e.creator_id, title: e.title, description: e.description || '', startsAt: e.starts_at,
+    channelId: e.channel_id, going: rsvps.filter((r) => r.state === 'going').map((r) => r.user_id), maybe: rsvps.filter((r) => r.state === 'maybe').map((r) => r.user_id) };
+}
+export const getEvent = (id) => one('SELECT * FROM events WHERE id = ?', id);
+export function createEvent(userId, serverId, d) {
+  const title = String(d.title || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!title) fail('Give the event a name.');
+  const startsAt = Number(d.startsAt);
+  if (!Number.isFinite(startsAt) || startsAt < now() - 60_000) fail('Pick a time in the future.');
+  if (startsAt > now() + 366 * 86400_000) fail('Events can be up to a year ahead.');
+  if (one('SELECT COUNT(*) AS n FROM events WHERE server_id = ? AND starts_at > ?', serverId, now()).n >= 50) fail('This server already has 50 upcoming events.');
+  const ch = d.channelId ? getChannel(Number(d.channelId)) : null;
+  const announce = one("SELECT id FROM channels WHERE server_id = ? AND kind = 'text' ORDER BY position, id LIMIT 1", serverId);
+  const id = Number(run('INSERT INTO events (server_id, creator_id, title, description, starts_at, channel_id, announce_channel_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    serverId, userId, title, String(d.description || '').trim().slice(0, 1000) || null, startsAt, ch && ch.server_id === serverId && ch.kind === 'voice' ? ch.id : null, announce ? announce.id : null, now()).lastInsertRowid);
+  run("INSERT INTO event_rsvps (event_id, user_id, state) VALUES (?, ?, 'going')", id, userId);
+  return getEvent(id);
+}
+export function rsvp(eventId, userId, state) {
+  if (state === 'going' || state === 'maybe') run('INSERT INTO event_rsvps (event_id, user_id, state) VALUES (?, ?, ?) ON CONFLICT (event_id, user_id) DO UPDATE SET state = excluded.state', eventId, userId, state);
+  else run('DELETE FROM event_rsvps WHERE event_id = ? AND user_id = ?', eventId, userId);
+}
+export const deleteEvent = (id) => run('DELETE FROM events WHERE id = ?', id);
+/* Events starting within the next 15 minutes that haven't been announced yet. */
+export function eventsToRemind() {
+  const rows = all('SELECT * FROM events WHERE reminded = 0 AND starts_at <= ? AND starts_at > ?', now() + 15 * 60_000, now() - 5 * 60_000);
+  for (const e of rows) run('UPDATE events SET reminded = 1 WHERE id = ?', e.id);
+  return rows;
+}
 export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
 export function history(col, targetId, before, limit = 50) {
   const rows = before

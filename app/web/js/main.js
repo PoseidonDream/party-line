@@ -9,7 +9,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [],
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -152,6 +152,8 @@ live.on('ready', (d) => {
   S.dms = new Map(d.dms.map((x) => [x.userId, x]));
   S.voice = new Map(d.voice.map((v) => [v.userId, v]));
   S.music = new Map((d.music || []).map((x) => [x.channelId, x.state]));
+  S.events = new Map();
+  for (const e of d.events || []) { if (!S.events.has(e.serverId)) S.events.set(e.serverId, []); S.events.get(e.serverId).push(e); }
   S.commands = d.commands || [];
   S.serverNow = d.serverNow;
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
@@ -257,6 +259,7 @@ live.on('music', (d) => {
   S.serverNow = d.serverNow;
   renderSide(); syncMusic();
 });
+live.on('events', (d) => { S.events.set(d.serverId, d.events); renderHeader(); if ($('#eventsDlg').open) renderEvents(); });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
 live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
 live.on('dm', (d) => {
@@ -551,6 +554,9 @@ function renderHeader() {
   const v = S.view, icon = $('#viewIcon');
   $('#copyInvite').hidden = !v.serverId;
   $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
+  $('#eventsBtn').hidden = !v.serverId;
+  const soon = v.serverId ? upcoming(v.serverId).filter((e) => e.startsAt < Date.now() + 7 * 86_400_000).length : 0;
+  $('#eventsCount').hidden = !soon; $('#eventsCount').textContent = soon;
   if (v.kind === 'friends') { icon.innerHTML = iconSvg('users'); $('#viewTitle').textContent = 'Friends'; $('#viewSub').textContent = ''; }
   else if (v.kind === 'dm') {
     icon.textContent = '@'; $('#viewTitle').textContent = nameOf(v.userId);
@@ -597,7 +603,14 @@ function syncPhoneCall() {
 
 /* ================= messages ================= */
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
-const TOKEN_RE = new RegExp(`${URL_RE.source}|<@(\\d+)>|\\*\\*([^*\\n]{1,200})\\*\\*`, 'g');
+const TOKEN_RE = new RegExp(`${URL_RE.source}|<@(\\d+)>|\\*\\*([^*\\n]{1,200})\\*\\*|<t:(\\d{9,11})(?::(R))?>`, 'g');
+/* <t:unix> shows a moment in each person's own time zone; <t:unix:R> as "in 15 minutes". */
+const fmtWhen = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function fmtRelative(ms) {
+  const d = ms - Date.now(), a = Math.abs(d), rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const [n, u] = a < 3600_000 ? [Math.round(d / 60_000), 'minute'] : a < 86_400_000 ? [Math.round(d / 3600_000), 'hour'] : [Math.round(d / 86_400_000), 'day'];
+  return rtf.format(n, u);
+}
 /* Message text with clickable links, @mentions and **bold**. Mentions are stored as <@userId>. */
 function richText(el, text) {
   let last = 0;
@@ -611,6 +624,11 @@ function richText(el, text) {
       el.appendChild(b);
     } else if (m[2]) {
       const b = document.createElement('b'); richText(b, m[2]); el.appendChild(b);
+    } else if (m[3]) {
+      const ms = Number(m[3]) * 1000, t = document.createElement('time'); t.className = 'time-tag';
+      t.dateTime = new Date(ms).toISOString(); t.title = new Date(ms).toLocaleString();
+      t.textContent = m[4] === 'R' ? fmtRelative(ms) : fmtWhen(ms);
+      el.appendChild(t);
     } else {
       const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
       el.appendChild(a);
@@ -628,7 +646,8 @@ function encodeMentions(text) {
   for (const u of people) text = text.replace(new RegExp(`(^|[^\\p{L}\\p{N}_])@${escapeRe(u.name)}(?![\\p{L}\\p{N}_])`, 'giu'), `$1<@${u.id}>`);
   return text;
 }
-const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '');
+const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '')
+  .replace(/<t:(\d{9,11})(?::R)?>/g, (x, t) => fmtWhen(Number(t) * 1000));
 const mentionsMe = (msg) => !!msg.body && msg.body.includes(`<@${S.me.id}>`);
 let lastRendered = { author: null, at: 0 };
 function messageEl(msg, prev) {
@@ -1885,6 +1904,76 @@ $('#fbForm').addEventListener('submit', async (e) => {
     if (S.me.admin) loadInbox();
   } catch (ex) { $('#fbError').textContent = ex.message; $('#fbError').hidden = false; }
   $('#fbSend').disabled = false;
+});
+
+/* ================= events ================= */
+const upcoming = (serverId) => (S.events.get(serverId) || []).filter((e) => e.startsAt > Date.now() - 3 * 3600_000).sort((a, b) => a.startsAt - b.startsAt);
+function openEvents() {
+  const s = curServer();
+  if (!s) return;
+  $('#evTitle').textContent = `Events in ${s.name}`;
+  $('#evForm').hidden = true; $('#evNewBtn').hidden = false;
+  renderEvents();
+  $('#eventsDlg').showModal();
+}
+function renderEvents() {
+  const s = curServer(), list = $('#evList');
+  if (!s) return;
+  list.textContent = '';
+  const evs = upcoming(s.id);
+  $('#evEmpty').hidden = !!evs.length;
+  for (const e of evs) {
+    const li = document.createElement('li'); li.className = 'ev';
+    const d = new Date(e.startsAt), isNow = e.startsAt <= Date.now();
+    li.innerHTML = `<div class="ev-date"><b>${d.getDate()}</b><small>${d.toLocaleString(undefined, { month: 'short' })}</small></div><div class="ev-main"></div>`;
+    const main = li.querySelector('.ev-main');
+    const t = document.createElement('div'); t.className = 'ev-title'; t.textContent = e.title;
+    if (isNow) t.insertAdjacentHTML('beforeend', '<span class="chan-live">NOW</span>');
+    main.appendChild(t);
+    const when = document.createElement('div'); when.className = 'ev-when';
+    const ch = e.channelId && findChannel(e.channelId);
+    when.textContent = `${fmtWhen(e.startsAt)} · ${fmtRelative(e.startsAt)}` + (ch ? ` · 🔊 ${ch.channel.name}` : '');
+    main.appendChild(when);
+    if (e.description) { const p = document.createElement('p'); p.className = 'ev-desc'; p.textContent = e.description; main.appendChild(p); }
+    const who = document.createElement('div'); who.className = 'ev-who';
+    const names = (ids) => ids.map(nameOf).join(', ');
+    who.textContent = `✅ ${e.going.length} going${e.going.length ? ` (${names(e.going)})` : ''}` + (e.maybe.length ? ` · 🤔 ${e.maybe.length} maybe (${names(e.maybe)})` : '');
+    main.appendChild(who);
+    const btns = document.createElement('div'); btns.className = 'ev-btns';
+    const mine = e.going.includes(S.me.id) ? 'going' : e.maybe.includes(S.me.id) ? 'maybe' : '';
+    const rsvpBtn = (state, label) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small' + (mine === state ? ' primary' : ''); b.textContent = label;
+      b.setAttribute('aria-pressed', String(mine === state));
+      b.addEventListener('click', () => act(() => live.req('event.rsvp', { id: e.id, state: mine === state ? '' : state })));
+      btns.appendChild(b);
+    };
+    rsvpBtn('going', 'Going'); rsvpBtn('maybe', 'Maybe');
+    if (isNow && ch) { const j = document.createElement('button'); j.type = 'button'; j.className = 'btn small primary'; j.textContent = 'Join voice'; j.addEventListener('click', () => { $('#eventsDlg').close(); setView({ kind: 'voice', serverId: s.id, channelId: e.channelId }); if (V.channelId !== e.channelId) joinVoice(e.channelId); }); btns.appendChild(j); }
+    if (e.creatorId === S.me.id || canManage(s)) {
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'link-btn danger'; x.textContent = 'Cancel event';
+      x.addEventListener('click', async () => { if (await confirmBox(`Cancel ${e.title}?`, 'It’s removed for everyone, and Party Bot lets the server know.', 'Cancel event')) act(() => live.req('event.delete', { id: e.id })); });
+      btns.appendChild(x);
+    }
+    main.appendChild(btns);
+    list.appendChild(li);
+  }
+}
+$('#eventsBtn').addEventListener('click', openEvents);
+$('#evNewBtn').addEventListener('click', () => {
+  const s = curServer();
+  const sel = $('#evChan'); sel.length = 1;
+  for (const c of s.channels.filter((x) => x.kind === 'voice')) sel.add(new Option(c.name, c.id));
+  const t = new Date(Date.now() + 86_400_000); t.setMinutes(0, 0, 0); t.setHours(21);
+  $('#evWhen').value = new Date(t - t.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  $('#evName').value = ''; $('#evDesc').value = '';
+  $('#evForm').hidden = false; $('#evNewBtn').hidden = true; $('#evName').focus();
+});
+$('#evCancelForm').addEventListener('click', () => { $('#evForm').hidden = true; $('#evNewBtn').hidden = false; });
+$('#evForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const startsAt = new Date($('#evWhen').value).getTime();
+  const r = await act(() => live.req('event.create', { serverId: curServer().id, title: $('#evName').value, startsAt, channelId: $('#evChan').value || null, description: $('#evDesc').value }), 'Event created. Party Bot told the server.');
+  if (r) { $('#evForm').hidden = true; $('#evNewBtn').hidden = false; }
 });
 
 /* ================= Party Bot ================= */

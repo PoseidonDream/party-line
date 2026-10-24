@@ -34,6 +34,7 @@
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
@@ -177,6 +178,7 @@
       <h1 class="view-title" id="viewTitle"></h1>
       <span class="view-sub" id="viewSub"></span>
       <div class="head-actions">
+        <button type="button" class="btn small" id="eventsBtn" title="Events" hidden><svg class="ic"><use href="#i-calendar"/></svg><span class="hide-sm">Events</span><span class="count-pill" id="eventsCount" hidden></span></button>
         <button type="button" class="btn small" id="pinsBtn" title="Pinned messages" hidden><svg class="ic"><use href="#i-pin"/></svg><span class="hide-sm">Pinned</span></button>
         <button type="button" class="btn small" id="searchBtn" title="Search messages (Ctrl+K)"><svg class="ic"><use href="#i-search"/></svg><span class="hide-sm">Search</span></button>
         <button type="button" class="btn small" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
@@ -401,6 +403,27 @@
 </dialog>
 
 <!-- ================= SETTINGS ================= -->
+<dialog id="eventsDlg" aria-labelledby="evTitle">
+  <form method="dialog">
+    <div class="set-head">
+      <h2 id="evTitle">Events</h2>
+      <button class="btn icon-btn" value="close" aria-label="Close events"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+  </form>
+  <div class="set-body">
+    <button type="button" class="btn primary" id="evNewBtn"><svg class="ic"><use href="#i-plus"/></svg>Plan an event</button>
+    <form class="ev-form" id="evForm" hidden>
+      <div class="field"><label class="flabel" for="evName">What</label><input class="input" id="evName" maxlength="80" placeholder="e.g. Game night" required></div>
+      <div class="field"><label class="flabel" for="evWhen">When</label><input class="input" id="evWhen" type="datetime-local" required></div>
+      <div class="field"><label class="flabel" for="evChan">Voice channel (optional)</label><select id="evChan"><option value="">None</option></select></div>
+      <div class="field"><label class="flabel" for="evDesc">Details (optional)</label><textarea class="input" id="evDesc" rows="2" maxlength="1000" placeholder="What to bring, which game, …"></textarea></div>
+      <div class="row-btns"><button type="button" class="btn" id="evCancelForm">Cancel</button><button type="submit" class="btn primary">Create event</button></div>
+    </form>
+    <ol class="ev-list" id="evList"></ol>
+    <p class="hint" id="evEmpty">No events planned yet.</p>
+  </div>
+</dialog>
+
 <dialog id="settings" aria-labelledby="setTitle">
   <form method="dialog">
     <div class="set-head">

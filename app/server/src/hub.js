@@ -87,6 +87,17 @@ const botHost = {
 };
 Bot.initBot(botHost);
 
+const shareEvents = (serverId) => toServer(serverId, { t: 'events', serverId, events: M.eventsOf(serverId) });
+/* 15 minutes before an event: Party Bot pings everyone going. */
+setInterval(() => {
+  for (const e of M.eventsToRemind()) {
+    if (!e.announce_channel_id) continue;
+    const going = M.eventView(e).going.map((id) => `<@${id}>`).join(' ');
+    const where = e.channel_id ? ` in 🔊 ${(M.getChannel(e.channel_id) || {}).name}` : '';
+    botHost.post({ channelId: e.announce_channel_id }, `⏰ **${e.title}** starts <t:${Math.floor(e.starts_at / 1000)}:R>${where}!` + (going ? ` ${going}` : ''));
+  }
+}, 30_000).unref();
+
 function readyFor(user) {
   const servers = M.serverIdsOf(user.id).map((id) => M.serverView(id, user.id)).filter(Boolean);
   const mine = new Set(servers.map((s) => s.id));
@@ -99,6 +110,7 @@ function readyFor(user) {
     dms: M.dmsOf(user.id),
     voice: [...voice].filter(([, v]) => mine.has(v.serverId)).map(([id, v]) => voiceView(id, v)),
     music: Bot.musicStates(mine),
+    events: [...mine].flatMap((id) => M.eventsOf(id)),
     commands: Bot.COMMAND_LIST,
     serverNow: Date.now(),
   };
@@ -306,6 +318,31 @@ const handlers = {
   'presence.activity'(c, user, d) {
     c.activity = typeof d.name === 'string' ? d.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null;
     announce(user.id);
+    return {};
+  },
+  /* ---- events ---- */
+  'event.create'(c, user, d) {
+    const srv = M.getServer(Number(d.serverId));
+    if (!srv || !M.isMember(user.id, srv.id)) fail('You’re not in that server.');
+    const e = M.createEvent(user.id, srv.id, d);
+    shareEvents(srv.id);
+    if (e.announce_channel_id) botHost.post({ channelId: e.announce_channel_id }, `📅 **${user.name}** planned **${e.title}** for <t:${Math.floor(e.starts_at / 1000)}>. Open **Events** at the top to say if you’re going.`);
+    return { id: e.id };
+  },
+  'event.rsvp'(c, user, d) {
+    const e = M.getEvent(Number(d.id));
+    if (!e || !M.isMember(user.id, e.server_id)) fail('That event is gone.');
+    M.rsvp(e.id, user.id, d.state);
+    shareEvents(e.server_id);
+    return {};
+  },
+  'event.delete'(c, user, d) {
+    const e = M.getEvent(Number(d.id));
+    if (!e) return {};
+    if (e.creator_id !== user.id && !M.canManage(user, M.getServer(e.server_id))) fail('Only whoever made the event (or an admin) can cancel it.');
+    M.deleteEvent(e.id);
+    shareEvents(e.server_id);
+    if (e.announce_channel_id && e.starts_at > Date.now()) botHost.post({ channelId: e.announce_channel_id }, `🚫 **${e.title}** was cancelled by **${user.name}**.`);
     return {};
   },
   'music.event'(c, user, d) { return Bot.musicEvent(user, d); },

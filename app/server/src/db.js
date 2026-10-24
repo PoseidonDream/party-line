@@ -115,6 +115,24 @@ CREATE TABLE IF NOT EXISTS reactions (
   PRIMARY KEY (message_id, user_id, emoji)
 );
 CREATE INDEX IF NOT EXISTS reactions_message ON reactions(message_id);
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY,
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  starts_at INTEGER NOT NULL,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE SET NULL,
+  announce_channel_id INTEGER REFERENCES channels(id) ON DELETE SET NULL,
+  reminded INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS event_rsvps (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  state TEXT NOT NULL,
+  PRIMARY KEY (event_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS link_previews (
   url TEXT PRIMARY KEY,
   data TEXT,
