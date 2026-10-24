@@ -294,6 +294,7 @@ live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
 live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
 live.on('dm', (d) => {
   learnUsers([d.user]);
+  if (closedDms.delete(d.withUserId)) saveDmList();
   const key = `d:${d.withUserId}`;
   const cur = S.dms.get(d.withUserId) || { id: d.msg.dmId, userId: d.withUserId, unread: 0 };
   cur.id = d.msg.dmId; cur.lastId = d.msg.id; cur.lastAt = d.msg.at;
@@ -332,8 +333,12 @@ live.on('feedback.new', () => { S.fbCount++; renderFbCount(); });
 const dmKeyById = (dmId) => { for (const x of S.dms.values()) if (x.id === dmId) return `d:${x.userId}`; return null; };
 
 /* ================= navigation ================= */
+/* Private chats you opened stay in the list until you close them with ✕ (a new message brings one back). */
+const openDms = new Set(store.get('openDms', []) || []), closedDms = new Set(store.get('closedDms', []) || []);
+const saveDmList = () => { store.set('openDms', [...openDms]); store.set('closedDms', [...closedDms]); };
 function setView(v) {
   S.view = v;
+  if (v.kind === 'dm' && (!openDms.has(v.userId) || closedDms.has(v.userId))) { openDms.add(v.userId); closedDms.delete(v.userId); saveDmList(); }
   cancelReply(); closeMentionPop(); closeSearch();
   if (v.serverId) S.lastChan[v.serverId] = { kind: v.kind, channelId: v.channelId };
   store.set('lastChan', S.lastChan);
@@ -590,7 +595,8 @@ function renderHomeSide() {
   for (const el of [$('#pendingCount'), $('#pendingCount2')]) { el.hidden = !pend; el.textContent = pend; }
   const list = $('#dmList');
   list.textContent = '';
-  const ids = new Set([...S.dms.keys()]);
+  const ids = new Set([...S.dms.keys()].filter((id) => !closedDms.has(id)));
+  for (const id of openDms) if (S.users.has(id) && !closedDms.has(id)) ids.add(id);
   if (S.view.kind === 'dm') ids.add(S.view.userId);
   const groups = [...S.servers.values()].filter((g) => g.kind === 'group');
   const items = [...[...ids].map((id) => ({ id, at: (S.dms.get(id) || {}).lastAt || Infinity })),
@@ -610,7 +616,14 @@ function renderHomeSide() {
     const n = document.createElement('span'); n.className = 'dm-name'; n.textContent = nameOf(id); addCrown(n, id); b.appendChild(n);
     if (x.unread) { const c = document.createElement('span'); c.className = 'count-pill'; c.textContent = x.unread; b.appendChild(c); }
     b.addEventListener('click', () => setView({ kind: 'dm', userId: id }));
-    li.appendChild(b); list.appendChild(li);
+    li.appendChild(b);
+    const close = document.createElement('button'); close.type = 'button'; close.className = 'dm-close'; close.title = `Close chat with ${nameOf(id)}`; close.setAttribute('aria-label', close.title);
+    close.innerHTML = iconSvg('x');
+    close.addEventListener('click', () => {
+      openDms.delete(id); closedDms.add(id); saveDmList();
+      if (S.view.kind === 'dm' && S.view.userId === id) setView({ kind: 'friends' }); else renderHomeSide();
+    });
+    li.appendChild(close); list.appendChild(li);
   }
   $('#dmEmpty').hidden = sorted.length > 0;
 }
@@ -694,6 +707,25 @@ function syncMusic() {
 }
 /* Android app: while you're in voice, a notification keeps it running when the phone locks or you switch apps. */
 const phoneApp = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor.registerPlugin('PartyLine') : null;
+/* Android app: new features arrive from the server by themselves, but when the app itself has a newer build
+   (on the GitHub releases page), offer it. Tapping Update downloads it; Android then asks to install. */
+const UPDATE_REPO = 'PoseidonDream/party-line';
+async function checkAppUpdate() {
+  if (!phoneApp || window.Capacitor.getPlatform() !== 'android') return;
+  let mine = 0;
+  try { mine = Number((await phoneApp.getVersion()).code) || 0; } catch {}   // builds before the update check report 0
+  try {
+    const rel = await (await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`)).json();
+    const apk = (rel.assets || []).find((x) => x.name === 'Party-Line-android.apk');
+    const build = apk && Number((/build (\d+)/.exec(apk.label || '') || [])[1]);
+    if (!build || build <= mine || store.get('skipBuild', 0) === build) return;
+    $('#updateGo').href = apk.browser_download_url;
+    $('#updateLater').onclick = () => { store.set('skipBuild', build); $('#updateBar').hidden = true; };
+    $('#updateBar').hidden = false;
+  } catch {}
+}
+setTimeout(checkAppUpdate, 5000);
+setInterval(checkAppUpdate, 6 * 3600_000);
 let phoneInCall = null;
 function syncPhoneCall() {
   if (!phoneApp) return;

@@ -919,3 +919,13 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .ring-text small { color: var(--dim); }
 .danger-btn { color: var(--danger); }
 #callBtn { width: auto; }
+/* Closing a private chat in the list */
+#dmList li { position: relative; }
+.dm-close { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 6px; background: var(--panel-2); color: var(--dim); opacity: 0; }
+.dm-close .ic { width: 14px; height: 14px; }
+#dmList li:hover .dm-close, .dm-close:focus-visible { opacity: 1; }
+.dm-close:hover { color: var(--fg); }
+@media (hover: none) { .dm-close { opacity: .7; } }
+.update-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px clamp(16px, 2.5vw, 28px); background: color-mix(in srgb, var(--ok) 18%, var(--panel)); border-bottom: 1px solid var(--line); font-weight: 600; }
+.update-bar span { flex: 1; min-width: 180px; }
+.update-bar .btn { width: auto; }
