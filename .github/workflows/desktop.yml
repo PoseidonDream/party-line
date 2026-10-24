@@ -1,0 +1,73 @@
+# Builds the Party Line desktop app (Windows installer, Mac disk image, Linux AppImage) and publishes
+# them as a GitHub release. Run it from the Actions tab ("Run workflow"), or push a tag like desktop-v1.0.1.
+# Set the repository variable PARTY_LINE_SERVER (Settings → Secrets and variables → Actions → Variables)
+# to your server's address, e.g. https://partyline.example.com, so the app connects without asking.
+name: Desktop app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['desktop-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HAS_WINDOWS_SIGNING: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
+      HAS_MAC_SIGNING: ${{ secrets.MAC_CERT_P12_BASE64 != '' }}
+    defaults:
+      run:
+        working-directory: app/desktop
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The app lives on the app branch; runs started from main build it.
+          ref: ${{ github.ref_name == 'main' && 'app' || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/desktop/package-lock.json
+      - run: npm ci
+      - name: Use the version from the tag
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        shell: bash
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#desktop-v}"
+      - name: Point the app at your server
+        if: vars.PARTY_LINE_SERVER != ''
+        shell: bash
+        run: node -e "const f='package.json',p=require('./'+f);p.partyLine.server=process.argv[1];require('fs').writeFileSync(f,JSON.stringify(p,null,2))" "${{ vars.PARTY_LINE_SERVER }}"
+      # Optional code signing (see app/SIGNING.md). Without it the installers still work,
+      # but Windows and Mac warn that the app is from an unknown developer.
+      - name: Windows signing (Azure Trusted Signing)
+        if: runner.os == 'Windows' && env.HAS_WINDOWS_SIGNING == 'true'
+        shell: bash
+        run: |
+          node -e "const f='package.json',p=require('./'+f);p.build.win.azureSignOptions={publisherName:process.argv[1],endpoint:process.argv[2],codeSigningAccountName:process.argv[3],certificateProfileName:process.argv[4]};require('fs').writeFileSync(f,JSON.stringify(p,null,2))" \
+            "${{ vars.AZURE_PUBLISHER_NAME }}" "${{ vars.AZURE_SIGNING_ENDPOINT }}" "${{ vars.AZURE_SIGNING_ACCOUNT }}" "${{ vars.AZURE_CERT_PROFILE }}"
+      - name: Mac signing and notarizing
+        if: runner.os == 'macOS' && env.HAS_MAC_SIGNING == 'true'
+        shell: bash
+        run: |
+          node -e "const f='package.json',p=require('./'+f);p.build.mac.notarize=true;require('fs').writeFileSync(f,JSON.stringify(p,null,2))"
+          echo "CSC_IDENTITY_AUTO_DISCOVERY=true" >> "$GITHUB_ENV"
+      - name: Build and publish
+        run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.CSC_IDENTITY_AUTO_DISCOVERY || 'false' }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
