@@ -187,7 +187,7 @@ function attachmentsFrom(userId, list) {
 const basicMessage = (m) => ({
   id: m.id, channelId: m.channel_id, dmId: m.dm_id, userId: m.user_id, body: m.body,
   attachments: m.attachments ? JSON.parse(m.attachments) : [], at: m.created_at, editedAt: m.edited_at,
-  replyTo: m.reply_to || null, reply: null, reactions: [],
+  replyTo: m.reply_to || null, reply: null, reactions: [], pinned: m.pinned_at ? { at: m.pinned_at, by: m.pinned_by } : null,
 });
 const placeholders = (n) => Array(n).fill('?').join(',');
 /* Adds each message's reactions and a short preview of the message it replies to. */
@@ -259,6 +259,17 @@ export function editMessage(id, body) {
   run('UPDATE messages SET body = ?, edited_at = ? WHERE id = ?', body, now(), id);
   return publicMessage(getMessage(id));
 }
+/* Pinned messages: up to 50 per channel or private chat. */
+export function pin(messageId, userId, on) {
+  const m = getMessage(messageId);
+  if (on && !m.pinned_at) {
+    const col = m.channel_id ? 'channel_id' : 'dm_id';
+    if (one(`SELECT COUNT(*) AS n FROM messages WHERE ${col} = ? AND pinned_at IS NOT NULL`, m.channel_id || m.dm_id).n >= 50) fail('This chat already has 50 pinned messages. Unpin some first.');
+    run('UPDATE messages SET pinned_at = ?, pinned_by = ? WHERE id = ?', now(), userId, messageId);
+  } else if (!on) run('UPDATE messages SET pinned_at = NULL, pinned_by = NULL WHERE id = ?', messageId);
+  return publicMessage(getMessage(messageId));
+}
+export const pins = (col, targetId) => decorate(all(`SELECT * FROM messages WHERE ${col} = ? AND pinned_at IS NOT NULL ORDER BY pinned_at DESC LIMIT 50`, targetId));
 export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
 export function history(col, targetId, before, limit = 50) {
   const rows = before

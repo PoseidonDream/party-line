@@ -774,3 +774,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .voice-msg { display: grid; gap: 6px; max-width: 420px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
 .voice-msg-label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: var(--dim); }
 .voice-msg-label .ic { width: 15px; height: 15px; color: var(--lamp-ink, #f4a52a); }
+/* Pinned messages */
+.msg-pinned { display: inline-grid; place-items: center; margin-left: 6px; color: var(--lamp-ink, #f4a52a); vertical-align: -2px; }
+.msg-pinned .ic { width: 13px; height: 13px; }
+.msg-tool.on { color: var(--lamp-ink, #f4a52a); }

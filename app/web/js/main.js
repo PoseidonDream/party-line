@@ -528,6 +528,7 @@ function renderConn() {
 function renderHeader() {
   const v = S.view, icon = $('#viewIcon');
   $('#copyInvite').hidden = !v.serverId;
+  $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
   if (v.kind === 'friends') { icon.innerHTML = iconSvg('users'); $('#viewTitle').textContent = 'Friends'; $('#viewSub').textContent = ''; }
   else if (v.kind === 'dm') {
     icon.textContent = '@'; $('#viewTitle').textContent = nameOf(v.userId);
@@ -631,6 +632,7 @@ function messageEl(msg, prev) {
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.style.setProperty('--h', hue(nameOf(msg.userId))); nm.textContent = nameOf(msg.userId);
   addCrown(nm, msg.userId);
   head.appendChild(nm);
+  if (msg.pinned) { const p = document.createElement('span'); p.className = 'msg-pinned'; p.title = `Pinned by ${nameOf(msg.pinned.by)}`; p.innerHTML = iconSvg('pin'); head.appendChild(p); }
   const tm = document.createElement('time'); tm.className = 'msg-time'; tm.dateTime = new Date(msg.at).toISOString();
   tm.textContent = `${fmtDay(msg.at)} ${fmtTime(msg.at)}`; tm.title = new Date(msg.at).toLocaleString();
   head.appendChild(tm);
@@ -653,6 +655,7 @@ function messageEl(msg, prev) {
   tool('smile', 'Add reaction', (e) => openEmojiPop(msg, e.currentTarget));
   tool('reply', 'Reply', () => startReply(msg));
   if (mine && msg.body) tool('pencil', 'Edit', () => editMessage(li, msg));
+  tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
   if (mine || S.me.admin || (srv && canManage(srv))) {
     tool('trash', 'Delete', async (ev) => {
       if (ev.shiftKey || await confirmBox('Delete this message?', 'It’s removed for everyone. Hold Shift while clicking to skip this question.')) act(() => live.req('msg.delete', { id: msg.id }));
@@ -965,23 +968,37 @@ chatInput.addEventListener('keydown', (e) => {
     if (li) { e.preventDefault(); editMessage(li, mine); }
   }
 });
+/* Messages go out in order. Text-only messages clear the box at once, so you can keep typing; if one fails,
+   its text comes back. Messages with files wait for their uploads. */
+let sendChain = Promise.resolve();
 $('#chatForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (S.sending) return;
-  const body = encodeMentions(chatInput.value.trim());
+  const raw = chatInput.value, body = encodeMentions(raw.trim());
   if (!body && !S.attach.length) return;
   const target = composeTarget();
   if (!target) return;
   if (!live.open) { toast('Not connected to the server right now. Your message is still in the box.', 4000); return; }
+  const replyTo = S.replyTo ? S.replyTo.id : null;
+  const send = (attachments) => live.req('msg.send', Object.assign({ body, attachments, replyTo }, target))
+    .then((r) => { if (r && r.ephemeral) botNote(r.ephemeral); else hideBotNote(); });
+  if (!S.attach.length) {
+    chatInput.value = ''; autosize(); cancelReply(); typingSentAt = 0;
+    sendChain = sendChain.then(() => send([]).catch((ex) => {
+      toast(ex.message, 5000);
+      if (!chatInput.value) { chatInput.value = raw; autosize(); }
+    }));
+    return;
+  }
   S.sending = true;
   try {
+    await sendChain;
     const ids = [];
     for (const a of S.attach) {
       if (!a.id) { const r = await upload('/api/upload', a.file, (p) => setAttachProgress(a, p)); a.id = r.id; }
       ids.push({ id: a.id });
     }
-    const r = await live.req('msg.send', Object.assign({ body, attachments: ids, replyTo: S.replyTo ? S.replyTo.id : null }, target));
-    if (r && r.ephemeral) botNote(r.ephemeral); else hideBotNote();
+    await send(ids);
     chatInput.value = ''; autosize();
     clearAttach(); cancelReply();
     typingSentAt = 0;
@@ -1478,7 +1495,9 @@ async function resetPassword(id, name) {
 
 /* ================= search ================= */
 const searchScope = () => (S.view.serverId ? S.view.serverId : -1);
+/* The search panel also lists pinned messages (the 📌 button). */
 function openSearch() {
+  $('#searchForm').hidden = false;
   const s = curServer();
   $('#searchNote').textContent = s ? `Searching messages in ${s.name}.` : 'Searching your private chats.';
   $('#searchResults').textContent = '';
@@ -1493,13 +1512,29 @@ document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.
 $('#searchForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const q = $('#searchInput').value.trim();
-  const ol = $('#searchResults');
   if (q.length < 2) { $('#searchNote').textContent = 'Type at least 2 letters.'; return; }
   $('#searchNote').textContent = 'Searching…';
   let res;
   try { res = (await api(`/api/search?q=${encodeURIComponent(q)}&serverId=${searchScope()}`)).messages; }
   catch (ex) { $('#searchNote').textContent = ex.message; return; }
   $('#searchNote').textContent = res.length ? `${res.length === 50 ? '50+' : res.length} result${res.length === 1 ? '' : 's'}. Click one to jump to it.` : `Nothing found for “${q}”.`;
+  renderHits(res);
+});
+async function openPins() {
+  const target = S.view.kind === 'dm' ? `userId=${S.view.userId}` : `channelId=${S.view.channelId}`;
+  $('#searchForm').hidden = true;
+  $('#searchNote').textContent = 'Loading pinned messages…';
+  $('#searchResults').textContent = '';
+  $('#searchPanel').hidden = false;
+  let res;
+  try { res = (await api(`/api/pins?${target}`)).messages; }
+  catch (ex) { $('#searchNote').textContent = ex.message; return; }
+  $('#searchNote').textContent = res.length ? `📌 ${res.length} pinned message${res.length === 1 ? '' : 's'}. Click one to jump to it.` : '📌 Nothing pinned here yet. Point at a message and press the pin button to pin it.';
+  renderHits(res);
+}
+$('#pinsBtn').addEventListener('click', () => ($('#searchPanel').hidden || !$('#searchForm').hidden ? openPins() : closeSearch()));
+function renderHits(res) {
+  const ol = $('#searchResults');
   ol.textContent = '';
   for (const msg of res) {
     const key = msg.channelId ? `c:${msg.channelId}` : dmKeyById(msg.dmId);
@@ -1517,7 +1552,7 @@ $('#searchForm').addEventListener('submit', async (e) => {
     b.addEventListener('click', () => { closeSearch(); jumpTo(key, msg.id); });
     li.appendChild(b); ol.appendChild(li);
   }
-});
+}
 
 /* ================= servers ================= */
 const inviteLink = (s) => `${location.origin.startsWith('http') ? location.origin : ''}/invite/${s.invite}`;

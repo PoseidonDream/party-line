@@ -46,11 +46,11 @@ export const hub = {
 };
 
 /* What Party Bot (bot.js) may do: post messages, react, and see who's in voice. */
-Bot.initBot({
-  post(where, body) {
+const botHost = {
+  post(where, body, replyTo) {
     const b = Bot.botUser();
     try {
-      const m = M.postMessage(b.id, where, body);
+      const m = M.postMessage(b.id, where, body, null, replyTo);
       if (where.channelId) { const ch = M.getChannel(where.channelId); toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id }); }
       else { const dm = M.getDm(where.dmId); toUser(dm.user_a, { t: 'dm', msg: m, withUserId: dm.user_b, user: userView(b.id) }); toUser(dm.user_b, { t: 'dm', msg: m, withUserId: dm.user_a, user: userView(b.id) }); }
       return m;
@@ -65,7 +65,8 @@ Bot.initBot({
     if (serverId == null) { const ch = M.getChannel(channelId); if (!ch) return; serverId = ch.server_id; }
     toServer(serverId, { t: 'music', channelId, state, serverNow: Date.now() });
   },
-});
+};
+Bot.initBot(botHost);
 
 function readyFor(user) {
   const servers = M.serverIdsOf(user.id).map((id) => M.serverView(id, user.id)).filter(Boolean);
@@ -139,6 +140,15 @@ const handlers = {
     if (!ok) fail('You can only delete your own messages.');
     M.deleteMessage(m.id);
     broadcastAbout(m, { t: 'msg.del', id: m.id, channelId: m.channel_id, dmId: m.dm_id });
+    return {};
+  },
+  'msg.pin'(c, user, d) {
+    const m = M.getMessage(Number(d.id));
+    if (!m || !canSee(user.id, m)) fail('That message is gone.');
+    if (!!m.pinned_at === !!d.on) return {};
+    const out = M.pin(m.id, user.id, !!d.on);
+    broadcastAbout(m, { t: 'msg.edit', msg: out });
+    if (d.on) botHost.post(m.channel_id ? { channelId: m.channel_id } : { dmId: m.dm_id }, `📌 **${user.name}** pinned a message. See all pinned messages with the 📌 button at the top.`, m.id);
     return {};
   },
   react(c, user, d) {

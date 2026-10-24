@@ -104,6 +104,17 @@ app.get('/api/dms/:userId/messages', auth, wrap((req) => {
   return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [] };
 }));
 
+/* Pinned messages in a channel (channelId) or a private chat (userId). */
+app.get('/api/pins', auth, wrap((req) => {
+  if (req.query.channelId) {
+    const c = M.getChannel(Number(req.query.channelId));
+    if (!c || !M.isMember(req.user.id, c.server_id)) return { messages: [] };
+    return { messages: M.pins('channel_id', c.id) };
+  }
+  const d = M.dmWith(req.user.id, Number(req.query.userId), false);
+  return { messages: d ? M.pins('dm_id', d.id) : [] };
+}));
+
 /* Search messages you can see: in one server (serverId), in your private chats (serverId=-1), or everywhere. */
 app.get('/api/search', auth, wrap((req) => ({ messages: M.search(req.user.id, req.query.q, Number(req.query.serverId) || 0) })));
 
