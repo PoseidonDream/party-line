@@ -16,6 +16,15 @@ export default async function (ok) {
     await b.click('#serverBtn');
     ok('friends don’t get the panel', !(await b.isVisible('#devPanel')) && await b.isHidden('#mDev'));
     await b.keyboard.press('Escape');
+    await b.click('#railHome');
+    ok('friends don’t get the Developer buttons', await b.isHidden('#navDev') && await b.isHidden('#frDev'));
+
+    await a.click('#railHome'); await a.click('#navDev');
+    await a.waitForSelector('#devPanel[open]'); await a.keyboard.press('Escape');
+    await a.click('#navFriends'); await a.click('#frDev');
+    await a.waitForSelector('#devPanel[open]'); await a.keyboard.press('Escape');
+    ok('the Developer buttons on the Home page open the panel', true);
+    await a.click('#railList .rail-btn');
 
     await a.click('#serverBtn'); await a.click('#mDev');
     await a.waitForSelector('#devPanel .dev-card:has-text("Online now") b:text-is("2")');

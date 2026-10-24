@@ -471,6 +471,7 @@ function renderSide() {
 }
 function renderHomeSide() {
   $('#navFriends').setAttribute('aria-current', String(S.view.kind === 'friends'));
+  $('#navDev').hidden = $('#frDev').hidden = !S.me.admin;
   const pend = [...S.friends.values()].filter((s) => s === 'incoming').length;
   for (const el of [$('#pendingCount'), $('#pendingCount2')]) { el.hidden = !pend; el.textContent = pend; }
   const list = $('#dmList');
@@ -1623,6 +1624,8 @@ initDev({
 });
 $('#mDev').addEventListener('click', () => { closeMenu(); openDev(); });
 $('#devOpen').addEventListener('click', () => { $('#settings').close(); openDev(); });
+$('#navDev').addEventListener('click', openDev);
+$('#frDev').addEventListener('click', openDev);
 
 /* ================= start ================= */
 Voice.initVoice({

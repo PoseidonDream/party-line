@@ -132,7 +132,7 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 
 ## Developer panel (for you)
 
-Signed in as the admin (Poseidon), press **Ctrl+Shift+D**, or open the server menu → **Developer**. You'll see:
+Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:
 - **Server:** how long it's been up, memory and storage, who's online, and who's in which voice channel.
 - **My voice:** live numbers for each voice connection: direct or relayed, ping, lost packets, and how much sound is coming in and going out. "0 kbps" in red means sound stopped arriving from that friend.
 - **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
