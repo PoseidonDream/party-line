@@ -109,7 +109,11 @@ export default async function (ok) {
     await say(a, '/poll Pizza or burgers? | Pizza | Burgers');
     await botMsg(b, 'Pizza or burgers?');
     await b.waitForSelector('#messages .msg:has-text("Pizza or burgers?") .reaction:has-text("2️⃣")');
-    ok('/poll adds a reaction for each choice', true);
+    const poll = '#messages .msg:has-text("Pizza or burgers?")';
+    ok('/poll adds a button for each choice, starting at 0 votes', (await b.textContent(`${poll} .reaction:has-text("1️⃣")`)).trim() === '1️⃣ 0');
+    await b.click(`${poll} .reaction:has-text("1️⃣")`);
+    await a.waitForSelector(`${poll} .reaction:text-is("1️⃣ 1")`);
+    ok('voting counts for everyone', true);
     await say(b, '/remind 5s stretch your legs');
     await b.waitForSelector('#botNote:not([hidden]):has-text("remind you here in 5 seconds")');
     await botMsg(a, 'stretch your legs', 25000);   // reminders are checked every 15 s

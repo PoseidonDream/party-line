@@ -11,6 +11,7 @@ const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
 const voice = new Map();     // userId -> { channelId, serverId, connId, muted, deafened, sharing, screenId, serverMuted, since }
 let nextConn = 1;
+const cmdTimes = new Map();   // userId -> times of recent bot commands
 const startedAt = Date.now();
 /* Developer log: voice events and errors reported by everyone's app, newest last. Kept in memory only. */
 const devLog = [];
@@ -98,6 +99,12 @@ const handlers = {
   /* ---- messages ---- */
   'msg.send'(c, user, d) {
     const command = Bot.isCommand(d.body) && !(d.attachments || []).length;
+    if (command) {
+      // At most 8 bot commands per person every 10 s.
+      const now = Date.now(), recent = (cmdTimes.get(user.id) || []).filter((t) => now - t < 10_000);
+      if (recent.length >= 8) return { command: true, ephemeral: 'Slow down a little. Try that again in a few seconds.' };
+      recent.push(now); cmdTimes.set(user.id, recent);
+    }
     if (d.channelId) {
       const ch = M.getChannel(Number(d.channelId));
       if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');

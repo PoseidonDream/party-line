@@ -547,7 +547,7 @@ function renderMainView() {
   if (k === 'voice') renderVoiceView();
   if (k === 'text' || k === 'dm') {
     const f = k === 'text' && findChannel(S.view.channelId);
-    $('#chatInput').placeholder = k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f ? `Message #${f.channel.name}` : 'Message';
+    $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f ? `Message #${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
   }
 }
 function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); }
@@ -667,8 +667,10 @@ function reactionsEl(msg) {
   for (const r of msg.reactions) {
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'reaction' + (r.users.includes(S.me.id) ? ' mine' : '');
-    b.textContent = `${r.emoji} ${r.users.length}`;
-    b.title = `${r.users.map(nameOf).join(', ')} reacted with ${r.emoji}`;
+    // Party Bot adds the first reaction to its polls so the buttons show; it doesn't count as a vote.
+    const people = r.users.filter((id) => !user(id).bot);
+    b.textContent = `${r.emoji} ${people.length}`;
+    b.title = people.length ? `${people.map(nameOf).join(', ')} reacted with ${r.emoji}` : `React with ${r.emoji}`;
     b.setAttribute('aria-pressed', String(r.users.includes(S.me.id)));
     b.addEventListener('click', () => toggleReaction(msg, r.emoji));
     row.appendChild(b);

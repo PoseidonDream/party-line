@@ -15,28 +15,35 @@ let nextPort = 3900 + Math.floor(Math.random() * 500);
 
 /* A fresh server with an empty database. stop() shuts it down; restart() keeps the data. */
 export async function startServer(env = {}) {
-  const port = nextPort++;
+  let port = nextPort++;
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pl-test-'));
-  const fullEnv = { ...process.env, PORT: String(port), DATA_DIR: dataDir, GROUP_PASSWORD: 'test', ADMIN_NAMES: 'Poseidon', ...env };
+  const fullEnv = { ...process.env, DATA_DIR: dataDir, GROUP_PASSWORD: 'test', ADMIN_NAMES: 'Poseidon', ...env };
   let proc = null, log = '';
   const launch = async () => {
-    proc = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'src/index.js'], { cwd: SERVER_DIR, env: fullEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+    proc = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'src/index.js'], { cwd: SERVER_DIR, env: { ...fullEnv, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
     proc.stdout.on('data', (d) => { log += d; });
     proc.stderr.on('data', (d) => { log += d; });
-    const url = `http://localhost:${port}`;
+    const exited = new Promise((r) => proc.once('close', r));   // after its output has been read
     // Up to 30 s: the first start on a cold CI machine can be slow.
     for (let i = 0; i < 300 && proc.exitCode === null; i++) {
-      try { if ((await fetch(`${url}/api/info`)).ok) return; } catch {}
+      try { if ((await fetch(`http://127.0.0.1:${port}/api/info`)).ok) return; } catch {}
       await new Promise((r) => setTimeout(r, 100));
     }
-    throw new Error(`server didn't start:\n${log}`);
+    if (proc.exitCode !== null) await exited;
+    throw new Error(`server didn't start (port ${port}, exit ${proc.exitCode}):\n${log}`);
   };
   const stop = () => new Promise((resolve) => {
     if (!proc || proc.exitCode !== null) { resolve(); return; }
     proc.once('exit', () => resolve());
     proc.kill();
   });
-  await launch();
+  // Another program may already use the port (seen on CI machines): try a few others.
+  for (let tries = 0; ; tries++) {
+    try { await launch(); break; } catch (e) {
+      if (tries >= 3 || !/EADDRINUSE/.test(log)) throw e;
+      log = ''; port = nextPort++;
+    }
+  }
   process.on('exit', () => { try { proc.kill(); } catch {} });
   return {
     url: `http://localhost:${port}`,
@@ -47,7 +54,6 @@ export async function startServer(env = {}) {
     log: () => log,
   };
 }
-
 export async function launchBrowser() {
   return chromium.launch({
     executablePath: process.env.PL_CHROMIUM || undefined,   // uses Playwright's own Chromium unless set
