@@ -24,7 +24,8 @@ export async function startServer(env = {}) {
     proc.stdout.on('data', (d) => { log += d; });
     proc.stderr.on('data', (d) => { log += d; });
     const url = `http://localhost:${port}`;
-    for (let i = 0; i < 100; i++) {
+    // Up to 30 s: the first start on a cold CI machine can be slow.
+    for (let i = 0; i < 300 && proc.exitCode === null; i++) {
       try { if ((await fetch(`${url}/api/info`)).ok) return; } catch {}
       await new Promise((r) => setTimeout(r, 100));
     }
