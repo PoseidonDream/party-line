@@ -2,7 +2,11 @@
 
 **A private, Discord-style place for a small group of friends to talk, play and hang out, right in the browser.**
 
-Live site: **https://poseidondream.github.io/party-line/**
+**Open Party Line: https://poseidonparty.duckdns.org**
+
+Download the app: **[Windows, Mac, Linux and Android](https://github.com/PoseidonDream/party-line/releases/latest)** · iPhone: open the link in Safari → Share → Add to Home Screen.
+
+The link above is the new server version: real accounts, chats saved on the server, and desktop and Android apps (code on the [`app` branch](https://github.com/PoseidonDream/party-line/tree/app/app)). The rest of this page describes the original peer-to-peer site, which still works at https://poseidondream.github.io/party-line/.
 
 Party Line gives a friend group its own servers with voice and text channels, screen sharing, photo and video sharing, friends and private messages. Nothing to install and no accounts: open the link, enter the group's password, pick a name, and you're in. Voice, video and messages go straight between your browsers (peer-to-peer). There's no company server in the middle, and nothing to pay for or run.
 
