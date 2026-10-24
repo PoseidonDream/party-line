@@ -107,14 +107,18 @@ app.get('/api/dms/:userId/messages', auth, wrap((req) => {
 /* Search messages you can see: in one server (serverId), in your private chats (serverId=-1), or everywhere. */
 app.get('/api/search', auth, wrap((req) => ({ messages: M.search(req.user.id, req.query.q, Number(req.query.serverId) || 0) })));
 
-/* Uploads: the raw file is the request body. */
+/* Uploads: the raw file is the request body. Photos, videos and audio are shown in the chat; any other file
+   is offered as a download only, never opened in the page (an uploaded web page or SVG could run code). */
 const IMAGE = /^image\/(png|jpeg|gif|webp|avif|bmp)$/;
 const VIDEO = /^video\/(mp4|webm|quicktime|ogg|x-matroska)$/;
+const AUDIO = /^audio\/(mpeg|ogg|wav|x-wav|webm|mp4|x-m4a|aac|flac)$/;
+const playable = (t) => IMAGE.test(t) || VIDEO.test(t) || AUDIO.test(t);
 const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif', 'image/bmp': 'bmp',
   'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov', 'video/ogg': 'ogv', 'video/x-matroska': 'mkv' };
 function receive(req, res, max, okType, done) {
-  const type = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase();
-  if (!okType(type)) return res.status(415).json({ error: 'Only photos and videos can be shared.' });
+  let type = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (!/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(type)) type = 'application/octet-stream';
+  if (!okType(type)) return res.status(415).json({ error: 'Only photos can be used here.' });
   const len = Number(req.get('content-length') || 0);
   if (len > max) return res.status(413).json({ error: `That file is too big. The limit is ${Math.round(max / 1048576)} MB.` });
   const name = decodeURIComponent(String(req.get('x-file-name') || 'file')).replace(/[\u0000-\u001f/\\]/g, '').slice(0, 120) || 'file';
@@ -138,8 +142,8 @@ function receive(req, res, max, okType, done) {
 }
 app.post('/api/upload', auth, (req, res) => {
   const type = String(req.get('content-type') || '').toLowerCase();
-  const max = type.startsWith('video/') ? config.maxVideo : config.maxImage;
-  receive(req, res, max, (t) => IMAGE.test(t) || VIDEO.test(t), (f) => res.json(f));
+  const max = VIDEO.test(type) ? config.maxVideo : IMAGE.test(type) ? config.maxImage : config.maxFile;
+  receive(req, res, max, () => true, (f) => res.json(f));
 });
 app.post('/api/avatar', auth, (req, res) => {
   receive(req, res, config.maxAvatar, (t) => IMAGE.test(t), (f) => {
@@ -152,10 +156,12 @@ app.delete('/api/avatar', auth, wrap((req) => { const u = M.setAvatar(req.user.i
 app.get('/uploads/:id', (req, res) => {
   const up = M.getUpload(String(req.params.id));
   if (!up) return res.status(404).end();
-  res.setHeader('Content-Type', up.type);
+  const show = playable(up.type);
+  res.setHeader('Content-Type', show ? up.type : 'application/octet-stream');
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(up.name)}`);
+  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; sandbox");
+  res.setHeader('Content-Disposition', `${show ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(up.name)}`);
   res.sendFile(path.join(uploadDir, up.id), { acceptRanges: true });
 });
 

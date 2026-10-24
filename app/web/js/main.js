@@ -16,7 +16,9 @@ const S = {
   attach: [], sending: false, watching: null, pendingInvite: null,
   mutedSince: 0, fbCount: 0, popUser: null, popServer: null,
 };
-const MAX_IMAGE = 15 * 1048576, MAX_VIDEO = 50 * 1048576;
+const MAX_IMAGE = 15 * 1048576, MAX_VIDEO = 50 * 1048576, MAX_FILE = 25 * 1048576;
+/* What the chat shows inline; anything else becomes a download card. */
+const IMG_RE = /^image\/(png|jpeg|gif|webp|avif|bmp)$/, VID_RE = /^video\/(mp4|webm|quicktime)$/, AUD_RE = /^audio\/(mpeg|ogg|wav|x-wav|webm|mp4|x-m4a|aac|flac)$/;
 
 /* ================= dark and light mode ================= */
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -733,7 +735,34 @@ async function jumpTo(key, id) {
 function mediaEl(a) {
   const wrap = document.createElement('div'); wrap.className = 'msg-media';
   const url = absUrl(a.url);
-  if (a.type.startsWith('image/')) {
+  if (!IMG_RE.test(a.type) && !VID_RE.test(a.type) && !AUD_RE.test(a.type)) {
+    // Any other file: a card with its name and size that downloads it.
+    wrap.classList.add('file-card');
+    const link = document.createElement('a'); link.className = 'file-link'; link.href = url; link.download = a.name;
+    link.innerHTML = iconSvg('file');
+    const t = document.createElement('span'); t.className = 'file-text';
+    const n = document.createElement('b'); n.textContent = a.name; t.appendChild(n);
+    const sz = document.createElement('small'); sz.textContent = `${fmtSize(a.size)} · Download`; t.appendChild(sz);
+    link.appendChild(t); wrap.appendChild(link);
+    return wrap;
+  }
+  if (AUD_RE.test(a.type)) {
+    const au = document.createElement('audio'); au.className = 'media-audio'; au.controls = true; au.preload = 'metadata'; au.src = url;
+    if (/^Voice message/.test(a.name)) {
+      wrap.classList.add('voice-msg');
+      const lbl = document.createElement('span'); lbl.className = 'voice-msg-label'; lbl.innerHTML = iconSvg('mic');
+      lbl.appendChild(document.createTextNode(a.name.replace(/\.\w+$/, ''))); wrap.appendChild(lbl);
+      // Chrome's recordings don't store their length; seeking far ahead makes the player work it out.
+      au.addEventListener('loadedmetadata', () => {
+        if (au.duration !== Infinity) return;
+        au.addEventListener('durationchange', () => { au.currentTime = 0; }, { once: true });
+        au.currentTime = 1e7;
+      }, { once: true });
+      wrap.appendChild(au);
+      return wrap;
+    }
+    wrap.appendChild(au);
+  } else if (a.type.startsWith('image/')) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'media-btn'; b.setAttribute('aria-label', `Open ${a.name}`);
     const img = document.createElement('img'); img.className = 'media-img'; img.loading = 'lazy'; img.src = url; img.alt = a.name;
     img.addEventListener('load', () => { const box = $('#messages'); if (box.scrollHeight - box.scrollTop - box.clientHeight < img.height + 120) box.scrollTop = box.scrollHeight; });
@@ -765,7 +794,7 @@ function introEl() {
     const f = findChannel(S.view.channelId);
     g.textContent = '#'; li.appendChild(g);
     h.textContent = `Welcome to #${f ? f.channel.name : ''}`;
-    p.textContent = 'This is the start of the channel. Messages, photos and videos posted here are saved for everyone in the server.';
+    p.textContent = 'This is the start of the channel. Messages, photos, videos and files posted here are saved for everyone in the server.';
   }
   li.appendChild(h); li.appendChild(p);
   return li;
@@ -960,12 +989,59 @@ $('#chatForm').addEventListener('submit', async (e) => {
   finally { S.sending = false; renderTray(); }
 });
 $('#attachBtn').addEventListener('click', () => $('#fileInput').click());
+
+/* ---------- voice messages: record with the mic, up to 2 minutes ---------- */
+let rec = null;   // { recorder, stream, chunks, started, timer, cancelled }
+const REC_MAX = 120;
+const recType = () => ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'].find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+$('#recBtn').addEventListener('click', async () => {
+  if (rec) return;
+  if (!window.MediaRecorder || !navigator.mediaDevices) { toast('This browser can’t record voice messages.', 4000); return; }
+  if (!composeTarget()) return;
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: settings.micId ? { ideal: settings.micId } : undefined, echoCancellation: true, noiseSuppression: true } }); }
+  catch { toast('Party Line needs your microphone to record. Allow it in the browser and try again.', 5000); return; }
+  const type = recType();
+  const recorder = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 48000 } : undefined);
+  rec = { recorder, stream, chunks: [], started: Date.now(), cancelled: false };
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+  recorder.onstop = () => finishRecording();
+  recorder.start(250);
+  rec.timer = setInterval(() => {
+    const s = Math.floor((Date.now() - rec.started) / 1000);
+    $('#recTime').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    if (s >= REC_MAX) recorder.stop();
+  }, 250);
+  $('#recTime').textContent = '0:00';
+  $('#recBar').hidden = false; $('.composer-row').hidden = true;
+});
+$('#recCancel').addEventListener('click', () => { if (rec) { rec.cancelled = true; rec.recorder.stop(); } });
+$('#recSend').addEventListener('click', () => { if (rec && rec.recorder.state !== 'inactive') rec.recorder.stop(); });
+async function finishRecording() {
+  const r = rec; rec = null;
+  clearInterval(r.timer);
+  r.stream.getTracks().forEach((t) => t.stop());
+  $('#recBar').hidden = true; $('.composer-row').hidden = false;
+  const secs = Math.max(1, Math.floor((Date.now() - r.started) / 1000));
+  if (r.cancelled || !r.chunks.length) return;
+  if (secs < 1) { toast('That was too short.', 2500); return; }
+  const type = (r.recorder.mimeType || 'audio/webm').split(';')[0];
+  const ext = type === 'audio/mp4' ? 'm4a' : type === 'audio/ogg' ? 'ogg' : 'webm';
+  const len = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  const file = new File(r.chunks, `Voice message (${len}).${ext}`, { type });
+  const target = composeTarget();
+  if (!target) return;
+  try {
+    const up = await upload('/api/upload', file);
+    await live.req('msg.send', Object.assign({ body: '', attachments: [{ id: up.id }] }, target));
+  } catch (ex) { toast(ex.message, 5000); }
+}
 $('#fileInput').addEventListener('change', (e) => { addFiles([...e.target.files]); e.target.value = ''; });
 function addFiles(files) {
   for (const f of files) {
-    const isImg = /^image\/(png|jpeg|gif|webp|avif|bmp)$/.test(f.type), isVid = /^video\/(mp4|webm|quicktime)$/.test(f.type);
-    if (!isImg && !isVid) { toast(`${f.name}: only photos and videos can be shared.`, 4000); continue; }
-    if (f.size > (isImg ? MAX_IMAGE : MAX_VIDEO)) { toast(`${f.name} is too big. The limit is ${isImg ? 15 : 50} MB.`, 4500); continue; }
+    const max = IMG_RE.test(f.type) ? MAX_IMAGE : VID_RE.test(f.type) ? MAX_VIDEO : MAX_FILE;
+    if (f.size > max) { toast(`${f.name} is too big. The limit is ${Math.round(max / 1048576)} MB.`, 4500); continue; }
+    if (!f.size) { toast(`${f.name} is empty.`, 3000); continue; }
     if (S.attach.length >= 10) { toast('Up to 10 files per message.', 3000); break; }
     S.attach.push({ file: f, url: URL.createObjectURL(f), progress: 0 });
   }
@@ -979,9 +1055,11 @@ function renderTray() {
   tray.hidden = !S.attach.length;
   for (const a of S.attach) {
     const d = document.createElement('div'); d.className = 'att'; d.dataset.u = a.url;
-    const media = document.createElement(a.file.type.startsWith('image/') ? 'img' : 'video');
-    media.src = a.url; if (media.tagName === 'VIDEO') media.muted = true;
-    d.appendChild(media);
+    if (IMG_RE.test(a.file.type) || VID_RE.test(a.file.type)) {
+      const media = document.createElement(IMG_RE.test(a.file.type) ? 'img' : 'video');
+      media.src = a.url; if (media.tagName === 'VIDEO') media.muted = true;
+      d.appendChild(media);
+    } else { const ic = document.createElement('span'); ic.className = 'att-file'; ic.innerHTML = iconSvg('file'); d.appendChild(ic); }
     const n = document.createElement('span'); n.className = 'att-name'; n.textContent = a.file.name; d.appendChild(n);
     if (S.sending) { const bar = document.createElement('div'); bar.className = 'bar'; bar.innerHTML = `<i style="width:${Math.round(a.progress * 100)}%"></i>`; d.appendChild(bar); }
     else {

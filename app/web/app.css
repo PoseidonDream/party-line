@@ -754,3 +754,23 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
   .music-card { left: 16px; right: 16px; width: auto; top: calc(64px + env(safe-area-inset-top, 0px)); bottom: auto; }
   .music-frame { height: max(200px, calc((100vw - 34px) * 9 / 16)); }
 }
+
+/* Files other than photos and videos */
+.file-card .file-link { display: flex; align-items: center; gap: 12px; max-width: 420px; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); text-decoration: none; }
+.file-card .file-link:hover { border-color: var(--lamp, #f4a52a); }
+.file-card .file-link > .ic { width: 30px; height: 30px; flex: none; color: var(--lamp-ink, #f4a52a); }
+.file-text { display: grid; min-width: 0; }
+.file-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-text small { color: var(--dim); }
+.media-audio { width: min(420px, 100%); display: block; }
+.att-file { display: grid; place-items: center; width: 116px; height: 86px; color: var(--dim); background: var(--stage-bg); }
+.att-file .ic { width: 34px; height: 34px; }
+/* Voice messages */
+.rec-bar { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 6px 4px 12px; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: rec-pulse 1s infinite alternate; }
+@keyframes rec-pulse { to { opacity: .3; } }
+.rec-bar #recTime { font-variant-numeric: tabular-nums; font-weight: 700; }
+.rec-hint { color: var(--dim); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voice-msg { display: grid; gap: 6px; max-width: 420px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+.voice-msg-label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: var(--dim); }
+.voice-msg-label .ic { width: 15px; height: 15px; color: var(--lamp-ink, #f4a52a); }

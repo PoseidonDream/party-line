@@ -32,6 +32,7 @@
     <symbol id="i-skip" viewBox="0 0 24 24"><path d="M5 4l10 8-10 8z"/><path d="M19 5v14"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
@@ -229,11 +230,17 @@
           <div class="reply-bar" id="replyBar" hidden><svg class="ic"><use href="#i-reply"/></svg><span id="replyText"></span><button type="button" class="reply-x" id="replyX" aria-label="Cancel reply" title="Cancel reply"><svg class="ic"><use href="#i-x"/></svg></button></div>
           <div class="tray" id="tray" hidden></div>
           <div class="composer-row">
-            <button type="button" class="ub" id="attachBtn" aria-label="Add photos or videos" title="Add photos or videos"><svg class="ic"><use href="#i-plus-circle"/></svg></button>
-            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,video/mp4,video/webm,video/quicktime" multiple hidden>
+            <button type="button" class="ub" id="attachBtn" aria-label="Add photos, videos or files" title="Add photos, videos or files"><svg class="ic"><use href="#i-plus-circle"/></svg></button>
+            <input type="file" id="fileInput" multiple hidden>
             <label for="chatInput" class="sr">Message</label>
             <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Message"></textarea>
+            <button type="button" class="ub" id="recBtn" aria-label="Record a voice message" title="Record a voice message"><svg class="ic"><use href="#i-mic"/></svg></button>
             <button type="submit" class="ub" aria-label="Send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
+          </div>
+          <div class="rec-bar" id="recBar" hidden>
+            <span class="rec-dot" aria-hidden="true"></span><span id="recTime">0:00</span><span class="rec-hint">Recording a voice message</span>
+            <button type="button" class="btn small" id="recCancel">Cancel</button>
+            <button type="button" class="btn small primary" id="recSend"><svg class="ic"><use href="#i-send"/></svg>Send</button>
           </div>
         </div>
       </form>
