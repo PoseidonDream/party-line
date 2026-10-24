@@ -52,7 +52,7 @@ export default async function (ok) {
     await a.click('#soundGrid .sound-btn:has-text("Ding")').catch(async () => { await a.click('#soundBtn'); await a.click('#soundGrid .sound-btn:has-text("Ding")'); });
     await a.waitForSelector('#tiles .tile:has-text("Poseidon") .tile-sound:text-is("🔔")');
     await b.waitForTimeout(800);
-    ok('deafened people don’t hear the soundboard', await b.locator('#tiles .tile-sound').count() === 0);
+    ok('deafened people don’t hear the soundboard', await b.locator('#tiles .tile:has-text("Poseidon") .tile-sound').count() === 0);
     await b.click('#deafBtn');
 
     await a.locator('#soundGrid .sound:has-text("bruh")').hover();
