@@ -5,6 +5,7 @@ set -euo pipefail
 main() {
   cd "$(dirname "$0")"
   git pull -q
+  export GIT_COMMIT="$(git log -1 --format='%h %cs')"   # shown in the developer panel
   docker compose up -d --build
   docker image prune -f >/dev/null
   if [ ! -f /etc/cron.d/party-line-update ]; then

@@ -42,7 +42,7 @@ ENV
 fi
 
 echo "== Starting Party Line (the first build takes a few minutes) =="
-docker compose up -d --build
+GIT_COMMIT="$(git log -1 --format='%h %cs')" docker compose up -d --build
 
 echo "== Nightly backups at 4:17 (keeps the last 7) =="
 cat > /etc/cron.d/party-line-backup <<CRON

@@ -190,6 +190,7 @@ live.on('ready', (d) => {
   renderAll();
   openCurrent();
   if (V.channelId) Voice.rejoinVoice();
+  appLabel().then((l) => { S.appLabel = l; live.req('client.info', { label: l }).catch(() => {}); });
   if (sentIdle) live.req('presence.idle', { idle: true }).catch(() => {});
   if (myActivity) live.req('presence.activity', { name: myActivity }).catch(() => {});
   if (S.pendingInvite) { const code = S.pendingInvite; S.pendingInvite = null; joinInvite(code); }
@@ -710,6 +711,17 @@ const phoneApp = window.Capacitor && window.Capacitor.isNativePlatform && window
 /* Android app: new features arrive from the server by themselves, but when the app itself has a newer build
    (on the GitHub releases page), offer it. Tapping Update downloads it; Android then asks to install. */
 const UPDATE_REPO = 'PoseidonDream/party-line';
+/* Which app this is, for the developer panel: "Windows app 1.1.0", "Android app build 12", "Chrome on Windows". */
+async function appLabel() {
+  const ua = navigator.userAgent;
+  const os = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+  if (desktop) return `${os || 'Desktop'} app ${desktop.version || ''}`.trim();
+  if (phoneApp && window.Capacitor.getPlatform() === 'android') {
+    try { return `Android app build ${(await phoneApp.getVersion()).code}`; } catch { return 'Android app (old build)'; }
+  }
+  const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  return `${b}${os ? ` on ${os}` : ''}`;
+}
 async function checkAppUpdate() {
   if (!phoneApp || window.Capacitor.getPlatform() !== 'android') return;
   let mine = 0;
@@ -2390,6 +2402,7 @@ initDev({
   restartMic: () => Voice.setupMic(settings.micId),
   onlinePeople: () => [...S.users.values()].filter((u) => u.online && u.id !== S.me.id).map((u) => u.id),
   isMe: (id) => !!S.me && S.me.id === id,
+  appLabel: () => S.appLabel || '',
   avatar: (u) => { if (!S.users.has(u.id)) S.users.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, admin: u.admin, online: false }); return avEl(u.id); },
   resetPassword,
 });

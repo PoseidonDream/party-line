@@ -3,7 +3,10 @@
 #   docker compose up -d --build
 services:
   partyline:
-    build: ../app
+    build:
+      context: ../app
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     restart: unless-stopped
     environment:
       GROUP_PASSWORD: ${GROUP_PASSWORD}

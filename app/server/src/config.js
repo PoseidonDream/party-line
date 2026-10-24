@@ -1,5 +1,6 @@
 /* Settings come from environment variables (see deploy/.env.example). */
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,8 @@ export const config = {
   maxVideo: 50 * 1024 * 1024,
   maxAvatar: 2 * 1024 * 1024,
   maxFile: 25 * 1024 * 1024,
+  // Commit and date of this version: from the Docker build, or from git when run from a checkout.
+  version: env.GIT_COMMIT || (() => { try { return execSync("git log -1 --format='%h %cs'", { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } })(),
   previewPrivate: env.LINK_PREVIEW_PRIVATE === '1',   // tests only: let link previews fetch local test pages   // audio, documents, zips and other files
   trustProxy: env.TRUST_PROXY === '1',
 };

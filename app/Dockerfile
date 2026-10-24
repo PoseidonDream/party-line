@@ -6,6 +6,9 @@ COPY server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY server/src ./src
 COPY web /app/web
+# Which version this is (commit and date), shown in the developer panel. Set by deploy/update.sh.
+ARG GIT_COMMIT=
+ENV GIT_COMMIT=$GIT_COMMIT
 RUN mkdir -p /data && chown node:node /data
 USER node
 VOLUME /data

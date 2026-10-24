@@ -561,6 +561,8 @@ const handlers = {
     addDevLog({ at: t, userId: user.id, kind: String(d.kind || 'info').slice(0, 20), text: String(d.text || '').slice(0, 500) });
     return {};
   },
+  /* Which app and version this connection is ("Windows app 1.1.0", "Android app build 12", "Chrome on Windows"). */
+  'client.info'(c, user, d) { c.client = String(d.label || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60) || null; return {}; },
   'dev.stats'(c, user) {
     if (!user.is_admin) fail('Admins only.');
     const mem = process.memoryUsage();
@@ -569,15 +571,15 @@ const handlers = {
     const voiceList = [...voice].map(([id, v]) => Object.assign(voiceView(id, v), { connId: v.connId }));
     return {
       server: {
-        uptime: Math.round((Date.now() - startedAt) / 1000), node: process.version, version: process.env.GIT_COMMIT || '',
+        uptime: Math.round((Date.now() - startedAt) / 1000), node: process.version, version: config.version,
         rss: mem.rss, heap: mem.heapUsed, dbBytes, uploads: folderSize(path.join(config.dataDir, 'uploads')),
         users: M.allUsers().length, online: byUser.size, connections: conns.size,
         turn: !!(config.turnUrls.length && config.turnSecret), sfu: !!(config.livekit.url && config.livekit.secret),
         groupPassword: !!config.groupPassword,
       },
       voice: voiceList,
-      people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size })),
-      directory: M.userDirectory().map((u) => Object.assign(u, { online: online(u.id), openApps: (byUser.get(u.id) || new Set()).size })),
+      people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size, apps: [...set].map((x) => x.client || 'unknown app') })),
+      directory: M.userDirectory().map((u) => Object.assign(u, { online: online(u.id), openApps: (byUser.get(u.id) || new Set()).size, apps: [...(byUser.get(u.id) || [])].map((x) => x.client || 'unknown app') })),
       log: devLog.slice(-300),
     };
   },

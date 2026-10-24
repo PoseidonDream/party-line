@@ -155,7 +155,7 @@ Each device plays the video in YouTube's own player, so it follows YouTube's rul
 ## Developer panel (for you)
 
 Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:
-- **Server:** how long it's been up, memory and storage, who's online, and who's in which voice channel.
+- **Server:** the server's version (and the app you're using), how long it's been up, memory and storage, who's online, and who's in which voice channel.
 - **My voice:** live numbers for each voice connection: direct or relayed, ping, lost packets, and how much sound is coming in and going out. "0 kbps" in red means sound stopped arriving from that friend.
 - **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
 - **Check a friend:** pulls a friend's live voice numbers to your screen. They get a short note that you checked.

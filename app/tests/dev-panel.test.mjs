@@ -34,10 +34,14 @@ export default async function (ok) {
     await a.waitForSelector('#devPanel .dev-card:has-text("Online now") b:text-is("2")');
     await a.waitForSelector('#devPanel .dev-chan:has-text("Lobby")');
     ok('Server tab shows who’s online and in voice', true);
+    await a.waitForSelector('#devPanel .dev-card:has-text("Server version") b');
+    const ver = (await a.textContent('#devPanel .dev-card:has-text("Server version") b')).trim();
+    ok(`the server version shows (${ver})`, /^[0-9a-f]{7,}$/.test(ver));
+    ok('your own app shows', (await a.textContent('#devPanel .dev-card:has-text("Your app") b')).includes('Chrome'));
 
     await a.click('#devPanel [data-tab="everyone"]');
     await a.waitForSelector('#devPanel .dev-table tr:has-text("Cem") td:has-text("just now")');
-    await a.waitForSelector('#devPanel .dev-table tr:has-text("Bora") td:has-text("online now")');
+    await a.waitForSelector('#devPanel .dev-table tr:has-text("Bora") td:has-text("online now · Chrome")');
     ok('Everyone tab lists people who signed up before, with when they were last online', true);
     await a.fill('#devPanel .dev-search', 'ce');
     ok('you can search it', (await a.locator('#devPanel .dev-table tbody tr').count()) === 1);

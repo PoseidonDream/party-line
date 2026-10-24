@@ -98,7 +98,10 @@ function renderOverview() {
   const s = stats.server;
   const grid = el('div', 'dev-cards');
   const card = (label, value, sub, bad) => { const c = el('div', 'dev-card' + (bad ? ' bad' : '')); c.append(el('span', 'dev-label', label), el('b', null, value)); if (sub) c.appendChild(el('small', null, sub)); grid.appendChild(c); };
-  card('Up for', dur(s.uptime), s.version ? `version ${s.version.slice(0, 7)}` : `Node ${s.node}`);
+  card('Up for', dur(s.uptime), `Node ${s.node}`);
+  const [commit, date] = String(s.version || '').split(' ');
+  card('Server version', commit || 'unknown', commit ? `from ${date || '?'}` : 'updates set it automatically');
+  card('Your app', ctx.appLabel() || 'unknown', 'what you’re using right now');
   card('Online now', String(s.online), `${s.connections} open app${s.connections === 1 ? '' : 's'}`);
   card('Accounts', String(s.users), s.groupPassword ? 'group password on' : 'anyone can sign up', !s.groupPassword);
   card('Memory', fmtSize(s.rss), `${fmtSize(s.heap)} in use`);
@@ -162,7 +165,7 @@ function renderEveryone() {
       who.appendChild(ctx.avatar(u));
       who.appendChild(el('span', null, u.name + (u.admin ? ' (admin)' : '')));
       name.appendChild(who); tr.appendChild(name);
-      const st = el('td', u.online ? 'ok' : null, u.online ? `online now${u.openApps > 1 ? ` · ${u.openApps} apps` : ''}` : ago(u.lastSeen));
+      const st = el('td', u.online ? 'ok' : null, u.online ? `online now · ${(u.apps || []).join(', ')}` : ago(u.lastSeen));
       tr.appendChild(st);
       tr.appendChild(el('td', null, new Date(u.createdAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })));
       for (const k of ['messages', 'servers', 'friends', 'devices']) tr.appendChild(el('td', null, String(u[k])));
