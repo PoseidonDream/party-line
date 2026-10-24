@@ -4,7 +4,11 @@
   "version": "1.0.0",
   "description": "Party Line desktop app for Windows, Mac and Linux.",
   "main": "src/main.js",
-  "author": "PoseidonDream",
+  "author": {
+    "name": "PoseidonDream",
+    "email": "PoseidonDream@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/PoseidonDream/party-line",
   "license": "UNLICENSED",
   "private": true,
   "partyLine": {
