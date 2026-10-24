@@ -39,7 +39,7 @@ const token = () => crypto.randomBytes(32).toString('base64url');
 const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-_]/g, 'x').slice(0, 8);
 
 /* ---------- users and sessions ---------- */
-export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin });
+export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
@@ -48,6 +48,7 @@ export function register(name, pass, groupPass) {
   name = cleanName(name);
   if (!groupPasswordOk(groupPass)) fail('That group password is wrong. Ask whoever invited you.');
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
+  if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   if (String(pass || '').length < 4) fail('Pick a password with at least 4 characters.');
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
   const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)',
@@ -92,12 +93,22 @@ export function resetPassword(userId) {
 export function rename(userId, name) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
+  if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   const other = userByName(name);
   if (other && other.id !== userId) fail('That name is taken.');
   run('UPDATE users SET name = ?, name_key = ? WHERE id = ?', name, foldKey(name), userId);
   return getUser(userId);
 }
 export const setAvatar = (userId, url) => { run('UPDATE users SET avatar = ? WHERE id = ?', url, userId); return getUser(userId); };
+/* Party Bot's account. It can't sign in: no name anyone types matches its name_key, and it has no password. */
+export const BOT_NAME = 'Party Bot';
+export function ensureBot() {
+  const b = one('SELECT * FROM users WHERE is_bot = 1');
+  if (b) return b;
+  // A leading space: folded names are trimmed, so no person's name_key can ever equal it.
+  run("INSERT INTO users (name, name_key, pass_hash, is_admin, is_bot, created_at) VALUES (?, ' party-bot', '!', 0, 1, ?)", BOT_NAME, now());
+  return one('SELECT * FROM users WHERE is_bot = 1');
+}
 export function syncAdmins() {
   for (const u of all('SELECT id, name, is_admin FROM users')) {
     const want = isAdminName(u.name) ? 1 : 0;
@@ -215,7 +226,7 @@ export function postMessage(userId, where, body, attachments, replyTo) {
 }
 /* Mentions are written in messages as <@userId>. */
 export const mentionedIds = (body) => [...new Set([...String(body || '').matchAll(/<@(\d+)>/g)].map((x) => Number(x[1])))];
-const EMOJI = /^(?=.*\p{Extended_Pictographic})[^\s]{1,16}$/u;
+const EMOJI = /^(?=.*(?:\p{Extended_Pictographic}|\u20e3))[^\s]{1,16}$/u;   // \u20e3: keycap numbers like 1️⃣
 export function react(userId, messageId, emoji, on) {
   emoji = String(emoji || '');
   if (!EMOJI.test(emoji)) fail('That’s not an emoji.');
@@ -349,7 +360,7 @@ export function userDirectory() {
       (SELECT COUNT(*) FROM messages WHERE user_id = u.id) AS messages,
       (SELECT COUNT(*) FROM members WHERE user_id = u.id) AS servers,
       (SELECT COUNT(*) FROM friends WHERE user_id = u.id AND state = 'friends') AS friends
-    FROM users u ORDER BY last_seen DESC`).map((u) => ({
+    FROM users u WHERE u.is_bot = 0 ORDER BY last_seen DESC`).map((u) => ({
     id: u.id, name: u.name, avatar: u.avatar, admin: !!u.is_admin, createdAt: u.created_at, lastSeen: u.last_seen,
     devices: u.sessions, messages: u.messages, servers: u.servers, friends: u.friends,
   }));
@@ -360,6 +371,7 @@ const VISIBLE = `
   SELECT m2.user_id AS id FROM members m1 JOIN members m2 ON m2.server_id = m1.server_id WHERE m1.user_id = :me
   UNION SELECT friend_id FROM friends WHERE user_id = :me
   UNION SELECT CASE WHEN user_a = :me THEN user_b ELSE user_a END FROM dms WHERE user_a = :me OR user_b = :me
+  UNION SELECT id FROM users WHERE is_bot = 1
   UNION SELECT :me`;
 export const visibleUsers = (me) => all(`SELECT * FROM users WHERE id IN (${VISIBLE})`, { me }).map(publicUser);
 export const canSeeUser = (me, other) => me === other || !!one(`SELECT 1 AS x FROM (${VISIBLE}) WHERE id = :other`, { me, other });

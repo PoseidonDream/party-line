@@ -27,6 +27,11 @@
     <symbol id="i-leave" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
     <symbol id="i-max" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-skip" viewBox="0 0 24 24"><path d="M5 4l10 8-10 8z"/><path d="M19 5v14"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
@@ -215,6 +220,11 @@
       <div class="typing-line" id="typingLine" aria-live="polite"></div>
       <form class="composer" id="chatForm">
         <ul class="mention-pop" id="mentionPop" role="listbox" aria-label="People to mention" hidden></ul>
+        <div class="bot-note" id="botNote" hidden>
+          <div class="bot-note-head"><span class="bot-note-av" aria-hidden="true">🤖</span><b>Party Bot</b><small>Only you can see this</small>
+            <button type="button" class="reply-x" id="botNoteX" aria-label="Dismiss" title="Dismiss"><svg class="ic"><use href="#i-x"/></svg></button></div>
+          <div class="bot-note-text" id="botNoteText"></div>
+        </div>
         <div class="composer-box">
           <div class="reply-bar" id="replyBar" hidden><svg class="ic"><use href="#i-reply"/></svg><span id="replyText"></span><button type="button" class="reply-x" id="replyX" aria-label="Cancel reply" title="Cancel reply"><svg class="ic"><use href="#i-x"/></svg></button></div>
           <div class="tray" id="tray" hidden></div>
@@ -293,6 +303,7 @@
       <div class="vs-btns">
         <button type="button" class="ub" id="camBtn"><svg class="ic"><use href="#i-video"/></svg><span class="sr lbl">Turn on camera</span></button>
         <button type="button" class="ub" id="shareBtn"><svg class="ic"><use href="#i-screen"/></svg><span class="sr lbl">Share screen</span></button>
+        <button type="button" class="ub" id="musicBack" hidden title="Listen to the music again"><svg class="ic"><use href="#i-music"/></svg><span class="sr">Listen to the music again</span></button>
         <button type="button" class="ub" id="noiseBtn"><svg class="ic"><use href="#i-wave"/></svg><span class="sr lbl">Noise filter</span></button>
         <button type="button" class="ub danger" id="vcLeaveBtn" title="Disconnect from voice"><svg class="ic"><use href="#i-phone-off"/></svg><span class="sr">Disconnect from voice</span></button>
       </div>
@@ -308,6 +319,18 @@
       <button type="button" class="ub" id="setBtn" title="Settings"><svg class="ic"><use href="#i-sliders"/></svg><span class="sr">Settings</span></button>
     </div>
   </footer>
+
+  <aside class="music-card" id="musicCard" hidden aria-label="Music playing in your voice channel">
+    <div class="music-frame" id="musicFrame"><div id="musicPlayer"></div><button type="button" class="btn primary music-start" id="musicStart" hidden><svg class="ic"><use href="#i-play"/></svg>Click to hear the music</button></div>
+    <div class="music-info"><b id="musicTitle"></b><small id="musicBy"></small><small class="music-next" id="musicNext"></small></div>
+    <div class="music-ctl">
+      <button type="button" class="ub" id="musicPause"></button>
+      <button type="button" class="ub" id="musicSkip" title="Skip for everyone" aria-label="Skip for everyone"><svg class="ic"><use href="#i-skip"/></svg></button>
+      <button type="button" class="ub" id="musicStop" title="Stop the music for everyone" aria-label="Stop the music for everyone"><svg class="ic"><use href="#i-stop"/></svg></button>
+      <label class="music-vol" title="Music volume, only for you"><svg class="ic"><use href="#i-volume"/></svg><span class="sr">Music volume, only for you</span><input type="range" id="musicVol" min="0" max="100" step="1"></label>
+      <button type="button" class="ub" id="musicHide" title="Stop listening (only for you)" aria-label="Stop listening (only for you)"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+  </aside>
 </main>
 
 <!-- ================= ADD SERVER ================= -->

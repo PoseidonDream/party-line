@@ -3,12 +3,13 @@ import { api, upload, live, store, setToken, hasToken, absUrl } from './net.js';
 import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize } from './util.js';
 import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
+import { initMusic, updateMusic, listening, listenAgain } from './music.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [],
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -38,7 +39,10 @@ $('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 
 const user = (id) => S.users.get(id) || { id, name: 'Someone', avatar: null, online: false };
 const nameOf = (id) => user(id).name;
 /* Admins (developers) get a crown after their name wherever it shows. */
-const addCrown = (el, id) => { if (user(id).admin || (S.me && id === S.me.id && S.me.admin)) el.insertAdjacentHTML('beforeend', `<span class="crown" title="Developer">${iconSvg('crown')}</span>`); };
+const addCrown = (el, id) => {
+  if (user(id).admin || (S.me && id === S.me.id && S.me.admin)) el.insertAdjacentHTML('beforeend', `<span class="crown" title="Developer">${iconSvg('crown')}</span>`);
+  if (user(id).bot) el.insertAdjacentHTML('beforeend', '<span class="bot-tag">BOT</span>');
+};
 const curServer = () => (S.view.serverId ? S.servers.get(S.view.serverId) : null);
 const canManage = (srv) => !!S.me && (S.me.admin || (srv && srv.ownerId === S.me.id));
 const msgKey = () => (S.view.kind === 'text' ? `c:${S.view.channelId}` : S.view.kind === 'dm' ? `d:${S.view.userId}` : null);
@@ -51,7 +55,8 @@ function findChannel(id) {
 function paintAv(el, id) {
   const u = user(id);
   el.style.setProperty('--h', hue(u.name));
-  el.textContent = initials(u.name);
+  el.textContent = u.bot ? '🤖' : initials(u.name);
+  el.classList.toggle('bot', !!u.bot);
   if (u.avatar) { el.classList.add('has-img'); el.style.backgroundImage = `url("${absUrl(u.avatar)}")`; }
   else { el.classList.remove('has-img'); el.style.backgroundImage = ''; }
 }
@@ -144,6 +149,9 @@ live.on('ready', (d) => {
   S.friends = new Map(d.friends.map((f) => [f.id, f.state]));
   S.dms = new Map(d.dms.map((x) => [x.userId, x]));
   S.voice = new Map(d.voice.map((v) => [v.userId, v]));
+  S.music = new Map((d.music || []).map((x) => [x.channelId, x.state]));
+  S.commands = d.commands || [];
+  S.serverNow = d.serverNow;
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
   S.ready = true;
@@ -219,6 +227,11 @@ live.on('voice.kicked', (d) => {
     deleted: 'That voice channel was deleted.', kicked: 'You were removed from the server.' }[d.reason] || 'You were disconnected from voice.';
   toast(why, 5000);
   renderVoiceBits();
+});
+live.on('music', (d) => {
+  if (d.state) S.music.set(d.channelId, d.state); else S.music.delete(d.channelId);
+  S.serverNow = d.serverNow;
+  renderSide(); syncMusic();
 });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
 live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
@@ -435,6 +448,8 @@ function renderSide() {
       b.innerHTML = iconSvg('volume');
       const n = document.createElement('span'); n.className = 'chan-name'; n.textContent = c.name; b.appendChild(n);
       if (people.some((p) => p.sharing)) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; b.appendChild(l); }
+      const tune = S.music && S.music.get(c.id);
+      if (tune) { const l = document.createElement('span'); l.className = 'chan-music'; l.title = `Playing: ${tune.now.title}`; l.innerHTML = iconSvg('music'); b.appendChild(l); }
       b.addEventListener('click', () => { setView({ kind: 'voice', serverId: s.id, channelId: c.id }); if (V.channelId !== c.id) joinVoice(c.id); });
       li.appendChild(b);
       if (people.length) {
@@ -535,7 +550,14 @@ function renderMainView() {
     $('#chatInput').placeholder = k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f ? `Message #${f.channel.name}` : 'Message';
   }
 }
-function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); }
+function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); }
+/* Listen together (music.js): play what's on in my voice channel. */
+function syncMusic() {
+  const ch = V.channelId || null, st = ch ? S.music.get(ch) : null;
+  updateMusic(ch, st || null, S.serverNow);
+  S.serverNow = null;
+  $('#musicBack').hidden = !st || listening();
+}
 /* Android app: while you're in voice, a notification keeps it running when the phone locks or you switch apps. */
 const phoneApp = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor.registerPlugin('PartyLine') : null;
 let phoneInCall = null;
@@ -550,8 +572,8 @@ function syncPhoneCall() {
 
 /* ================= messages ================= */
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
-const TOKEN_RE = new RegExp(`${URL_RE.source}|<@(\\d+)>`, 'g');
-/* Message text with clickable links and @mentions. Mentions are stored as <@userId>. */
+const TOKEN_RE = new RegExp(`${URL_RE.source}|<@(\\d+)>|\\*\\*([^*\\n]{1,200})\\*\\*`, 'g');
+/* Message text with clickable links, @mentions and **bold**. Mentions are stored as <@userId>. */
 function richText(el, text) {
   let last = 0;
   for (const m of text.matchAll(TOKEN_RE)) {
@@ -562,6 +584,8 @@ function richText(el, text) {
       b.textContent = `@${nameOf(id)}`;
       b.addEventListener('click', (e) => openUserPop(id, e.currentTarget));
       el.appendChild(b);
+    } else if (m[2]) {
+      const b = document.createElement('b'); richText(b, m[2]); el.appendChild(b);
     } else {
       const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
       el.appendChild(a);
@@ -579,7 +603,7 @@ function encodeMentions(text) {
   for (const u of people) text = text.replace(new RegExp(`(^|[^\\p{L}\\p{N}_])@${escapeRe(u.name)}(?![\\p{L}\\p{N}_])`, 'giu'), `$1<@${u.id}>`);
   return text;
 }
-const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`);
+const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '');
 const mentionsMe = (msg) => !!msg.body && msg.body.includes(`<@${S.me.id}>`);
 let lastRendered = { author: null, at: 0 };
 function messageEl(msg, prev) {
@@ -841,6 +865,16 @@ $('#replyX').addEventListener('click', cancelReply);
 let mention = null;   // { start, end, items, index }
 function updateMentionPop() {
   const pos = chatInput.selectionStart, before = chatInput.value.slice(0, pos);
+  // "/" at the start shows Party Bot's commands.
+  const cmd = /^\/([a-z]*)$/i.exec(before);
+  if (cmd && S.commands && S.commands.length) {
+    const q = cmd[1].toLowerCase();
+    const items = S.commands.filter(([name]) => name.startsWith(q)).map(([name, args, desc]) => ({ cmd: name, args, desc }));
+    if (!items.length) { closeMentionPop(); return; }
+    mention = { start: 0, end: pos, items, index: 0 };
+    renderMentionPop();
+    return;
+  }
   const m = /(^|\s)@([^\s@]{0,24})$/u.exec(before);
   if (!m) { closeMentionPop(); return; }
   const q = m[2].toLowerCase();
@@ -856,6 +890,15 @@ function renderMentionPop() {
   pop.textContent = '';
   mention.items.forEach((u, i) => {
     const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('aria-selected', String(i === mention.index));
+    if (u.cmd) {
+      li.insertAdjacentHTML('beforeend', '<span class="mini-av bot" aria-hidden="true">🤖</span>');
+      const n = document.createElement('span'); n.className = 'cmd-name'; n.textContent = '/' + u.cmd; li.appendChild(n);
+      if (u.args) { const a = document.createElement('span'); a.className = 'cmd-args'; a.textContent = u.args; li.appendChild(a); }
+      const d = document.createElement('span'); d.className = 'cmd-desc'; d.textContent = u.desc; li.appendChild(d);
+      li.addEventListener('pointerdown', (e) => { e.preventDefault(); pickMention(u); });
+      pop.appendChild(li);
+      return;
+    }
     li.appendChild(avEl(u.id));
     const n = document.createElement('span'); n.textContent = u.name; li.appendChild(n);
     li.addEventListener('pointerdown', (e) => { e.preventDefault(); pickMention(u); });
@@ -865,7 +908,7 @@ function renderMentionPop() {
 }
 function closeMentionPop() { mention = null; $('#mentionPop').hidden = true; }
 function pickMention(u) {
-  const v = chatInput.value, ins = `@${u.name} `;
+  const v = chatInput.value, ins = u.cmd ? `/${u.cmd} ` : `@${u.name} `;
   chatInput.value = v.slice(0, mention.start) + ins + v.slice(mention.end);
   const caret = mention.start + ins.length;
   chatInput.setSelectionRange(caret, caret);
@@ -876,8 +919,11 @@ function pickMention(u) {
 chatInput.addEventListener('keydown', (e) => {
   if (mention) {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); mention.index = (mention.index + (e.key === 'ArrowDown' ? 1 : -1) + mention.items.length) % mention.items.length; renderMentionPop(); return; }
-    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(mention.items[mention.index]); return; }
-    if (e.key === 'Escape') { e.preventDefault(); closeMentionPop(); return; }
+    const it = mention.items[mention.index];
+    // A command typed out in full ("/skip") sends on Enter instead of being picked again.
+    if (e.key === 'Enter' && it.cmd && chatInput.value.trim().toLowerCase() === '/' + it.cmd) closeMentionPop();
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(it); return; }
+    else if (e.key === 'Escape') { e.preventDefault(); closeMentionPop(); return; }
   }
   if (e.key === 'Escape' && S.replyTo) { e.preventDefault(); cancelReply(); return; }
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !isPhone()) { e.preventDefault(); $('#chatForm').requestSubmit(); }
@@ -903,7 +949,8 @@ $('#chatForm').addEventListener('submit', async (e) => {
       if (!a.id) { const r = await upload('/api/upload', a.file, (p) => setAttachProgress(a, p)); a.id = r.id; }
       ids.push({ id: a.id });
     }
-    await live.req('msg.send', Object.assign({ body, attachments: ids, replyTo: S.replyTo ? S.replyTo.id : null }, target));
+    const r = await live.req('msg.send', Object.assign({ body, attachments: ids, replyTo: S.replyTo ? S.replyTo.id : null }, target));
+    if (r && r.ephemeral) botNote(r.ephemeral); else hideBotNote();
     chatInput.value = ''; autosize();
     clearAttach(); cancelReply();
     typingSentAt = 0;
@@ -1294,15 +1341,16 @@ function openUserPop(id, anchor) {
     $('#volOut').textContent = `${$('#volRange').value}%`;
     $('#volMute').checked = !!pref.mute;
   }
-  $('#popMsg').hidden = isMe;
+  const isBot = !!user(id).bot;
+  $('#popMsg').hidden = isMe || isBot;
   const fs = S.friends.get(id);
   const fb = $('#popFriend');
-  fb.hidden = isMe || fs === 'friends';
+  fb.hidden = isMe || isBot || fs === 'friends';
   fb.disabled = fs === 'outgoing';
   fb.lastChild.textContent = fs === 'incoming' ? 'Accept request' : fs === 'outgoing' ? 'Request sent' : 'Add friend';
   const srv = S.popServer && S.servers.get(S.popServer);
   const srvAdmin = !isMe && srv && canManage(srv);
-  const admin = srvAdmin || (!isMe && S.me.admin);
+  const admin = !isBot && (srvAdmin || (!isMe && S.me.admin));
   $('#popAdmin').hidden = !admin;
   if (admin) {
     const inSrvVoice = srvAdmin && vst && srv.channels.some((c) => c.id === vst.channelId);
@@ -1609,6 +1657,23 @@ $('#fbForm').addEventListener('submit', async (e) => {
     if (S.me.admin) loadInbox();
   } catch (ex) { $('#fbError').textContent = ex.message; $('#fbError').hidden = false; }
   $('#fbSend').disabled = false;
+});
+
+/* ================= Party Bot ================= */
+function botNote(text) {
+  const el = $('#botNoteText'); el.textContent = '';
+  richText(el, text);
+  $('#botNote').hidden = false;
+}
+function hideBotNote() { $('#botNote').hidden = true; }
+$('#botNoteX').addEventListener('click', hideBotNote);
+$('#musicBack').addEventListener('click', () => { listenAgain(); syncMusic(); });
+initMusic({
+  req: (t, d) => live.req(t, d),
+  nameOf,
+  channelName: (id) => { const f = findChannel(id); return f ? f.channel.name : ''; },
+  note: botNote,
+  changed: () => { $('#musicBack').hidden = !(V.channelId && S.music.get(V.channelId)) || listening(); },
 });
 
 /* ================= developer panel ================= */

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as M from './model.js';
 import { config } from './config.js';
+import * as Bot from './bot.js';
 
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
@@ -43,6 +44,28 @@ export const hub = {
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
 
+/* What Party Bot (bot.js) may do: post messages, react, and see who's in voice. */
+Bot.initBot({
+  post(where, body) {
+    const b = Bot.botUser();
+    try {
+      const m = M.postMessage(b.id, where, body);
+      if (where.channelId) { const ch = M.getChannel(where.channelId); toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id }); }
+      else { const dm = M.getDm(where.dmId); toUser(dm.user_a, { t: 'dm', msg: m, withUserId: dm.user_b, user: userView(b.id) }); toUser(dm.user_b, { t: 'dm', msg: m, withUserId: dm.user_a, user: userView(b.id) }); }
+      return m;
+    } catch (e) { console.error('bot post', e); return null; }   // e.g. the channel was deleted
+  },
+  broadcastReactions(m, reactions) { if (m) broadcastAbout(M.getMessage(m.id), { t: 'reactions', id: m.id, channelId: m.channelId || null, dmId: m.dmId || null, reactions }); },
+  voiceOf(userId) {
+    const v = voice.get(userId), ch = v && M.getChannel(v.channelId);
+    return ch ? { channelId: ch.id, serverId: ch.server_id, channelName: ch.name } : null;
+  },
+  music(serverId, channelId, state) {
+    if (serverId == null) { const ch = M.getChannel(channelId); if (!ch) return; serverId = ch.server_id; }
+    toServer(serverId, { t: 'music', channelId, state, serverNow: Date.now() });
+  },
+});
+
 function readyFor(user) {
   const servers = M.serverIdsOf(user.id).map((id) => M.serverView(id, user.id)).filter(Boolean);
   const mine = new Set(servers.map((s) => s.id));
@@ -54,6 +77,9 @@ function readyFor(user) {
     friends: M.friendsOf(user.id),
     dms: M.dmsOf(user.id),
     voice: [...voice].filter(([, v]) => mine.has(v.serverId)).map(([id, v]) => voiceView(id, v)),
+    music: Bot.musicStates(mine),
+    commands: Bot.COMMAND_LIST,
+    serverNow: Date.now(),
   };
 }
 
@@ -62,6 +88,7 @@ function leaveVoice(userId, reason) {
   if (!v) return;
   voice.delete(userId);
   toServer(v.serverId, { t: 'voice.left', userId, channelId: v.channelId, serverId: v.serverId });
+  if (![...voice.values()].some((x) => x.channelId === v.channelId)) Bot.voiceEmptied(v.channelId);
   if (reason) { const c = conns.get(v.connId); send(c, { t: 'voice.kicked', reason }); }
 }
 
@@ -70,9 +97,11 @@ const handlers = {
 
   /* ---- messages ---- */
   'msg.send'(c, user, d) {
+    const command = Bot.isCommand(d.body) && !(d.attachments || []).length;
     if (d.channelId) {
       const ch = M.getChannel(Number(d.channelId));
       if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');
+      if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
       return { msg: m };
@@ -82,6 +111,7 @@ const handlers = {
     const shares = M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s));
     if (M.friendState(user.id, other.id) !== 'friends' && !shares) fail(`Add ${other.name} as a friend first.`);
     const dm = M.dmWith(user.id, other.id, true);
+    if (command) return Bot.runCommand(user, { dmId: dm.id }, d.body).then((r) => Object.assign({ command: true }, r));
     const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
@@ -227,6 +257,8 @@ const handlers = {
     toServer(ch.server_id, { t: 'voice', state: voiceView(user.id, v) });
     return { peers: [...voice].filter(([id, x]) => id !== user.id && x.channelId === ch.id).map(([id]) => id) };
   },
+  'music.event'(c, user, d) { return Bot.musicEvent(user, d); },
+  'music.control'(c, user, d) { return Bot.musicControl(user, String(d.action || '')); },
   'voice.leave'(c, user) {
     const v = voice.get(user.id);
     if (v && v.connId === c.id) leaveVoice(user.id);
@@ -378,13 +410,17 @@ export function attachHub(server) {
       const h = Object.prototype.hasOwnProperty.call(handlers, d.t) ? handlers[d.t] : null;
       const fresh = M.getUser(c.userId);
       if (!fresh) { ws.close(4001, 'auth'); return; }
+      const failed = (e) => {
+        if (!(e instanceof M.UserError)) console.error(d.t, e);
+        return { error: e instanceof M.UserError ? e.message : 'Something went wrong on the server.' };
+      };
+      const ack = (reply) => { if (d.rid) send(c, Object.assign({ t: 'ack', rid: d.rid }, reply || {})); };
       let reply;
       try { reply = h ? h(c, fresh, d) : { error: 'unknown' }; }
-      catch (e) {
-        if (!(e instanceof M.UserError)) console.error(d.t, e);
-        reply = { error: e instanceof M.UserError ? e.message : 'Something went wrong on the server.' };
-      }
-      if (d.rid) send(c, Object.assign({ t: 'ack', rid: d.rid }, reply || {}));
+      catch (e) { reply = failed(e); }
+      // Bot commands answer asynchronously (looking up a video's title).
+      if (reply && typeof reply.then === 'function') reply.then(ack, (e) => ack(failed(e)));
+      else ack(reply);
     });
     ws.on('close', () => {
       conns.delete(c.id);

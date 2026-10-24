@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
 if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD COLUMN reply_to INTEGER');
 if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
+if (!columns('users').includes('is_bot')) db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (
   message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -109,6 +110,14 @@ CREATE TABLE IF NOT EXISTS reactions (
   PRIMARY KEY (message_id, user_id, emoji)
 );
 CREATE INDEX IF NOT EXISTS reactions_message ON reactions(message_id);
+CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+  dm_id INTEGER REFERENCES dms(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  due_at INTEGER NOT NULL
+);
 `);
 
 const cache = new Map();

@@ -721,3 +721,35 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .dev-name .mini-av { width: 26px; height: 26px; font-size: 11px; }
 .dev-table td.ok { color: var(--ok); font-weight: 700; }
 .dev-acts .btn + .btn { margin-left: 6px; }
+
+/* ---------- Party Bot ---------- */
+.bot-tag { display: inline-grid; place-items: center; margin-left: 6px; padding: 0 5px; height: 16px; border-radius: 4px; background: var(--accent, #5865f2); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .04em; vertical-align: 1px; }
+.mini-av.bot, .msg .mini-av.bot { font-size: 1.1em; }
+.msg-body b { font-weight: 700; }
+.bot-note { margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.bot-note-head { display: flex; align-items: center; gap: 8px; }
+.bot-note-head small { color: var(--dim); }
+.bot-note-head .reply-x { margin-left: auto; }
+.bot-note-av { font-size: 18px; }
+.bot-note-text { margin-top: 6px; white-space: pre-wrap; line-height: 1.45; max-height: 40vh; overflow: auto; }
+.cmd-name { font-weight: 700; }
+.cmd-args { color: var(--dim); margin-left: 4px; }
+.cmd-desc { margin-left: auto; padding-left: 12px; color: var(--dim); font-size: 13px; text-align: right; }
+
+/* Listen together: YouTube's player stays at least 200 px tall, as YouTube requires. */
+.music-card { position: fixed; z-index: 30; right: 16px; top: 66px; width: 356px; border-radius: 14px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.music-frame { position: relative; width: 100%; height: 200px; background: #000; }
+.music-frame iframe, .music-frame #musicPlayer { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.music-start { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.music-info { display: grid; gap: 2px; padding: 10px 12px 4px; min-width: 0; }
+.music-info b, .music-info small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music-info small { color: var(--dim); font-size: 12px; }
+.music-ctl { display: flex; align-items: center; gap: 4px; padding: 4px 8px 8px; }
+.music-vol { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 0 6px; color: var(--dim); }
+.music-vol input { width: 100%; min-width: 0; }
+.chan-music { margin-left: 6px; color: var(--dim); display: inline-grid; place-items: center; }
+.chan-music .ic { width: 14px; height: 14px; }
+@media (max-width: 860px) {
+  .music-card { left: 16px; right: 16px; width: auto; top: calc(64px + env(safe-area-inset-top, 0px)); bottom: auto; }
+  .music-frame { height: max(200px, calc((100vw - 34px) * 9 / 16)); }
+}

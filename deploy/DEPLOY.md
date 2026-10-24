@@ -133,6 +133,16 @@ Turn it off again with `voice-server.sh off`. People already in voice switch ove
 
 With it on, voice uses your server's traffic. That's roughly 1 GB per person per 10 hours of talking, or more with cameras and screen shares, which is still small next to Hetzner's 20 TB. If your provider has its own firewall in the dashboard, also open TCP 7881 and UDP 7882 there.
 
+## Party Bot: music and fun commands
+
+Type these in any text channel or private chat. Type **/** to see the list.
+
+- **Listen together:** join a voice channel, then type `/play` and a YouTube link. Everyone in that voice channel hears it at the same moment, in a small YouTube player at the top right. `/pause`, `/resume`, `/skip`, `/stop` and `/queue` control it, and so do the player's buttons. The volume slider and the ✕ only affect you. The music stops when everyone leaves the channel.
+- **Fun:** `/roll` (or `/roll 20`, `/roll 2d6`), `/coinflip`, `/poll Question | Choice | Choice` (everyone votes with reactions) and `/remind 10m take the pizza out`.
+- `/help` lists everything.
+
+Each device plays the video in YouTube's own player, so it follows YouTube's rules. A few videos can't be played outside YouTube, and the bot skips those.
+
 ## Developer panel (for you)
 
 Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:

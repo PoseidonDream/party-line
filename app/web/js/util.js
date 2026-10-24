@@ -7,7 +7,7 @@ export const MAX_LEVEL = 1.5;   // every volume slider goes up to 150%
 export const clampLevel = (v) => Math.max(0, Math.min(MAX_LEVEL, Number.isFinite(+v) ? +v : 1));
 
 export const settings = Object.assign(
-  { noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, notify: false, theme: 'system' },
+  { noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, notify: false, theme: 'system', musicVolume: 60 },
   store.get('settings', {}) || {},
 );
 if (!['off', 'standard', 'strong'].includes(settings.noiseMode)) settings.noiseMode = 'strong';
