@@ -97,12 +97,15 @@ Connect with `ssh root@YOUR-IP`, then:
 
 | To… | Run |
 |---|---|
-| Update to the newest Party Line | `/opt/party-line/deploy/update.sh` |
+| Update right now (it also updates by itself, see below) | `/opt/party-line/deploy/update.sh` |
+| See what the automatic updates did | `tail /var/log/party-line-update.log` |
 | Make a backup right now | `/opt/party-line/deploy/backup.sh` |
 | Put a backup back | `/opt/party-line/deploy/backup.sh restore /opt/party-line/deploy/backups/FILE.tgz` |
 | See what the server is doing | `cd /opt/party-line/deploy && docker compose logs -f --tail 100` |
 | Restart it | `cd /opt/party-line/deploy && docker compose restart` |
 | Change the group password | edit `/opt/party-line/deploy/.env`, then run `docker compose up -d` in that folder |
+
+**Updates install by themselves.** Every 10 minutes the server checks GitHub for a newer Party Line and installs it, but only while nobody is in voice, so calls aren't cut off. (If people stay in voice for 12 hours straight, it updates anyway; everyone reconnects within seconds.) To turn this off, add the line `AUTO_UPDATE=0` to `/opt/party-line/deploy/.env`.
 
 **Backups happen by themselves every night at 4:17** (server time). The newest 7 are kept in `/opt/party-line/deploy/backups/`. They live on the same server, so for real safety also turn on your provider's backup option (about €1 a month on Hetzner), or now and then copy the newest file to your own computer:
 ```

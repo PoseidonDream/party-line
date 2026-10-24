@@ -48,6 +48,8 @@ echo "== Nightly backups at 4:17 (keeps the last 7) =="
 cat > /etc/cron.d/party-line-backup <<CRON
 17 4 * * * root $DIR/deploy/backup.sh >> /var/log/party-line-backup.log 2>&1
 CRON
+echo "== Automatic updates (every 10 minutes, only while nobody is in voice) =="
+echo "*/10 * * * * root $DIR/deploy/auto-update.sh >> /var/log/party-line-update.log 2>&1" > /etc/cron.d/party-line-update
 . ./.env
 echo
 echo "Done! Open https://$DOMAIN in a minute or two."

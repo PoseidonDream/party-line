@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import { config } from './config.js';
 import * as M from './model.js';
-import { attachHub, hub, voiceChannelOf } from './hub.js';
+import { attachHub, hub, voiceChannelOf, voiceCount } from './hub.js';
 
 M.ensureDefaultServer();
 M.syncAdmins();
@@ -42,6 +42,13 @@ const wrap = (fn) => (req, res) => {
 };
 
 app.get('/api/info', wrap(() => ({ name: 'Party Line', needsGroupPassword: !!config.groupPassword, version: 1 })));
+/* For the auto-updater on the server itself (deploy/auto-update.sh): how many people are in voice right now.
+   Only answers requests from inside the machine; through Caddy the request comes from another address. */
+app.get('/api/local/voice-count', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(404).end();
+  res.json({ inVoice: voiceCount() });
+});
 app.post('/api/register', throttle, wrap((req) => {
   const { name, password, groupPassword } = req.body || {};
   const r = M.register(name, password, groupPassword);
