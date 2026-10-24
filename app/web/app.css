@@ -531,7 +531,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .chan-del { position: absolute; right: 4px; top: 5px; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: var(--panel-2); color: var(--danger); opacity: 0; }
 .chan-list li:hover > .chan-del, .chan-del:focus-visible { opacity: 1; }
 .chan-del .ic { width: 14px; height: 14px; }
-@media (hover: none) { .chan-del { opacity: .75; } }
+/* Touch screens: only the channel you're in shows its delete button, so it's hard to hit by accident. */
+@media (hover: none) { .chan-del { opacity: 0; pointer-events: none; } .chan-list li:has(> .chan[aria-current="true"]) > .chan-del { opacity: .75; pointer-events: auto; } }
 .count-pill { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 #feedback { width: min(600px, calc(100% - 32px)); }
 .fb-form { display: grid; gap: 14px; }

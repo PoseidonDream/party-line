@@ -62,6 +62,11 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # Signing settings that aren't set up arrive as empty strings; electron-builder would treat
+          # an empty CSC_LINK as a key file path, so drop them.
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID AZURE_TENANT_ID AZURE_CLIENT_ID AZURE_CLIENT_SECRET; do
+            [ -n "${!v}" ] || unset "$v"
+          done
           if ! npx electron-builder --publish never 2>&1 | tee build.log; then
             # Show the end of the log as annotations, so the reason is visible on the run's summary page.
             echo "::error title=Build failed::$(grep -vE '^\s+at ' build.log | tail -15 | awk '{sub(/\r$/,""); gsub(/%/,"%25"); printf "%s%%0A", $0}')"
