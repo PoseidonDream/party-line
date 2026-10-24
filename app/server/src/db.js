@@ -105,6 +105,7 @@ if (!columns('messages').includes('embeds')) db.exec('ALTER TABLE messages ADD C
 for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom_status', 'TEXT'], ['bio', 'TEXT'], ['banner', 'TEXT']]) {
   if (!columns('users').includes(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
 }
+if (!columns('channels').includes('topic')) db.exec('ALTER TABLE channels ADD COLUMN topic TEXT; ALTER TABLE channels ADD COLUMN category_id INTEGER;');
 if (!columns('users').includes('is_bot')) db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (
@@ -132,6 +133,26 @@ CREATE TABLE IF NOT EXISTS event_rsvps (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   state TEXT NOT NULL,
   PRIMARY KEY (event_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS categories (
+  id INTEGER PRIMARY KEY,
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS roles (
+  id INTEGER PRIMARY KEY,
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  perms INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS member_roles (
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, role_id)
 );
 CREATE TABLE IF NOT EXISTS sounds (
   id INTEGER PRIMARY KEY,

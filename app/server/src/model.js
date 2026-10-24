@@ -153,13 +153,84 @@ export const getServer = (id) => one('SELECT * FROM servers WHERE id = ?', id);
 export const serverByInvite = (code) => one('SELECT * FROM servers WHERE invite = ?', String(code || '').trim());
 export const isMember = (userId, serverId) => !!one('SELECT 1 AS x FROM members WHERE server_id = ? AND user_id = ?', serverId, userId);
 export const joinServer = (userId, serverId) => run('INSERT OR IGNORE INTO members (server_id, user_id, joined_at) VALUES (?, ?, ?)', serverId, userId, now());
-export const leaveServer = (userId, serverId) => run('DELETE FROM members WHERE server_id = ? AND user_id = ?', serverId, userId);
+export function leaveServer(userId, serverId) {
+  run('DELETE FROM members WHERE server_id = ? AND user_id = ?', serverId, userId);
+  run('DELETE FROM member_roles WHERE server_id = ? AND user_id = ?', serverId, userId);
+}
 export const memberIds = (serverId) => all('SELECT user_id FROM members WHERE server_id = ?', serverId).map((r) => r.user_id);
 export const serverIdsOf = (userId) => all('SELECT server_id FROM members WHERE user_id = ?', userId).map((r) => r.server_id);
 export const getChannel = (id) => one('SELECT * FROM channels WHERE id = ?', id);
 export const deleteServer = (id) => run('DELETE FROM servers WHERE id = ?', id);
 export const renameServer = (id, name) => run('UPDATE servers SET name = ? WHERE id = ?', name, id);
 export function canManage(user, server) { return !!user.is_admin || (server && server.owner_id === user.id); }
+/* Roles give members some of the owner's powers. The owner and global admins can always do everything. */
+export const PERMS = { channels: 1, messages: 2, voice: 4, kick: 8, server: 16 };
+export function can(user, server, perm) {
+  if (!user || !server) return false;
+  if (canManage(user, server)) return true;
+  const r = one('SELECT COALESCE(SUM(DISTINCT r.perms & ?), 0) AS p FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.user_id = ? AND mr.server_id = ?', PERMS[perm], user.id, server.id);
+  return !!r.p;
+}
+const permList = (bits) => Object.keys(PERMS).filter((k) => bits & PERMS[k]);
+const permBits = (list) => (Array.isArray(list) ? list : []).reduce((a, k) => a | (PERMS[k] || 0), 0);
+const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '')) ? String(c) : null);
+export function createRole(serverId, d) {
+  const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  if (!name) fail('Give the role a name.');
+  if (one('SELECT COUNT(*) AS n FROM roles WHERE server_id = ?', serverId).n >= 20) fail('A server can have up to 20 roles.');
+  const pos = (one('SELECT MAX(position) AS p FROM roles WHERE server_id = ?', serverId).p ?? -1) + 1;
+  return Number(run('INSERT INTO roles (server_id, name, color, position, perms) VALUES (?, ?, ?, ?, ?)', serverId, name, cleanColor(d.color), pos, permBits(d.perms)).lastInsertRowid);
+}
+export const getRole = (id) => one('SELECT * FROM roles WHERE id = ?', id);
+export function editRole(id, d) {
+  const r = getRole(id);
+  const name = d.name !== undefined ? String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 24) : r.name;
+  if (!name) fail('Give the role a name.');
+  run('UPDATE roles SET name = ?, color = ?, perms = ? WHERE id = ?', name, d.color !== undefined ? cleanColor(d.color) : r.color, d.perms !== undefined ? permBits(d.perms) : r.perms, id);
+}
+export const deleteRole = (id) => run('DELETE FROM roles WHERE id = ?', id);
+export function assignRole(serverId, userId, roleId, on) {
+  if (!isMember(userId, serverId)) fail('They’re not in this server.');
+  if (on) run('INSERT OR IGNORE INTO member_roles (server_id, user_id, role_id) VALUES (?, ?, ?)', serverId, userId, roleId);
+  else run('DELETE FROM member_roles WHERE user_id = ? AND role_id = ?', userId, roleId);
+}
+
+/* ---------- categories, topics and channel order ---------- */
+export function createCategory(serverId, name) {
+  name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 32);
+  if (!name) fail('Give the category a name.');
+  if (one('SELECT COUNT(*) AS n FROM categories WHERE server_id = ?', serverId).n >= 20) fail('A server can have up to 20 categories.');
+  const pos = (one('SELECT MAX(position) AS p FROM categories WHERE server_id = ?', serverId).p ?? -1) + 1;
+  return Number(run('INSERT INTO categories (server_id, name, position) VALUES (?, ?, ?)', serverId, name, pos).lastInsertRowid);
+}
+export const getCategory = (id) => one('SELECT * FROM categories WHERE id = ?', id);
+export function renameCategory(id, name) {
+  name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 32);
+  if (!name) fail('Give the category a name.');
+  run('UPDATE categories SET name = ? WHERE id = ?', name, id);
+}
+export function deleteCategory(id) {
+  run('UPDATE channels SET category_id = NULL WHERE category_id = ?', id);
+  run('DELETE FROM categories WHERE id = ?', id);
+}
+export function editChannel(id, d) {
+  const ch = getChannel(id);
+  if (d.name !== undefined) { const name = cleanChannel(d.name, ch.kind); if (!name) fail('Give the channel a name.'); run('UPDATE channels SET name = ? WHERE id = ?', name, id); }
+  if (d.topic !== undefined) run('UPDATE channels SET topic = ? WHERE id = ?', String(d.topic || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200) || null, id);
+}
+/* Moves a channel before another one (or to the end) and into a category (or none). */
+export function moveChannel(id, categoryId, beforeId) {
+  const ch = getChannel(id);
+  const cat = categoryId ? getCategory(Number(categoryId)) : null;
+  if (categoryId && (!cat || cat.server_id !== ch.server_id)) fail('That category is gone.');
+  const list = all('SELECT id FROM channels WHERE server_id = ? AND id != ? ORDER BY position, id', ch.server_id, id).map((r) => r.id);
+  const at = beforeId ? list.indexOf(Number(beforeId)) : -1;
+  list.splice(at < 0 ? list.length : at, 0, id);
+  tx(() => {
+    list.forEach((cid, i) => run('UPDATE channels SET position = ? WHERE id = ?', i, cid));
+    run('UPDATE channels SET category_id = ? WHERE id = ?', cat ? cat.id : null, id);
+  });
+}
 
 export function createChannel(serverId, kind, name) {
   if (kind !== 'text' && kind !== 'voice') fail('Unknown channel type.');
@@ -172,7 +243,7 @@ export function createChannel(serverId, kind, name) {
   return getChannel(id);
 }
 export const deleteChannel = (id) => run('DELETE FROM channels WHERE id = ?', id);
-const publicChannel = (c) => ({ id: c.id, serverId: c.server_id, kind: c.kind, name: c.name, position: c.position });
+const publicChannel = (c) => ({ id: c.id, serverId: c.server_id, kind: c.kind, name: c.name, position: c.position, topic: c.topic || '', categoryId: c.category_id || null });
 
 export function serverView(serverId, viewerId) {
   const s = getServer(serverId);
@@ -184,7 +255,11 @@ export function serverView(serverId, viewerId) {
     c.unread = unreadCount(viewerId, `c:${c.id}`, 'channel_id', c.id);
     c.mentions = c.unread ? mentionCount(viewerId, `c:${c.id}`, c.id) : 0;
   }
-  return { id: s.id, name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId) };
+  const roles = all('SELECT * FROM roles WHERE server_id = ? ORDER BY position, id', serverId).map((r) => ({ id: r.id, name: r.name, color: r.color, position: r.position, perms: permList(r.perms) }));
+  const memberRoles = {};
+  for (const r of all('SELECT user_id, role_id FROM member_roles WHERE server_id = ?', serverId)) (memberRoles[r.user_id] ||= []).push(r.role_id);
+  const categories = all('SELECT id, name, position FROM categories WHERE server_id = ? ORDER BY position, id', serverId);
+  return { id: s.id, name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories };
 }
 
 /* ---------- messages ---------- */

@@ -87,6 +87,10 @@ const botHost = {
 };
 Bot.initBot(botHost);
 
+/* Channels, categories or roles changed: everyone in the server gets its fresh view (unread counts are per person). */
+function refreshServer(serverId) {
+  for (const id of M.memberIds(serverId)) if (online(id)) toUser(id, { t: 'server', server: M.serverView(serverId, id) });
+}
 const shareEvents = (serverId) => toServer(serverId, { t: 'events', serverId, events: M.eventsOf(serverId) });
 /* 15 minutes before an event: Party Bot pings everyone going. */
 setInterval(() => {
@@ -171,7 +175,7 @@ const handlers = {
     const m = M.getMessage(Number(d.id));
     if (!m) return {};
     let ok = m.user_id === user.id || !!user.is_admin;
-    if (!ok && m.channel_id) ok = M.canManage(user, M.getServer(M.getChannel(m.channel_id).server_id));
+    if (!ok && m.channel_id) ok = M.can(user, M.getServer(M.getChannel(m.channel_id).server_id), 'messages');
     if (!ok) fail('You can only delete your own messages.');
     M.deleteMessage(m.id);
     broadcastAbout(m, { t: 'msg.del', id: m.id, channelId: m.channel_id, dmId: m.dm_id });
@@ -237,7 +241,7 @@ const handlers = {
   },
   'server.rename'(c, user, d) {
     const s = M.getServer(Number(d.id));
-    if (!s || !M.canManage(user, s)) fail('Only the server’s owner can rename it.');
+    if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission to rename it.');
     const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     if (!name) fail('Give the server a name.');
     M.renameServer(s.id, name);
@@ -264,10 +268,76 @@ const handlers = {
   'chan.delete'(c, user, d) {
     const ch = M.getChannel(Number(d.id));
     if (!ch) return {};
-    if (!M.canManage(user, M.getServer(ch.server_id))) fail('Only an admin or the server’s owner can delete channels.');
+    if (!M.can(user, M.getServer(ch.server_id), 'channels')) fail('You need the Manage channels permission to delete channels.');
     for (const [uid, v] of voice) if (v.channelId === ch.id) leaveVoice(uid, 'deleted');
     M.deleteChannel(ch.id);
     toServer(ch.server_id, { t: 'chan.del', id: ch.id, serverId: ch.server_id });
+    return {};
+  },
+
+  'chan.edit'(c, user, d) {
+    const ch = M.getChannel(Number(d.id));
+    if (!ch || !M.can(user, M.getServer(ch.server_id), 'channels')) fail('You need the Manage channels permission.');
+    M.editChannel(ch.id, d);
+    refreshServer(ch.server_id);
+    return {};
+  },
+  'chan.move'(c, user, d) {
+    const ch = M.getChannel(Number(d.id));
+    if (!ch || !M.can(user, M.getServer(ch.server_id), 'channels')) fail('You need the Manage channels permission.');
+    M.moveChannel(ch.id, d.categoryId || null, d.beforeId || null);
+    refreshServer(ch.server_id);
+    return {};
+  },
+  'cat.create'(c, user, d) {
+    const s = M.getServer(Number(d.serverId));
+    if (!s || !M.can(user, s, 'channels')) fail('You need the Manage channels permission.');
+    const id = M.createCategory(s.id, d.name);
+    refreshServer(s.id);
+    return { id };
+  },
+  'cat.rename'(c, user, d) {
+    const cat = M.getCategory(Number(d.id));
+    if (!cat || !M.can(user, M.getServer(cat.server_id), 'channels')) fail('You need the Manage channels permission.');
+    M.renameCategory(cat.id, d.name);
+    refreshServer(cat.server_id);
+    return {};
+  },
+  'cat.delete'(c, user, d) {
+    const cat = M.getCategory(Number(d.id));
+    if (!cat || !M.can(user, M.getServer(cat.server_id), 'channels')) fail('You need the Manage channels permission.');
+    M.deleteCategory(cat.id);
+    refreshServer(cat.server_id);
+    return {};
+  },
+
+  /* ---- roles ---- */
+  'role.create'(c, user, d) {
+    const s = M.getServer(Number(d.serverId));
+    if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission.');
+    const id = M.createRole(s.id, d);
+    refreshServer(s.id);
+    return { id };
+  },
+  'role.edit'(c, user, d) {
+    const r = M.getRole(Number(d.id));
+    if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    M.editRole(r.id, d);
+    refreshServer(r.server_id);
+    return {};
+  },
+  'role.delete'(c, user, d) {
+    const r = M.getRole(Number(d.id));
+    if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    M.deleteRole(r.id);
+    refreshServer(r.server_id);
+    return {};
+  },
+  'role.assign'(c, user, d) {
+    const r = M.getRole(Number(d.roleId));
+    if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    M.assignRole(r.server_id, Number(d.userId), r.id, !!d.on);
+    refreshServer(r.server_id);
     return {};
   },
 
@@ -332,7 +402,7 @@ const handlers = {
   'sound.delete'(c, user, d) {
     const snd = M.getSound(Number(d.id));
     if (!snd) return {};
-    if (snd.user_id !== user.id && !M.canManage(user, M.getServer(snd.server_id))) fail('Only whoever added the sound (or an admin) can remove it.');
+    if (snd.user_id !== user.id && !M.can(user, M.getServer(snd.server_id), 'messages')) fail('Only whoever added the sound (or a moderator) can remove it.');
     M.deleteSound(snd.id);
     toServer(snd.server_id, { t: 'sounds', serverId: snd.server_id, sounds: M.soundsOf(snd.server_id) });
     return {};
@@ -372,7 +442,7 @@ const handlers = {
   'event.delete'(c, user, d) {
     const e = M.getEvent(Number(d.id));
     if (!e) return {};
-    if (e.creator_id !== user.id && !M.canManage(user, M.getServer(e.server_id))) fail('Only whoever made the event (or an admin) can cancel it.');
+    if (e.creator_id !== user.id && !M.can(user, M.getServer(e.server_id), 'messages')) fail('Only whoever made the event (or a moderator) can cancel it.');
     M.deleteEvent(e.id);
     shareEvents(e.server_id);
     if (e.announce_channel_id && e.starts_at > Date.now()) botHost.post({ channelId: e.announce_channel_id }, `🚫 **${e.title}** was cancelled by **${user.name}**.`);
@@ -405,21 +475,21 @@ const handlers = {
   'admin.voiceKick'(c, user, d) {
     const v = voice.get(Number(d.userId));
     if (!v) return {};
-    if (!M.canManage(user, M.getServer(v.serverId))) fail('Admins only.');
+    if (!M.can(user, M.getServer(v.serverId), 'voice')) fail('You need the Moderate voice permission.');
     leaveVoice(Number(d.userId), 'admin');
     return {};
   },
   'admin.mute'(c, user, d) {
     const v = voice.get(Number(d.userId));
     if (!v) return {};
-    if (!M.canManage(user, M.getServer(v.serverId))) fail('Admins only.');
+    if (!M.can(user, M.getServer(v.serverId), 'voice')) fail('You need the Moderate voice permission.');
     v.serverMuted = !!d.on;
     toServer(v.serverId, { t: 'voice', state: voiceView(Number(d.userId), v) });
     return {};
   },
   'admin.kick'(c, user, d) {
     const s = M.getServer(Number(d.serverId));
-    if (!s || !M.canManage(user, s)) fail('Admins only.');
+    if (!s || !M.can(user, s, 'kick')) fail('You need the Remove members permission.');
     if (Number(d.userId) === user.id) fail('That’s you.');
     removeFromServer(Number(d.userId), s.id, 'kicked');
     return {};

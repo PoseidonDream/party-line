@@ -48,6 +48,11 @@ const addCrown = (el, id) => {
 };
 const curServer = () => (S.view.serverId ? S.servers.get(S.view.serverId) : null);
 const canManage = (srv) => !!S.me && (S.me.admin || (srv && srv.ownerId === S.me.id));
+/* What my roles let me do in a server: channels, messages, voice, kick, server. */
+const can = (srv, perm) => canManage(srv) || !!(srv && S.me && (srv.memberRoles && srv.memberRoles[S.me.id] || []).some((rid) => (srv.roles || []).some((r) => r.id === rid && r.perms.includes(perm))));
+const rolesOf = (srv, userId) => (srv && srv.roles ? srv.roles.filter((r) => (srv.memberRoles[userId] || []).includes(r.id)).sort((a, b) => b.position - a.position) : []);
+/* A name's color: the highest role that has one. */
+const roleColor = (srv, userId) => { const r = rolesOf(srv, userId).find((x) => x.color); return r ? r.color : null; };
 const msgKey = () => (S.view.kind === 'text' ? `c:${S.view.channelId}` : S.view.kind === 'dm' ? `d:${S.view.userId}` : null);
 const isTyping = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
 const voiceIn = (channelId) => [...S.voice.values()].filter((v) => v.channelId === channelId).sort((a, b) => a.since - b.since);
@@ -211,6 +216,8 @@ live.on('server', (d) => {
   S.servers.set(d.server.id, d.server);
   for (const v of d.voice || []) S.voice.set(v.userId, v);
   renderAll();
+  if (S.view.serverId === d.server.id) rerenderMessagesSoft();   // role colors and delete buttons may have changed
+  if ($('#rolesDlg').open) renderRoles();
 });
 live.on('server.gone', (d) => {
   const s = S.servers.get(d.id);
@@ -464,9 +471,31 @@ function renderSide() {
   const s = curServer();
   if (!s) return;
   $('#serverName').textContent = s.name;
-  const tl = $('#textList'), vl = $('#voiceList');
-  tl.textContent = ''; vl.textContent = '';
-  const manage = canManage(s);
+  const tl = $('#textList'), vl = $('#voiceList'), cl = $('#catList');
+  tl.textContent = ''; vl.textContent = ''; cl.textContent = '';
+  const manage = can(s, 'channels');
+  // Custom categories, each holding text and voice channels.
+  const catLists = new Map();
+  for (const cat of s.categories || []) {
+    const sec = document.createElement('section'); sec.className = 'cat custom-cat'; sec.dataset.cat = cat.id;
+    const head = document.createElement('div'); head.className = 'cat-head';
+    const tg = document.createElement('button'); tg.type = 'button'; tg.className = 'cat-toggle'; tg.setAttribute('aria-expanded', String(!S.collapsed?.has(cat.id)));
+    tg.innerHTML = iconSvg('chevron'); tg.appendChild(document.createTextNode(cat.name));
+    tg.addEventListener('click', () => { S.collapsed ||= new Set(); S.collapsed.has(cat.id) ? S.collapsed.delete(cat.id) : S.collapsed.add(cat.id); renderSide(); });
+    head.appendChild(tg);
+    if (manage) {
+      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'cat-add'; ed.title = `Edit ${cat.name}`; ed.setAttribute('aria-label', ed.title); ed.innerHTML = iconSvg('gear');
+      ed.addEventListener('click', () => editCategory(cat));
+      head.appendChild(ed);
+    }
+    sec.appendChild(head);
+    const ul = document.createElement('ul'); ul.className = 'chan-list'; ul.hidden = !!S.collapsed?.has(cat.id);
+    sec.appendChild(ul); cl.appendChild(sec);
+    catLists.set(cat.id, ul);
+    if (manage) dropTarget(head, () => ({ categoryId: cat.id, beforeId: null }));
+  }
+  if (manage) { dropTarget(tl.parentElement.querySelector('.cat-head'), () => ({ categoryId: null, beforeId: null })); dropTarget(vl.parentElement.querySelector('.cat-head'), () => ({ categoryId: null, beforeId: null })); }
+  const listFor = (c) => (c.categoryId && catLists.get(c.categoryId)) || (c.kind === 'text' ? tl : vl);
   for (const c of [...s.channels].sort((a, b) => a.position - b.position || a.id - b.id)) {
     const li = document.createElement('li');
     const b = document.createElement('button');
@@ -480,7 +509,7 @@ function renderSide() {
       if (c.mentions && !current) { const bd = document.createElement('span'); bd.className = 'chan-badge'; bd.title = 'Mentions of you'; bd.textContent = c.mentions > 99 ? '99+' : c.mentions; b.appendChild(bd); }
       b.addEventListener('click', () => setView({ kind: 'text', serverId: s.id, channelId: c.id }));
       li.appendChild(b);
-      tl.appendChild(li);
+      listFor(c).appendChild(li);
     } else {
       const people = voiceIn(c.id);
       if (V.channelId === c.id) b.classList.add('in-voice');
@@ -500,6 +529,7 @@ function renderSide() {
           mb.dataset.uid = p.userId;
           mb.appendChild(avEl(p.userId));
           const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = nameOf(p.userId); addCrown(nm, p.userId); mb.appendChild(nm);
+          const rc = roleColor(s, p.userId); if (rc) nm.style.color = rc;
           if (p.sharing) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; mb.appendChild(l); }
           if (p.deafened) mb.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
           else if (p.muted || p.serverMuted) mb.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
@@ -508,9 +538,18 @@ function renderSide() {
         }
         li.appendChild(ul);
       }
-      vl.appendChild(li);
+      listFor(c).appendChild(li);
     }
     if (manage) {
+      li.draggable = true; li.dataset.cid = c.id;
+      li.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-chan', String(c.id)); e.dataTransfer.effectAllowed = 'move'; li.classList.add('dragging'); });
+      li.addEventListener('dragend', () => li.classList.remove('dragging'));
+      dropTarget(li, () => ({ categoryId: c.categoryId || null, beforeId: c.id }));
+      const gear = document.createElement('button');
+      gear.type = 'button'; gear.className = 'chan-del chan-gear'; gear.title = `Edit ${c.name}`; gear.setAttribute('aria-label', gear.title);
+      gear.innerHTML = iconSvg('gear');
+      gear.addEventListener('click', (e) => { e.stopPropagation(); editChannel(c); });
+      li.appendChild(gear);
       const del = document.createElement('button');
       del.type = 'button'; del.className = 'chan-del'; del.title = `Delete ${c.name}`; del.setAttribute('aria-label', `Delete ${c.name}`);
       del.innerHTML = iconSvg('trash');
@@ -521,9 +560,11 @@ function renderSide() {
       li.appendChild(del);
     }
   }
-  $('#mRename').hidden = !manage;
+  $('#mRename').hidden = !can(s, 'server');
+  $('#mRoles').hidden = !can(s, 'server') && !(s.roles || []).length;
+  $('#mCategory').hidden = !manage;
   $('#mDev').hidden = !S.me.admin;
-  $('#mDelete').hidden = !manage || s.isDefault;
+  $('#mDelete').hidden = !canManage(s) || s.isDefault;
 }
 function renderHomeSide() {
   $('#navFriends').setAttribute('aria-current', String(S.view.kind === 'friends'));
@@ -578,7 +619,8 @@ function renderHeader() {
     if (!f) return;
     if (v.kind === 'text') icon.textContent = '#'; else icon.innerHTML = iconSvg('volume');
     $('#viewTitle').textContent = f.channel.name;
-    $('#viewSub').textContent = f.server.name;
+    $('#viewSub').textContent = f.channel.topic || f.server.name;
+    $('#viewSub').title = f.channel.topic || '';
   }
 }
 function renderMainView() {
@@ -683,6 +725,8 @@ function messageEl(msg, prev) {
   li.appendChild(av);
   const head = document.createElement('div'); head.className = 'msg-head';
   const nm = document.createElement('span'); nm.className = 'msg-name'; nm.style.setProperty('--h', hue(nameOf(msg.userId))); nm.textContent = nameOf(msg.userId);
+  const rc = msg.channelId && roleColor((findChannel(msg.channelId) || {}).server, msg.userId);
+  if (rc) nm.style.color = rc;
   addCrown(nm, msg.userId);
   head.appendChild(nm);
   if (msg.pinned) { const p = document.createElement('span'); p.className = 'msg-pinned'; p.title = `Pinned by ${nameOf(msg.pinned.by)}`; p.innerHTML = iconSvg('pin'); head.appendChild(p); }
@@ -710,7 +754,7 @@ function messageEl(msg, prev) {
   tool('reply', 'Reply', () => startReply(msg));
   if (mine && msg.body) tool('pencil', 'Edit', () => editMessage(li, msg));
   tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
-  if (mine || S.me.admin || (srv && canManage(srv))) {
+  if (mine || S.me.admin || (srv && can(srv, 'messages'))) {
     tool('trash', 'Delete', async (ev) => {
       if (ev.shiftKey || await confirmBox('Delete this message?', 'It’s removed for everyone. Hold Shift while clicking to skip this question.')) act(() => live.req('msg.delete', { id: msg.id }));
     }, 'del');
@@ -1530,14 +1574,14 @@ function openUserPop(id, anchor) {
   fb.disabled = fs === 'outgoing';
   fb.lastChild.textContent = fs === 'incoming' ? 'Accept request' : fs === 'outgoing' ? 'Request sent' : 'Add friend';
   const srv = S.popServer && S.servers.get(S.popServer);
-  const srvAdmin = !isMe && srv && canManage(srv);
-  const admin = !isBot && (srvAdmin || (!isMe && S.me.admin));
+  const canVoice = !isMe && srv && can(srv, 'voice'), canKick = !isMe && srv && can(srv, 'kick');
+  const admin = !isBot && (canVoice || canKick || (!isMe && S.me.admin));
   $('#popAdmin').hidden = !admin;
   if (admin) {
-    const inSrvVoice = srvAdmin && vst && srv.channels.some((c) => c.id === vst.channelId);
+    const inSrvVoice = canVoice && vst && srv.channels.some((c) => c.id === vst.channelId);
     $('#admVoiceKick').hidden = !inSrvVoice; $('#admMute').hidden = !inSrvVoice;
     $('#admMute').textContent = vst && vst.serverMuted ? 'Unmute for everyone' : 'Mute for everyone';
-    $('#admKick').hidden = !srvAdmin || (srv.isDefault && !S.me.admin);
+    $('#admKick').hidden = !canKick || (srv.isDefault && !S.me.admin);
     $('#admReset').hidden = !S.me.admin;
   }
   pop.hidden = false;
@@ -1559,6 +1603,9 @@ function fillUserPop(id) {
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
   $('#popActivity').hidden = !(u.online && u.activity); $('#popActivity').textContent = u.activity ? `🎮 Playing ${u.activity}` : '';
   $('#popBioBox').hidden = !u.bio; $('#popBio').textContent = u.bio || '';
+  const srv = S.popServer && S.servers.get(S.popServer), roles = rolesOf(srv, id), box = $('#popRoles');
+  box.textContent = ''; box.hidden = !roles.length;
+  for (const r of roles) { const chip = document.createElement('span'); chip.className = 'role-chip'; chip.style.setProperty('--rc', r.color || 'var(--dim)'); chip.textContent = r.name; box.appendChild(chip); }
   const pop = $('#userPop');   // keep it on screen if it grew
   if (!pop.hidden) { const r = pop.getBoundingClientRect(); if (r.bottom > innerHeight - 8) pop.style.top = `${Math.max(8, innerHeight - r.height - 8)}px`; }
 }
@@ -1919,6 +1966,114 @@ $('#fbForm').addEventListener('submit', async (e) => {
   $('#fbSend').disabled = false;
 });
 
+/* ================= channels: settings, categories, drag and drop ================= */
+function dropTarget(el, where) {
+  el.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('text/x-chan')) { e.preventDefault(); el.classList.add('drop-here'); } });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-here'));
+  el.addEventListener('drop', (e) => {
+    el.classList.remove('drop-here');
+    const id = Number(e.dataTransfer.getData('text/x-chan'));
+    if (!id) return;
+    e.preventDefault(); e.stopPropagation();
+    const w = where();
+    if (w.beforeId === id) return;
+    act(() => live.req('chan.move', Object.assign({ id }, w)));
+  });
+}
+let editingChan = null;
+function editChannel(c) {
+  editingChan = c;
+  $('#chTitle').textContent = `${c.kind === 'text' ? '#' : '🔊 '}${c.name}`;
+  $('#chName').value = c.name; $('#chTopic').value = c.topic || '';
+  $('#chanDlg').showModal();
+}
+$('#chanForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const r = await act(() => live.req('chan.edit', { id: editingChan.id, name: $('#chName').value, topic: $('#chTopic').value }), 'Channel saved.');
+  if (r) $('#chanDlg').close();
+});
+async function editCategory(cat) {
+  const name = await confirmBox('Edit category', 'Rename it, or clear the name and press Save to delete it (its channels stay).', 'Save', cat.name);
+  if (name === false) return;
+  if (!name.trim()) act(() => live.req('cat.delete', { id: cat.id }));
+  else if (name.trim() !== cat.name) act(() => live.req('cat.rename', { id: cat.id, name: name.trim() }));
+}
+$('#mCategory').addEventListener('click', async () => {
+  closeMenu();
+  const name = await confirmBox('Create category', 'Group channels under a heading, like “🎮 Games”. Drag channels into it afterwards.', 'Create', '');
+  if (name && name.trim()) act(() => live.req('cat.create', { serverId: curServer().id, name: name.trim() }));
+});
+
+/* ================= roles ================= */
+const PERM_TEXT = { channels: ['Manage channels', 'Create categories, edit, reorder and delete channels'], messages: ['Moderate messages', 'Delete anyone’s messages, sounds and events'],
+  voice: ['Moderate voice', 'Mute people for everyone, disconnect them from voice'], kick: ['Remove members', 'Remove people from the server'], server: ['Manage server', 'Rename the server and manage roles'] };
+const ROLE_COLORS = ['', '#e8a33d', '#d9534f', '#d63384', '#8e5cd9', '#3d7be8', '#1aa3a3', '#3b9d4a', '#9aa0a6'];
+let editingRole = null, roleDraft = null;
+function openRoles() { closeMenu(); editingRole = null; renderRoles(); $('#rolesDlg').showModal(); }
+$('#mRoles').addEventListener('click', openRoles);
+function renderRoles() {
+  const s = curServer(); if (!s) return;
+  const mayEdit = can(s, 'server');
+  $('#rlTitle').textContent = `Roles in ${s.name}`;
+  $('#roleNew').hidden = !mayEdit;
+  const ul = $('#rolesList'); ul.textContent = '';
+  for (const r of [...(s.roles || [])].sort((a, b) => b.position - a.position)) {
+    const li = document.createElement('li');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'role-item' + (editingRole === r.id ? ' on' : '');
+    b.innerHTML = '<span class="role-dot"></span>'; b.firstChild.style.background = r.color || 'var(--dim)';
+    b.appendChild(document.createTextNode(`${r.name} (${Object.values(s.memberRoles || {}).filter((x) => x.includes(r.id)).length})`));
+    b.addEventListener('click', () => { editingRole = r.id; renderRoles(); });
+    li.appendChild(b); ul.appendChild(li);
+  }
+  if (!(s.roles || []).length) ul.innerHTML = '<li class="hint">No roles yet.</li>';
+  const r = (s.roles || []).find((x) => x.id === editingRole);
+  $('#roleForm').hidden = !r;
+  if (!r) return;
+  // Unsaved changes live in roleDraft, so redrawing (a color click, someone else's change) keeps them.
+  if (!roleDraft || roleDraft.id !== r.id) roleDraft = { id: r.id, name: r.name, color: r.color || '', perms: [...r.perms] };
+  $('#roleName').value = roleDraft.name; $('#roleName').disabled = !mayEdit;
+  const sw = $('#roleColors'); sw.textContent = '';
+  for (const c of ROLE_COLORS) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch' + (c ? '' : ' auto'); b.disabled = !mayEdit;
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(c === roleDraft.color)); b.title = c || 'No color'; b.setAttribute('aria-label', b.title);
+    b.style.background = c || 'var(--panel-2)';
+    b.addEventListener('click', () => { roleDraft.color = c; renderRoles(); });
+    sw.appendChild(b);
+  }
+  const pl = $('#rolePerms'); pl.textContent = '';
+  for (const [k, [label, desc]] of Object.entries(PERM_TEXT)) {
+    const l = document.createElement('label'); l.className = 'check';
+    l.innerHTML = `<input type="checkbox" data-perm="${k}"><span><b></b><small></small></span>`;
+    l.querySelector('b').textContent = label; l.querySelector('small').textContent = desc;
+    const cb = l.querySelector('input'); cb.checked = roleDraft.perms.includes(k); cb.disabled = !mayEdit;
+    cb.addEventListener('change', () => { roleDraft.perms = cb.checked ? [...new Set([...roleDraft.perms, k])] : roleDraft.perms.filter((x) => x !== k); });
+    pl.appendChild(l);
+  }
+  const ml = $('#roleMembers'); ml.textContent = '';
+  for (const uid of s.members.filter((id) => !user(id).bot).sort((a, b) => nameOf(a).localeCompare(nameOf(b)))) {
+    const l = document.createElement('label'); l.className = 'role-member';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = (s.memberRoles[uid] || []).includes(r.id); cb.disabled = !mayEdit;
+    cb.addEventListener('change', () => act(() => live.req('role.assign', { roleId: r.id, userId: uid, on: cb.checked })));
+    l.appendChild(cb); l.appendChild(avEl(uid)); l.appendChild(document.createTextNode(nameOf(uid)));
+    ml.appendChild(l);
+  }
+  $('#roleDelete').hidden = !mayEdit;
+  $('#roleForm').querySelector('button[type=submit]').hidden = !mayEdit;
+}
+$('#roleNew').addEventListener('click', async () => {
+  const r = await act(() => live.req('role.create', { serverId: curServer().id, name: 'New role', color: '#3d7be8', perms: [] }));
+  if (r) { editingRole = r.id; roleDraft = null; renderRoles(); $('#roleName').select(); }
+});
+$('#roleName').addEventListener('input', () => { if (roleDraft) roleDraft.name = $('#roleName').value; });
+$('#roleForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  act(() => live.req('role.edit', { id: editingRole, name: roleDraft.name, color: roleDraft.color, perms: roleDraft.perms }), 'Role saved.');
+});
+$('#roleDelete').addEventListener('click', async () => {
+  const s = curServer(), r = (s.roles || []).find((x) => x.id === editingRole);
+  if (r && await confirmBox(`Delete the ${r.name} role?`, 'Everyone who has it loses it.', 'Delete')) { await act(() => live.req('role.delete', { id: r.id })); editingRole = null; renderRoles(); }
+});
+
 /* ================= soundboard ================= */
 function voiceServerId() { const f = V.channelId && findChannel(V.channelId); return f ? f.server.id : null; }
 function renderSoundboard() {
@@ -1936,7 +2091,7 @@ function renderSoundboard() {
   const play = (data) => live.req('sound.play', data).catch((ex) => toast(ex.message, 3000));
   for (const s of builtinSounds()) btn(s.emoji, s.name, () => play({ builtin: s.id }));
   for (const s of (sid && S.sounds.get(sid)) || []) {
-    const mayDelete = s.userId === S.me.id || (srv && canManage(srv));
+    const mayDelete = s.userId === S.me.id || (srv && can(srv, 'messages'));
     btn(s.emoji, s.name, () => play({ id: s.id }), mayDelete ? async () => { if (await confirmBox(`Remove ${s.name}?`, 'It’s removed from the soundboard for everyone in this server.', 'Remove')) act(() => live.req('sound.delete', { id: s.id })); } : null);
   }
 }
@@ -2020,7 +2175,7 @@ function renderEvents() {
     };
     rsvpBtn('going', 'Going'); rsvpBtn('maybe', 'Maybe');
     if (isNow && ch) { const j = document.createElement('button'); j.type = 'button'; j.className = 'btn small primary'; j.textContent = 'Join voice'; j.addEventListener('click', () => { $('#eventsDlg').close(); setView({ kind: 'voice', serverId: s.id, channelId: e.channelId }); if (V.channelId !== e.channelId) joinVoice(e.channelId); }); btns.appendChild(j); }
-    if (e.creatorId === S.me.id || canManage(s)) {
+    if (e.creatorId === S.me.id || can(s, 'messages')) {
       const x = document.createElement('button'); x.type = 'button'; x.className = 'link-btn danger'; x.textContent = 'Cancel event';
       x.addEventListener('click', async () => { if (await confirmBox(`Cancel ${e.title}?`, 'It’s removed for everyone, and Party Bot lets the server know.', 'Cancel event')) act(() => live.req('event.delete', { id: e.id })); });
       btns.appendChild(x);

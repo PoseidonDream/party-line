@@ -36,6 +36,9 @@
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
     <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
     <symbol id="i-soundboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M15 15.5v4l3-2z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
@@ -142,6 +145,8 @@
         <div class="menu" id="serverMenu" hidden>
           <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
           <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
+          <button type="button" id="mRoles"><svg class="ic"><use href="#i-shield"/></svg>Roles</button>
+          <button type="button" id="mCategory" hidden><svg class="ic"><use href="#i-folder"/></svg>Create category</button>
           <button type="button" id="mFeedback"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
           <button type="button" id="mSettings"><svg class="ic"><use href="#i-sliders"/></svg>Settings</button>
           <button type="button" id="mDev" hidden><svg class="ic"><use href="#i-code"/></svg>Developer</button>
@@ -167,6 +172,7 @@
           <form class="cat-new" id="newVoiceForm" hidden><label class="sr" for="newVoice">New voice channel name</label><input type="text" id="newVoice" maxlength="32" placeholder="New voice channel" autocomplete="off"></form>
           <ul class="chan-list" id="voiceList"></ul>
         </section>
+        <div id="catList"></div>
       </nav>
     </div>
   </aside>
@@ -405,6 +411,39 @@
 </dialog>
 
 <!-- ================= SETTINGS ================= -->
+<dialog id="chanDlg" aria-labelledby="chTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="chTitle">Channel settings</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <form class="set-body" id="chanForm">
+    <div class="field"><label class="flabel" for="chName">Name</label><input class="input" id="chName" maxlength="32" required></div>
+    <div class="field"><label class="flabel" for="chTopic">Topic</label><input class="input" id="chTopic" maxlength="200" placeholder="What this channel is for (shown at the top)"></div>
+    <div class="row-btns"><button type="submit" class="btn primary">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="rolesDlg" aria-labelledby="rlTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="rlTitle">Roles</h2><button class="btn icon-btn" value="close" aria-label="Close roles"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body roles-body">
+    <p class="hint">Roles give people some of the owner's powers, and color their names. The server's owner (and the Party Line admin) can always do everything.</p>
+    <div class="roles-wrap">
+      <div class="roles-side"><ul class="roles-list" id="rolesList"></ul><button type="button" class="btn small" id="roleNew"><svg class="ic"><use href="#i-plus"/></svg>New role</button></div>
+      <form class="role-edit" id="roleForm" hidden>
+        <div class="field"><label class="flabel" for="roleName">Role name</label><input class="input" id="roleName" maxlength="24" required></div>
+        <div class="flabel-sub">Color</div>
+        <div class="swatches" id="roleColors" role="radiogroup" aria-label="Role color"></div>
+        <div class="flabel-sub">People with this role can</div>
+        <div class="perm-list" id="rolePerms"></div>
+        <div class="flabel-sub">Who has it</div>
+        <div class="role-members" id="roleMembers"></div>
+        <div class="row-btns"><button type="button" class="link-btn danger" id="roleDelete">Delete role</button><button type="submit" class="btn primary">Save role</button></div>
+      </form>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="eventsDlg" aria-labelledby="evTitle">
   <form method="dialog">
     <div class="set-head">
@@ -559,6 +598,7 @@
   <p class="pop-custom" id="popCustom" hidden></p>
   <p class="pop-activity" id="popActivity" hidden></p>
   <div class="pop-bio" id="popBioBox" hidden><b>About me</b><p id="popBio"></p></div>
+  <div class="pop-roles" id="popRoles" hidden></div>
   <div class="level" id="popVolBox">
     <div class="level-head"><label for="volRange">Volume</label><output id="volOut" for="volRange">100%</output></div>
     <input type="range" id="volRange" min="0" max="150" step="1" list="volTicks">
