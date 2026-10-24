@@ -62,6 +62,15 @@ jobs:
         with:
           name: party-line-android
           path: app/mobile/dist/*.apk
+      - name: Add it to the newest release
+        # Started from the Actions tab: put the .apk next to the desktop installers on the Releases page.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null) || { echo "::warning::No release yet; build the desktop app first, or download the .apk from this run."; exit 0; }
+          cp dist/*.apk dist/Party-Line-android.apk
+          gh release upload "$tag" dist/Party-Line-android.apk --clobber -R "$GITHUB_REPOSITORY"
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/android-v')
         uses: softprops/action-gh-release@v2
