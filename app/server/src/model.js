@@ -188,6 +188,7 @@ const basicMessage = (m) => ({
   id: m.id, channelId: m.channel_id, dmId: m.dm_id, userId: m.user_id, body: m.body,
   attachments: m.attachments ? JSON.parse(m.attachments) : [], at: m.created_at, editedAt: m.edited_at,
   replyTo: m.reply_to || null, reply: null, reactions: [], pinned: m.pinned_at ? { at: m.pinned_at, by: m.pinned_by } : null,
+  embeds: m.embeds ? JSON.parse(m.embeds) : [],
 });
 const placeholders = (n) => Array(n).fill('?').join(',');
 /* Adds each message's reactions and a short preview of the message it replies to. */
@@ -270,6 +271,10 @@ export function pin(messageId, userId, on) {
   return publicMessage(getMessage(messageId));
 }
 export const pins = (col, targetId) => decorate(all(`SELECT * FROM messages WHERE ${col} = ? AND pinned_at IS NOT NULL ORDER BY pinned_at DESC LIMIT 50`, targetId));
+export function setEmbeds(id, embeds) {
+  run('UPDATE messages SET embeds = ? WHERE id = ?', embeds.length ? JSON.stringify(embeds) : null, id);
+  return publicMessage(getMessage(id));
+}
 export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
 export function history(col, targetId, before, limit = 50) {
   const rows = before

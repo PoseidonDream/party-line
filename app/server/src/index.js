@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import { config } from './config.js';
 import * as M from './model.js';
+import { proxyImage, signatureOk } from './preview.js';
 import { attachHub, hub, voiceChannelOf, voiceCount } from './hub.js';
 
 M.ensureDefaultServer();
@@ -174,6 +175,20 @@ app.get('/uploads/:id', (req, res) => {
   res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; sandbox");
   res.setHeader('Content-Disposition', `${show ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(up.name)}`);
   res.sendFile(path.join(uploadDir, up.id), { acceptRanges: true });
+});
+
+/* Pictures for link previews, passed through so other sites don't see friends' addresses. */
+app.get('/api/link-image', async (req, res) => {
+  const url = String(req.query.u || '');
+  if (!signatureOk(url, String(req.query.s || ''))) return res.status(403).end();
+  try {
+    const img = await proxyImage(url);
+    res.setHeader('Content-Type', img.type);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.end(img.body);
+  } catch { res.status(404).end(); }
 });
 
 /* The web app. Invite links (/invite/CODE) open the same page. */

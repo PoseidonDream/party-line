@@ -101,6 +101,7 @@ const columns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((
 if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD COLUMN reply_to INTEGER');
 if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
 if (!columns('messages').includes('pinned_at')) db.exec('ALTER TABLE messages ADD COLUMN pinned_at INTEGER; ALTER TABLE messages ADD COLUMN pinned_by INTEGER;');
+if (!columns('messages').includes('embeds')) db.exec('ALTER TABLE messages ADD COLUMN embeds TEXT');
 if (!columns('users').includes('is_bot')) db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (
@@ -111,6 +112,11 @@ CREATE TABLE IF NOT EXISTS reactions (
   PRIMARY KEY (message_id, user_id, emoji)
 );
 CREATE INDEX IF NOT EXISTS reactions_message ON reactions(message_id);
+CREATE TABLE IF NOT EXISTS link_previews (
+  url TEXT PRIMARY KEY,
+  data TEXT,
+  fetched_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

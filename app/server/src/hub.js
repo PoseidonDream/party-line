@@ -6,6 +6,7 @@ import path from 'node:path';
 import * as M from './model.js';
 import { config } from './config.js';
 import * as Bot from './bot.js';
+import { previewFor, linksIn, imagePath } from './preview.js';
 
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
@@ -112,6 +113,7 @@ const handlers = {
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
+      addPreviews(M.getMessage(m.id)).catch(() => {});
       return { msg: m };
     }
     const other = M.getUser(Number(d.toUserId));
@@ -123,6 +125,7 @@ const handlers = {
     const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
+    addPreviews(M.getMessage(m.id)).catch(() => {});
     return { msg: m };
   },
   'msg.edit'(c, user, d) {
@@ -130,6 +133,7 @@ const handlers = {
     if (!m || m.user_id !== user.id) fail('You can only edit your own messages.');
     const out = M.editMessage(m.id, d.body);
     broadcastAbout(m, { t: 'msg.edit', msg: out });
+    addPreviews(M.getMessage(m.id)).catch(() => {});
     return {};
   },
   'msg.delete'(c, user, d) {
@@ -387,6 +391,16 @@ const handlers = {
   'feedback.delete'(c, user, d) { if (!user.is_admin) fail('Admins only.'); M.deleteFeedback(Number(d.id)); return {}; },
 };
 
+/* After a message is sent or edited: fetch previews for its links, then update it for everyone. */
+async function addPreviews(m) {
+  const links = linksIn(m.body);
+  if (!links.length && !m.embeds) return;
+  const found = (await Promise.all(links.map(previewFor))).filter(Boolean)
+    .map((p) => Object.assign({}, p, { image: imagePath(p.image) }));
+  const now = M.getMessage(m.id);
+  if (!now || now.body !== m.body) return;   // deleted or edited again meanwhile
+  broadcastAbout(now, { t: 'msg.edit', msg: M.setEmbeds(m.id, found) });
+}
 function canSee(userId, m) {
   if (m.channel_id) { const ch = M.getChannel(m.channel_id); return !!ch && M.isMember(userId, ch.server_id); }
   const dm = M.getDm(m.dm_id);

@@ -24,6 +24,7 @@ export const config = {
   maxImage: 15 * 1024 * 1024,
   maxVideo: 50 * 1024 * 1024,
   maxAvatar: 2 * 1024 * 1024,
-  maxFile: 25 * 1024 * 1024,   // audio, documents, zips and other files
+  maxFile: 25 * 1024 * 1024,
+  previewPrivate: env.LINK_PREVIEW_PRIVATE === '1',   // tests only: let link previews fetch local test pages   // audio, documents, zips and other files
   trustProxy: env.TRUST_PROXY === '1',
 };

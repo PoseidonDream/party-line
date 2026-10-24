@@ -644,6 +644,7 @@ function messageEl(msg, prev) {
     li.appendChild(body);
   }
   for (const a of msg.attachments || []) li.appendChild(mediaEl(a));
+  for (const e of msg.embeds || []) li.appendChild(embedEl(e));
   if (msg.reactions && msg.reactions.length) li.appendChild(reactionsEl(msg));
   const mine = msg.userId === S.me.id;
   const srv = msg.channelId ? (findChannel(msg.channelId) || {}).server : null;
@@ -781,6 +782,33 @@ function mediaEl(a) {
   const dl = document.createElement('a'); dl.href = url; dl.download = a.name; dl.textContent = 'Save'; meta.appendChild(dl);
   wrap.appendChild(meta);
   return wrap;
+}
+/* Link preview card. YouTube previews play right here when clicked. */
+function embedEl(e) {
+  const card = document.createElement('div'); card.className = 'embed' + (e.big ? ' big' : '');
+  const text = document.createElement('div'); text.className = 'embed-text';
+  const site = document.createElement('small'); site.className = 'embed-site'; site.textContent = e.site; text.appendChild(site);
+  const t = document.createElement('a'); t.className = 'embed-title'; t.href = e.url; t.target = '_blank'; t.rel = 'noopener noreferrer'; t.textContent = e.title; text.appendChild(t);
+  if (e.description) { const d = document.createElement('p'); d.className = 'embed-desc'; d.textContent = e.description; text.appendChild(d); }
+  card.appendChild(text);
+  if (e.image) {
+    const box = document.createElement(e.youtube ? 'button' : 'a'); box.className = 'embed-img';
+    const img = document.createElement('img'); img.loading = 'lazy'; img.alt = ''; img.src = absUrl(e.image);
+    img.addEventListener('error', () => box.remove());
+    box.appendChild(img);
+    if (e.youtube) {
+      box.type = 'button'; box.setAttribute('aria-label', `Play ${e.title}`);
+      box.insertAdjacentHTML('beforeend', `<span class="embed-play">${iconSvg('play')}</span>`);
+      box.addEventListener('click', () => {
+        const f = document.createElement('iframe'); f.className = 'embed-video';
+        f.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(e.youtube)}?autoplay=1&rel=0`;
+        f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.title = e.title;
+        box.replaceWith(f);
+      });
+    } else { box.href = e.url; box.target = '_blank'; box.rel = 'noopener noreferrer'; box.tabIndex = -1; }
+    card.appendChild(box);
+  }
+  return card;
 }
 function introEl() {
   const li = document.createElement('li'); li.className = 'chan-intro';
