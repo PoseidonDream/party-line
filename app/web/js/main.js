@@ -169,6 +169,8 @@ live.on('ready', (d) => {
   renderAll();
   openCurrent();
   if (V.channelId) Voice.rejoinVoice();
+  if (sentIdle) live.req('presence.idle', { idle: true }).catch(() => {});
+  if (myActivity) live.req('presence.activity', { name: myActivity }).catch(() => {});
   if (S.pendingInvite) { const code = S.pendingInvite; S.pendingInvite = null; joinInvite(code); }
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
@@ -176,8 +178,28 @@ live.on('user', (d) => {
   S.users.set(d.user.id, d.user);
   if (S.me && d.user.id === S.me.id) S.me = Object.assign(S.me, d.user);
   renderAll(); rerenderMessagesSoft();
+  if (S.popUser === d.user.id && !$('#userPop').hidden) fillUserPop(d.user.id);
 });
-live.on('presence', (d) => { const u = S.users.get(d.userId); if (u) { u.online = d.online; renderSide(); renderConn(); if (S.view.kind === 'friends') renderFriends(); if (S.view.kind === 'dm') renderHeader(); } });
+live.on('presence', (d) => {
+  const u = S.users.get(d.userId);
+  if (!u) return;
+  Object.assign(u, { online: d.online, status: d.status, activity: d.activity });
+  renderSide(); renderConn(); renderUserArea();
+  if (S.view.kind === 'friends') renderFriends();
+  if (S.view.kind === 'dm') renderHeader();
+  if (S.popUser === d.userId && !$('#userPop').hidden) fillUserPop(d.userId);
+});
+live.on('me', (d) => { Object.assign(S.me, d.me); renderUserArea(); });
+/* Status: what others see (online, idle, dnd, offline) and a one-line description for lists. */
+const statusOf = (id) => { const u = user(id); return u.bot ? 'online' : u.online ? (u.status || 'online') : 'offline'; };
+const STATUS_TEXT = { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', offline: 'Offline' };
+function presenceLine(id) {
+  const u = user(id);
+  if (u.online && u.activity) return `🎮 Playing ${u.activity}`;
+  if (u.custom && (u.online || id === S.me.id)) return u.custom;
+  return STATUS_TEXT[statusOf(id)];
+}
+const quiet = () => !!(S.me && S.me.status === 'dnd');   // Do not disturb: no message sounds or popups
 const learnUsers = (list) => { for (const u of list || []) if (u) S.users.set(u.id, u); };
 live.on('server', (d) => {
   learnUsers(d.users);
@@ -268,7 +290,7 @@ live.on('friend', (d) => {
   learnUsers([d.user]);
   const prev = S.friends.get(d.id);
   if (d.state) S.friends.set(d.id, d.state); else S.friends.delete(d.id);
-  if (d.state === 'incoming' && prev !== 'incoming') { chime('msg', V.deafened); toast(`${nameOf(d.id)} sent you a friend request.`, 5000, { label: 'View', fn: () => { S.friendTab = 'pending'; setView({ kind: 'friends' }); } }); }
+  if (d.state === 'incoming' && prev !== 'incoming') { if (!quiet()) chime('msg', V.deafened); toast(`${nameOf(d.id)} sent you a friend request.`, 5000, { label: 'View', fn: () => { S.friendTab = 'pending'; setView({ kind: 'friends' }); } }); }
   if (d.state === 'friends' && prev === 'outgoing') toast(`${nameOf(d.id)} accepted your friend request.`, 4000);
   renderRail(); renderSide();
   if (S.view.kind === 'friends') renderFriends();
@@ -353,7 +375,7 @@ function onMessage(key, msg) {
       if (!mine && !viewing) f.channel.unread = (f.channel.unread || 0) + 1;
       if (!mine && !viewing && mentionsMe(msg)) {
         f.channel.mentions = (f.channel.mentions || 0) + 1;
-        chime('msg', V.deafened);
+        if (!quiet()) chime('msg', V.deafened);
         notify(`${nameOf(msg.userId)} in #${f.channel.name}`, decodeMentions(msg.body), () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
       }
     }
@@ -361,7 +383,7 @@ function onMessage(key, msg) {
     const x = S.dms.get(Number(key.slice(2)));
     if (x && !mine && !viewing) x.unread = (x.unread || 0) + 1;
     if (!mine && !viewing) {
-      chime('msg', V.deafened);
+      if (!quiet()) chime('msg', V.deafened);
       notify(nameOf(msg.userId), decodeMentions(msg.body) || 'Sent a photo or video', () => setView({ kind: 'dm', userId: msg.userId }));
     }
   }
@@ -369,7 +391,7 @@ function onMessage(key, msg) {
   renderRail(); renderSide(); updateBadge();
 }
 function notify(title, body, onClick) {
-  if (!document.hidden || !settings.notify || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (!document.hidden || quiet() || !settings.notify || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   try {
     const n = new Notification(title, { body: String(body).slice(0, 140), silent: true, tag: 'pl-' + title });
     n.onclick = () => { window.focus(); if (desktop && desktop.focus) desktop.focus(); onClick(); n.close(); };
@@ -505,7 +527,7 @@ function renderHomeSide() {
     b.type = 'button'; b.className = 'dm-item' + (x.unread ? ' unread' : '');
     b.setAttribute('aria-current', String(S.view.kind === 'dm' && S.view.userId === id));
     const w = document.createElement('span'); w.className = 'av-wrap'; w.appendChild(avEl(id));
-    const dot = document.createElement('span'); dot.className = 'status-dot' + (user(id).online ? ' on' : ''); w.appendChild(dot);
+    const dot = document.createElement('span'); dot.className = 'status-dot ' + statusOf(id); w.appendChild(dot);
     b.appendChild(w);
     const n = document.createElement('span'); n.className = 'dm-name'; n.textContent = nameOf(id); addCrown(n, id); b.appendChild(n);
     if (x.unread) { const c = document.createElement('span'); c.className = 'count-pill'; c.textContent = x.unread; b.appendChild(c); }
@@ -532,7 +554,7 @@ function renderHeader() {
   if (v.kind === 'friends') { icon.innerHTML = iconSvg('users'); $('#viewTitle').textContent = 'Friends'; $('#viewSub').textContent = ''; }
   else if (v.kind === 'dm') {
     icon.textContent = '@'; $('#viewTitle').textContent = nameOf(v.userId);
-    $('#viewSub').textContent = user(v.userId).online ? 'Online' : 'Offline';
+    $('#viewSub').textContent = presenceLine(v.userId);
   } else {
     const f = findChannel(v.channelId);
     if (!f) return;
@@ -817,7 +839,7 @@ function introEl() {
   if (S.view.kind === 'dm') {
     li.classList.add('dm-intro');
     const w = document.createElement('span'); w.className = 'av-wrap'; w.appendChild(avEl(S.view.userId));
-    const dot = document.createElement('span'); dot.className = 'status-dot' + (user(S.view.userId).online ? ' on' : ''); w.appendChild(dot);
+    const dot = document.createElement('span'); dot.className = 'status-dot ' + statusOf(S.view.userId); w.appendChild(dot);
     li.appendChild(w);
     h.textContent = nameOf(S.view.userId);
     p.textContent = `This is the start of your private chat with ${nameOf(S.view.userId)}. Only the two of you can see it.`;
@@ -1149,13 +1171,13 @@ function renderFriends() {
     for (const [id, st] of rows) {
       const li = document.createElement('li'); li.className = 'fr-row';
       const w = document.createElement('span'); w.className = 'av-wrap'; w.appendChild(avEl(id));
-      const dot = document.createElement('span'); dot.className = 'status-dot' + (user(id).online ? ' on' : ''); w.appendChild(dot);
+      const dot = document.createElement('span'); dot.className = 'status-dot ' + statusOf(id); w.appendChild(dot);
       li.appendChild(w);
       const t = document.createElement('div'); t.className = 'fr-text';
       const b = document.createElement('b'); b.textContent = nameOf(id); addCrown(b, id); t.appendChild(b);
       const s = document.createElement('span');
       const vst = S.voice.get(id);
-      s.textContent = st === 'incoming' ? 'Wants to be your friend' : st === 'outgoing' ? 'Friend request sent' : vst ? `In voice: ${(findChannel(vst.channelId) || { channel: { name: '' } }).channel.name}` : user(id).online ? 'Online' : 'Offline';
+      s.textContent = st === 'incoming' ? 'Wants to be your friend' : st === 'outgoing' ? 'Friend request sent' : vst ? `In voice: ${(findChannel(vst.channelId) || { channel: { name: '' } }).channel.name}` : presenceLine(id);
       t.appendChild(s); li.appendChild(t);
       const acts = document.createElement('div'); acts.className = 'fr-actions';
       const btn = (icon, label, cls, fn) => { const x = document.createElement('button'); x.type = 'button'; x.className = 'fr-act ' + cls; x.title = label; x.setAttribute('aria-label', label); x.innerHTML = iconSvg(icon); x.addEventListener('click', fn); acts.appendChild(x); };
@@ -1331,7 +1353,7 @@ $('#mpMic').addEventListener('change', (e) => Voice.chooseMic(e.target.value));
 
 function micStatus() {
   if (V.micIssue && V.channelId) return { bad: true, text: 'Mic not working' };
-  if (!V.channelId) return { text: S.me && user(S.me.id).online ? 'Online' : 'Online' };
+  if (!V.channelId) return { text: S.me ? (S.me.custom || { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', invisible: 'Invisible' }[S.me.status || 'online']) : 'Online' };
   if (V.serverMuted) return { text: 'Muted by admin' };
   if (V.deafened) return { text: 'Deafened' };
   if (V.muted) return { text: 'Muted' };
@@ -1341,6 +1363,9 @@ function micStatus() {
 function renderUserArea() {
   if (!S.me) return;
   paintAv($('#meAv'), S.me.id);
+  const pref = S.me.status || 'online';
+  $('#meDot').className = 'status-dot ' + (pref === 'invisible' ? 'offline' : pref);
+  $('#statusBtn').title = `Status: ${{ online: 'Online', idle: 'Idle', dnd: 'Do not disturb', invisible: 'Invisible' }[pref]}. Click to change`;
   $('#meName').textContent = S.me.name; addCrown($('#meName'), S.me.id);
   const st = micStatus();
   $('#meStatus').textContent = st.text; $('#meStatus').classList.toggle('bad', !!st.bad);
@@ -1455,8 +1480,7 @@ function openUserPop(id, anchor) {
   if (!pop.hidden && S.popUser === id) { closeUserPop(); return; }
   S.popUser = id; S.popServer = S.view.serverId || null;
   const isMe = id === S.me.id;
-  paintAv($('#popAv'), id);
-  $('#popName').textContent = nameOf(id) + (isMe ? ' (you)' : ''); addCrown($('#popName'), id);
+  fillUserPop(id);
   const vst = S.voice.get(id);
   const sameVoice = !isMe && V.channelId && vst && vst.channelId === V.channelId;
   $('#popVolBox').hidden = !sameVoice;
@@ -1492,7 +1516,54 @@ function openUserPop(id, anchor) {
   if (y + h > innerHeight - 8) y = Math.max(8, innerHeight - h - 8);
   pop.style.left = `${x}px`; pop.style.top = `${y}px`;
 }
+/* The top of the person pop-up: banner, picture, status, custom status, game and About me. */
+function fillUserPop(id) {
+  const u = user(id), isMe = id === S.me.id;
+  paintAv($('#popAv'), id);
+  $('#popDot').className = 'status-dot ' + statusOf(id);
+  $('#popBanner').style.background = u.banner || `hsl(${hue(u.name)} 45% 45%)`;
+  $('#popName').textContent = nameOf(id) + (isMe ? ' (you)' : ''); addCrown($('#popName'), id);
+  $('#popPresence').textContent = u.bot ? 'Bot' : STATUS_TEXT[statusOf(id)];
+  $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
+  $('#popActivity').hidden = !(u.online && u.activity); $('#popActivity').textContent = u.activity ? `🎮 Playing ${u.activity}` : '';
+  $('#popBioBox').hidden = !u.bio; $('#popBio').textContent = u.bio || '';
+  const pop = $('#userPop');   // keep it on screen if it grew
+  if (!pop.hidden) { const r = pop.getBoundingClientRect(); if (r.bottom > innerHeight - 8) pop.style.top = `${Math.max(8, innerHeight - r.height - 8)}px`; }
+}
 function closeUserPop() { $('#userPop').hidden = true; S.popUser = null; }
+
+/* ---------- your status ---------- */
+function openStatusPop() {
+  const pop = $('#statusPop');
+  for (const b of pop.querySelectorAll('[data-status]')) b.setAttribute('aria-checked', String(b.dataset.status === (S.me.status || 'online')));
+  $('#customInput').value = S.me.custom || '';
+  pop.hidden = false;
+  const r = $('#statusBtn').getBoundingClientRect();
+  pop.style.left = `${Math.max(8, r.left)}px`;
+  pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+  $('#statusBtn').setAttribute('aria-expanded', 'true');
+}
+function closeStatusPop() { $('#statusPop').hidden = true; $('#statusBtn').setAttribute('aria-expanded', 'false'); }
+$('#statusBtn').addEventListener('click', () => ($('#statusPop').hidden ? openStatusPop() : closeStatusPop()));
+document.addEventListener('pointerdown', (e) => { if (!$('#statusPop').hidden && !e.target.closest('#statusPop, #statusBtn')) closeStatusPop(); });
+for (const b of document.querySelectorAll('#statusPop [data-status]')) {
+  b.addEventListener('click', () => { act(() => live.req('profile.set', { status: b.dataset.status })); closeStatusPop(); });
+}
+$('#customForm').addEventListener('submit', (e) => { e.preventDefault(); act(() => live.req('profile.set', { custom: $('#customInput').value })); closeStatusPop(); });
+$('#customClear').addEventListener('click', () => { act(() => live.req('profile.set', { custom: '' })); closeStatusPop(); });
+
+/* Idle by itself: nothing touched for 10 minutes (or the app hidden that long). */
+let lastInput = Date.now(), sentIdle = false;
+for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, () => { lastInput = Date.now(); if (sentIdle) checkIdle(); }, { passive: true, capture: true });
+addEventListener('pointermove', () => { lastInput = Date.now(); }, { passive: true });
+function checkIdle() {
+  const idle = Date.now() - lastInput > (window.PL_IDLE_MS || 600_000);
+  if (idle !== sentIdle && live.open) { sentIdle = idle; live.req('presence.idle', { idle }).catch(() => {}); }
+}
+setInterval(checkIdle, Math.min(15_000, window.PL_IDLE_MS || 15_000));
+/* The desktop app tells us which game is running ("Playing …"). */
+let myActivity = null;
+if (desktop && desktop.onActivity) desktop.onActivity((name) => { myActivity = name || null; if (live.open) live.req('presence.activity', { name: myActivity }).catch(() => {}); });
 document.addEventListener('pointerdown', (e) => { const pop = $('#userPop'); if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.member, .tile, .mini-av, .tile-vol')) closeUserPop(); });
 function setPref(id, patch) { friendVols[id] = Object.assign(Voice.peerPrefs(id), patch); saveVols(); Voice.applyAllVolumes(); }
 $('#volRange').addEventListener('input', (e) => { $('#volOut').textContent = `${e.target.value}%`; $('#volOut').classList.toggle('boost', e.target.value > 100); setPref(S.popUser, { vol: e.target.value / 100 }); });
@@ -1693,9 +1764,23 @@ function syncSettingsForm() {
   $('#outVol').value = Math.round(settings.outputVol * 100); $('#outVolOut').textContent = `${$('#outVol').value}%`;
   $('#pttHint').textContent = desktop ? 'Hold the push-to-talk key to talk, even while you’re in a game (set it in the tray menu).' : 'Hold Space (or the Hold to talk button) to talk. Space only works while Party Line is in front.';
 }
+const BANNERS = ['', '#e8a33d', '#d9534f', '#d63384', '#8e5cd9', '#3d7be8', '#1aa3a3', '#3b9d4a', '#5b6472'];
+let profileBanner = '';
+function renderSwatches() {
+  const box = $('#setBanner'); box.textContent = '';
+  for (const c of BANNERS) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch' + (c ? '' : ' auto'); b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(c === profileBanner)); b.title = c ? c : 'Automatic (from your name)'; b.setAttribute('aria-label', b.title);
+    b.style.background = c || `hsl(${hue(S.me.name)} 45% 45%)`;
+    b.addEventListener('click', () => { profileBanner = c; renderSwatches(); });
+    box.appendChild(b);
+  }
+}
+$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner }), 'Profile saved.'));
 function openSettings() {
   syncSettingsForm();
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
+  $('#setBio').value = S.me.bio || ''; profileBanner = S.me.banner || ''; renderSwatches();
   $('#pwNote').hidden = true; $('#pwOld').value = ''; $('#pwNew').value = '';
   $('#devOpen').hidden = !S.me.admin;
   $('#appInfo').textContent = desktop ? `Party Line desktop app ${desktop.version || ''} · Server: ${location.host}` : `Server: ${location.host}`;

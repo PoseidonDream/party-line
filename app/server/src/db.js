@@ -102,6 +102,9 @@ if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD
 if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
 if (!columns('messages').includes('pinned_at')) db.exec('ALTER TABLE messages ADD COLUMN pinned_at INTEGER; ALTER TABLE messages ADD COLUMN pinned_by INTEGER;');
 if (!columns('messages').includes('embeds')) db.exec('ALTER TABLE messages ADD COLUMN embeds TEXT');
+for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom_status', 'TEXT'], ['bio', 'TEXT'], ['banner', 'TEXT']]) {
+  if (!columns('users').includes(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+}
 if (!columns('users').includes('is_bot')) db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (

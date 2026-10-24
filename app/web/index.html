@@ -319,8 +319,10 @@
     </div>
     <button type="button" class="ptt-hold" id="pttBtn" hidden><svg class="ic"><use href="#i-mic"/></svg>Hold to talk</button>
     <div class="user-bar">
+      <button type="button" class="me-av-btn" id="statusBtn" aria-controls="statusPop" aria-expanded="false" title="Set your status">
+        <span class="av-wrap"><span class="mini-av" id="meAv" aria-hidden="true"></span><span class="status-dot" id="meDot"></span></span>
+      </button>
       <button type="button" class="me" id="meBtn" aria-controls="micPanel" aria-expanded="false" title="Mic check">
-        <span class="mini-av" id="meAv" aria-hidden="true"></span>
         <span class="me-text"><span class="me-name" id="meName"></span><span class="me-status" id="meStatus"></span></span>
       </button>
       <button type="button" class="ub" id="micBtn"><svg class="ic"><use href="#i-mic"/></svg><span class="sr lbl">Mute</span></button>
@@ -428,6 +430,13 @@
         <p class="hint" id="setNameNote">Friends sign in and find you by this name.</p>
       </div>
       <div class="field">
+        <label class="flabel" for="setBio">About me</label>
+        <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
+        <div class="flabel-sub">Banner color</div>
+        <div class="swatches" id="setBanner" role="radiogroup" aria-label="Banner color"></div>
+        <div class="row-btns"><button type="button" class="btn" id="setProfileSave">Save profile</button></div>
+      </div>
+      <div class="field">
         <label class="flabel" for="setMic">Microphone</label>
         <select id="setMic"><option value="">System default</option></select>
       </div>
@@ -492,8 +501,26 @@
 </dialog>
 
 <datalist id="volTicks"><option value="0"></option><option value="100"></option><option value="150"></option></datalist>
+<div class="popover status-pop" id="statusPop" role="dialog" aria-label="Your status" hidden>
+  <div class="status-opts" role="radiogroup" aria-label="Status">
+    <button type="button" role="radio" data-status="online"><span class="status-dot online"></span><span><b>Online</b></span></button>
+    <button type="button" role="radio" data-status="idle"><span class="status-dot idle"></span><span><b>Idle</b><small>Also turns on by itself after 10 minutes away</small></span></button>
+    <button type="button" role="radio" data-status="dnd"><span class="status-dot dnd"></span><span><b>Do not disturb</b><small>No message sounds or popups</small></span></button>
+    <button type="button" role="radio" data-status="invisible"><span class="status-dot offline"></span><span><b>Invisible</b><small>You show as offline, but can use everything</small></span></button>
+  </div>
+  <form class="custom-status" id="customForm">
+    <label for="customInput">Custom status</label>
+    <div class="row"><input class="input" id="customInput" maxlength="80" placeholder="e.g. studying 📚" autocomplete="off"><button type="submit" class="btn small primary">Save</button></div>
+    <button type="button" class="link-btn" id="customClear">Clear custom status</button>
+  </form>
+</div>
+
 <div class="popover" id="userPop" role="dialog" aria-label="Person" hidden>
-  <div class="pop-who"><span class="mini-av" id="popAv" aria-hidden="true"></span><div class="pop-title" id="popName"></div></div>
+  <div class="pop-banner" id="popBanner"></div>
+  <div class="pop-who"><span class="av-wrap"><span class="mini-av" id="popAv" aria-hidden="true"></span><span class="status-dot" id="popDot"></span></span><div class="pop-title"><div id="popName"></div><small class="pop-presence" id="popPresence"></small></div></div>
+  <p class="pop-custom" id="popCustom" hidden></p>
+  <p class="pop-activity" id="popActivity" hidden></p>
+  <div class="pop-bio" id="popBioBox" hidden><b>About me</b><p id="popBio"></p></div>
   <div class="level" id="popVolBox">
     <div class="level-head"><label for="volRange">Volume</label><output id="volOut" for="volRange">100%</output></div>
     <input type="range" id="volRange" min="0" max="150" step="1" list="volTicks">

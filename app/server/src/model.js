@@ -39,7 +39,8 @@ const token = () => crypto.randomBytes(32).toString('base64url');
 const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-_]/g, 'x').slice(0, 8);
 
 /* ---------- users and sessions ---------- */
-export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot });
+export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
+  custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
@@ -97,6 +98,19 @@ export function rename(userId, name) {
   const other = userByName(name);
   if (other && other.id !== userId) fail('That name is taken.');
   run('UPDATE users SET name = ?, name_key = ? WHERE id = ?', name, foldKey(name), userId);
+  return getUser(userId);
+}
+/* Status (online, idle, dnd, invisible), custom status line, About me and banner color. */
+export const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
+export function setProfile(userId, d) {
+  if (d.status !== undefined) { if (!STATUSES.includes(d.status)) fail('Unknown status.'); run('UPDATE users SET status = ? WHERE id = ?', d.status, userId); }
+  if (d.custom !== undefined) run('UPDATE users SET custom_status = ? WHERE id = ?', String(d.custom || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) || null, userId);
+  if (d.bio !== undefined) run('UPDATE users SET bio = ? WHERE id = ?', String(d.bio || '').replace(/\r\n/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f]/g, '').trim().slice(0, 300) || null, userId);
+  if (d.banner !== undefined) {
+    const c = String(d.banner || '');
+    if (c && !/^#[0-9a-f]{6}$/i.test(c)) fail('Pick a color from the list.');
+    run('UPDATE users SET banner = ? WHERE id = ?', c || null, userId);
+  }
   return getUser(userId);
 }
 export const setAvatar = (userId, url) => { run('UPDATE users SET avatar = ? WHERE id = ?', url, userId); return getUser(userId); };

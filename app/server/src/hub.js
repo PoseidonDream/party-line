@@ -31,7 +31,25 @@ const send = (c, msg) => { if (c && c.ws.readyState === 1) c.ws.send(JSON.string
 const toUser = (userId, msg, except) => { for (const c of byUser.get(userId) || []) if (c !== except) send(c, msg); };
 const toUsers = (ids, msg) => { for (const id of new Set(ids)) toUser(id, msg); };
 const toServer = (serverId, msg) => toUsers(M.memberIds(serverId), msg);
-const userView = (id) => { const u = M.getUser(id); return u && Object.assign(M.publicUser(u), { online: online(id) }); };
+const userView = (id) => { const u = M.getUser(id); return u && Object.assign(M.publicUser(u), presenceOf(id, u)); };
+/* What others see: offline when no app is open or the person chose Invisible; idle when they chose it or every
+   open app has been untouched for 10 minutes; plus what game the desktop app says they're playing. */
+function presenceOf(id, u = M.getUser(id)) {
+  const set = byUser.get(id);
+  if (!set || !set.size || !u || u.status === 'invisible') return { online: false, status: 'offline', activity: null };
+  const cs = [...set];
+  const status = u.status === 'dnd' ? 'dnd' : u.status === 'idle' || cs.every((c) => c.idle) ? 'idle' : 'online';
+  const act = cs.map((c) => c.activity).find(Boolean) || null;
+  return { online: true, status, activity: act };
+}
+const lastPresence = new Map();   // userId -> what was last announced, to skip repeats
+function announce(userId) {
+  const p = presenceOf(userId), key = JSON.stringify(p);
+  if (lastPresence.get(userId) === key) return;
+  lastPresence.set(userId, key);
+  const msg = Object.assign({ t: 'presence', userId }, p);
+  toWatchers(userId, msg);
+}
 /* Everyone online who can see this person (see M.canSeeUser). */
 const toWatchers = (userId, msg) => { for (const uid of byUser.keys()) if (M.canSeeUser(uid, userId)) toUser(uid, msg); };
 const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
@@ -42,7 +60,7 @@ const fail = (msg) => { throw new M.UserError(msg); };
 export const voiceChannelOf = (userId) => (voice.get(userId) || {}).channelId || null;
 export const voiceCount = () => voice.size;
 export const hub = {
-  userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); },
+  userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); toUser(u.id, { t: 'me', me: Object.assign(M.publicUser(u), { status: u.status || 'online' }) }); announce(u.id); },
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
 
@@ -74,8 +92,8 @@ function readyFor(user) {
   const mine = new Set(servers.map((s) => s.id));
   return {
     t: 'ready',
-    me: M.publicUser(user),
-    users: M.visibleUsers(user.id).map((u) => Object.assign(u, { online: online(u.id) })),
+    me: Object.assign(M.publicUser(user), { status: user.status || 'online' }),
+    users: M.visibleUsers(user.id).map((u) => Object.assign(u, presenceOf(u.id))),
     servers,
     friends: M.friendsOf(user.id),
     dms: M.dmsOf(user.id),
@@ -278,6 +296,18 @@ const handlers = {
     toServer(ch.server_id, { t: 'voice', state: voiceView(user.id, v) });
     return { peers: [...voice].filter(([id, x]) => id !== user.id && x.channelId === ch.id).map(([id]) => id) };
   },
+  /* ---- status and profile ---- */
+  'profile.set'(c, user, d) {
+    const u = M.setProfile(user.id, d || {});
+    hub.userChanged(u);
+    return {};
+  },
+  'presence.idle'(c, user, d) { c.idle = !!d.idle; announce(user.id); return {}; },
+  'presence.activity'(c, user, d) {
+    c.activity = typeof d.name === 'string' ? d.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null;
+    announce(user.id);
+    return {};
+  },
   'music.event'(c, user, d) { return Bot.musicEvent(user, d); },
   'music.control'(c, user, d) { return Bot.musicControl(user, String(d.action || '')); },
   'voice.leave'(c, user) {
@@ -424,14 +454,15 @@ export function attachHub(server) {
     const url = new URL(req.url, 'http://x');
     const user = M.userForToken(url.searchParams.get('token'));
     if (!user) { ws.close(4001, 'auth'); return; }
-    const c = { id: nextConn++, ws, userId: user.id, alive: true };
+    const c = { id: nextConn++, ws, userId: user.id, alive: true, idle: false, activity: null };
     conns.set(c.id, c);
     const first = !online(user.id);
     M.touchUser(user.id);
     if (!byUser.has(user.id)) byUser.set(user.id, new Set());
     byUser.get(user.id).add(c);
     send(c, readyFor(user));
-    if (first) toWatchers(user.id, { t: 'presence', userId: user.id, online: true });
+    if (first) lastPresence.delete(user.id);
+    announce(user.id);
 
     ws.on('pong', () => { c.alive = true; });
     ws.on('message', (raw) => {
@@ -460,7 +491,8 @@ export function attachHub(server) {
       const v = voice.get(user.id);
       if (v && v.connId === c.id) leaveVoice(user.id);
       M.touchUser(user.id);
-      if (!online(user.id)) { byUser.delete(user.id); toWatchers(user.id, { t: 'presence', userId: user.id, online: false }); }
+      if (!online(user.id)) byUser.delete(user.id);
+      announce(user.id);
     });
   });
   const beat = setInterval(() => {

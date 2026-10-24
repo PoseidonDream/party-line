@@ -5,12 +5,13 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell
 const path = require('node:path');
 const fs = require('node:fs');
 const pkg = require('../package.json');
+const { watchGames } = require('./games');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 /* ---------- settings saved on this computer ---------- */
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
-let cfg = { server: '', pttKey: 'none', closeToTray: true };
+let cfg = { server: '', pttKey: 'none', closeToTray: true, showGame: true };
 function loadCfg() {
   try { cfg = Object.assign(cfg, JSON.parse(fs.readFileSync(cfgFile(), 'utf8'))); } catch {}
   if (!cfg.server && pkg.partyLine && pkg.partyLine.server) cfg.server = pkg.partyLine.server;
@@ -117,6 +118,7 @@ function setupPtt() {
 }
 
 /* ---------- tray ---------- */
+let games = null;
 function buildTray() {
   if (!tray) {
     tray = new Tray(icon().resize({ width: 16, height: 16 }));
@@ -127,6 +129,7 @@ function buildTray() {
     { label: 'Open Party Line', click: showWin },
     { type: 'separator' },
     { label: 'Push-to-talk key', enabled: !!hook, submenu: PTT_KEYS.map((k) => ({ label: k.label, type: 'radio', checked: cfg.pttKey === k.id, click: () => { cfg.pttKey = k.id; saveCfg(); buildTray(); } })) },
+    { label: 'Show friends what game I’m playing', type: 'checkbox', checked: cfg.showGame !== false, click: (i) => { cfg.showGame = i.checked; saveCfg(); if (games) games.refresh(); } },
     { label: 'Keep running in the tray when closed', type: 'checkbox', checked: cfg.closeToTray, click: (i) => { cfg.closeToTray = i.checked; saveCfg(); } },
     { label: 'Start when I sign in to my computer', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }) },
     { label: 'Change server…', click: () => { showWin(); win.loadFile(path.join(__dirname, 'setup.html'), { query: { server: cfg.server } }); } },
@@ -184,6 +187,9 @@ app.whenReady().then(() => {
   setupPermissions();
   setupPtt();
   createWindow();
+  games = watchGames((name) => { if (win) win.webContents.send('activity', name); }, () => cfg.showGame !== false);
+  // The page asks again after it (re)loads.
+  ipcMain.on('activity:get', (e) => e.sender.send('activity', games ? games.now() : null));
   buildTray();
   try {
     const { autoUpdater } = require('electron-updater');
