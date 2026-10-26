@@ -41,10 +41,12 @@ export default async function (ok) {
     await a.click('#statusBtn');
     await a.click('#statusPop [data-status="dnd"]');
     await pop('dnd');
+    await a.waitForSelector('#meDot.dnd', { timeout: 5000 }).catch(() => {});
     ok('Do not disturb shows for friends and on your own picture', await a.isVisible('#meDot.dnd'));
     await a.click('#statusBtn');
     await a.fill('#customInput', 'studying 📚'); await a.click('#customForm button[type=submit]');
     await b.waitForSelector('#popCustom:not([hidden]):has-text("studying 📚")');
+    await a.waitForSelector('#meStatus:has-text("studying")', { timeout: 5000 }).catch(() => {});
     ok('custom status shows in the profile and under your name', (await a.textContent('#meStatus')).includes('studying'));
 
     await a.evaluate(() => window.__playing('VALORANT'));
