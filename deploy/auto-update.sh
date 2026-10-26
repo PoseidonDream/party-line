@@ -19,5 +19,15 @@ if [ "${in_voice:-0}" -gt 0 ]; then
   if [ "$waited" -lt 7200 ]; then echo "$(date '+%F %T') new version waiting: $in_voice in voice"; exit 0; fi
 fi
 rm -f .update-waiting
-echo "$(date '+%F %T') updating to $(git log -1 --format='%h %s' '@{u}')"
-./update.sh
+target=$(git log -1 --format='%h %s' '@{u}')
+echo "$(date '+%F %T') updating to $target"
+# Tell the server how it went, so Party Bot can warn the admins if an update fails (the old version keeps running).
+report() { printf '%s' "$1" | docker compose exec -T partyline sh -c 'cat > /data/update-status.json' 2>/dev/null || true; }
+if out=$(./update.sh 2>&1); then
+  echo "$out"
+  report "{\"ok\":true,\"at\":$(date +%s)}"
+else
+  echo "$out"
+  err=$(echo "$out" | tail -n 3 | tr '\n"\\' '   ' | cut -c1-300)
+  report "{\"ok\":false,\"at\":$(date +%s),\"version\":\"$(echo "$target" | tr -d '"\\' | cut -c1-80)\",\"error\":\"$err\"}"
+fi

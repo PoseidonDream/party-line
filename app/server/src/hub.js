@@ -742,6 +742,7 @@ const handlers = {
         users: M.allUsers().length, online: byUser.size, connections: conns.size,
         turn: !!(config.turnUrls.length && config.turnSecret), sfu: !!(config.livekit.url && config.livekit.secret),
         groupPassword: !!config.groupPassword,
+        health: Bot.healthProblems().map(([, text]) => text),
         backup: (() => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, 'backup-status.json'), 'utf8')); } catch { return null; } })(),   // written by deploy/backup.sh
       },
       voice: voiceList,

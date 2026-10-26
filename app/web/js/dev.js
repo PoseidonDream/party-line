@@ -112,6 +112,9 @@ function renderOverview() {
   card('Voice relay', s.turn ? 'On' : 'Off', s.turn ? 'friends on strict networks can connect' : 'not set up, strict networks may fail', !s.turn);
   card('Media server', s.sfu ? 'On' : 'Off', s.sfu ? 'voice goes through the server' : 'voice goes directly between people');
   b.appendChild(grid);
+  b.appendChild(el('h3', 'dev-h', 'Health'));
+  if (!s.health || !s.health.length) b.appendChild(el('p', 'hint', '✅ All good: enough disk space and memory, and updates and backups are working. Party Bot messages you privately if that changes.'));
+  else for (const t of s.health) b.appendChild(el('p', 'error', t.replace(/`/g, '')));
   b.appendChild(el('h3', 'dev-h', 'Backups'));
   const bk = s.backup;
   b.appendChild(el('p', 'hint', bk && bk.at

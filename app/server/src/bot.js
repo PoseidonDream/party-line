@@ -5,7 +5,11 @@
    - Fun: /roll, /coinflip, /poll, /remind, /help.
    - /ask: answers a question with Claude (see ask.js).
    Problems with a command (no voice channel, a bad link) are answered privately to whoever typed it. */
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import * as M from './model.js';
+import { config } from './config.js';
 import { one, all, run } from './db.js';
 import { ask as askClaude, checkAsk } from './ask.js';
 
@@ -19,6 +23,7 @@ export function initBot(h) {
   bot = M.ensureBot();
   setInterval(fireReminders, 15_000).unref();
   setInterval(birthdays, 10 * 60_000).unref(); setTimeout(birthdays, 20_000).unref();
+  setInterval(health, Number(process.env.HEALTH_EVERY) || 10 * 60_000).unref(); setTimeout(health, 60_000).unref();
   return bot;
 }
 export const botUser = () => bot;
@@ -237,6 +242,45 @@ export function birthdays() {
       const ch = one("SELECT id FROM channels WHERE server_id = ? AND kind = 'text' ORDER BY (name = 'general') DESC, position, id LIMIT 1", sid);
       if (ch) post({ channelId: ch.id }, `🎂 Happy birthday ${at(u.id)}! 🎉🥳 Have an amazing day!`);
     }
+  }
+}
+/* Server health: Party Bot privately tells the admins when something needs them (disk nearly full, memory
+   nearly used up, an automatic update failed, last night's backup didn't happen). Each problem is reported again
+   at most every 12 hours while it lasts, and once more when it's fixed. */
+const warned = new Map();   // problem key -> last warned at
+const readJson = (f) => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, f), 'utf8')); } catch { return null; } };
+export function healthProblems() {
+  const out = [];
+  try {
+    const st = fs.statfsSync(config.dataDir), free = st.bavail * st.bsize, total = st.blocks * st.bsize;
+    if (free < 2 * 1024 ** 3 || free / total < 0.1) out.push(['disk', `💾 The server’s disk is nearly full: ${(free / 1024 ** 3).toFixed(1)} GB free of ${(total / 1024 ** 3).toFixed(0)} GB. Big videos and files use the most. Ask friends to clean up old ones, or move to a bigger server.`]);
+  } catch {}
+  const memFree = os.freemem() / os.totalmem();
+  if (memFree < 0.05) out.push(['memory', `🧠 The server’s memory is nearly used up (${Math.round(memFree * 100)}% free). If things get slow, restart it: \`cd /opt/party-line/deploy && docker compose restart\`.`]);
+  const up = readJson('update-status.json');
+  if (up && up.ok === false) out.push([`update:${up.at}`, `⚠️ An automatic update failed${up.version ? ` (to ${up.version})` : ''}, so the server is still on the old version. It tries again every 10 minutes. ${up.error ? `The error: ${up.error}` : ''} See \`tail /var/log/party-line-update.log\` on the server.`]);
+  const bk = readJson('backup-status.json');
+  if (bk && bk.at && Date.now() / 1000 - bk.at > 50 * 3600) out.push(['backup', `🗄️ The nightly backup hasn’t run for ${Math.round((Date.now() / 1000 - bk.at) / 3600)} hours. Check \`tail /var/log/party-line-backup.log\` on the server.`]);
+  if (bk && bk.offsiteError) out.push([`offsite:${bk.at}`, `🗄️ Last night’s backup couldn’t be copied off the server: ${bk.offsiteError}`]);
+  return out;
+}
+function health() {
+  const problems = healthProblems(), now = Date.now();
+  const tell = (text) => {
+    for (const admin of M.allUsers().filter((u) => u.admin && !u.bot)) {
+      try { post({ dmId: M.dmWith(bot.id, admin.id, true).id }, text); } catch {}
+    }
+  };
+  for (const [key, text] of problems) {
+    const last = warned.get(key);
+    if (last && now - last < 12 * 3600_000) continue;
+    warned.set(key, now);
+    tell(`${text}\n_Only admins get these health notes._`);
+  }
+  for (const key of [...warned.keys()]) {
+    if (problems.some(([k]) => k === key)) continue;
+    warned.delete(key);
+    if (key === 'disk' || key === 'memory') tell(key === 'disk' ? '✅ The server’s disk has room again.' : '✅ The server’s memory is fine again.');
   }
 }
 const HELP = [
