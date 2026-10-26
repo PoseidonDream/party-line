@@ -684,6 +684,7 @@ const handlers = {
         users: M.allUsers().length, online: byUser.size, connections: conns.size,
         turn: !!(config.turnUrls.length && config.turnSecret), sfu: !!(config.livekit.url && config.livekit.secret),
         groupPassword: !!config.groupPassword,
+        backup: (() => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, 'backup-status.json'), 'utf8')); } catch { return null; } })(),   // written by deploy/backup.sh
       },
       voice: voiceList,
       people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size, apps: [...set].map((x) => x.client || 'unknown app') })),

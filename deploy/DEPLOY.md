@@ -107,10 +107,24 @@ Connect with `ssh root@YOUR-IP`, then:
 
 **Updates install by themselves.** Every 10 minutes the server checks GitHub for a newer Party Line and installs it, but only while nobody is in voice, so calls aren't cut off. (If someone stays in voice for 2 hours straight, often a forgotten open tab, it updates anyway; everyone reconnects within seconds.) To turn this off, add the line `AUTO_UPDATE=0` to `/opt/party-line/deploy/.env`.
 
-**Backups happen by themselves every night at 4:17** (server time). The newest 7 are kept in `/opt/party-line/deploy/backups/`. They live on the same server, so for real safety also turn on your provider's backup option (about €1 a month on Hetzner), or now and then copy the newest file to your own computer:
-```
-scp root@YOUR-IP:/opt/party-line/deploy/backups/*.tgz .
-```
+**Backups happen by themselves every night at 4:17** (server time). The newest 7 are kept in `/opt/party-line/deploy/backups/`. They live on the same server, so if the server dies they die with it. Three ways to keep a copy somewhere else (pick any):
+
+1. **Download one from the app.** Developer panel → Server → **Download a backup**. It saves everything (accounts, messages, photos, files) as one `.tgz` file. Keep it private: it holds everyone's messages.
+2. **Copy them off the server automatically, every night (free).** Backblaze B2 gives 10 GB free:
+   1. Sign up at backblaze.com → **B2 Cloud Storage**. Create a bucket (Private), e.g. `poseidon-party-backups`.
+   2. **Application Keys → Add a New Application Key**, allow access to that bucket only. Copy the **keyID** and **applicationKey** (it's shown once).
+   3. On the server, `nano /opt/party-line/deploy/.env` and add:
+      ```
+      BACKUP_REMOTE=poseidon-party-backups
+      BACKUP_ACCOUNT=the keyID
+      BACKUP_KEY=the applicationKey
+      ```
+   4. Test it: `/opt/party-line/deploy/backup.sh`. It should end with "Copied off the server". The developer panel shows whether last night's copy worked. Copies older than 30 days are deleted from the bucket (change with `BACKUP_REMOTE_DAYS=60`).
+
+   Any S3-compatible storage works too (Cloudflare R2, Hetzner Object Storage, Wasabi): set `BACKUP_TYPE=s3`, `BACKUP_PROVIDER` (e.g. `Cloudflare`), `BACKUP_ENDPOINT` (the URL they give you), and `BACKUP_ACCOUNT` / `BACKUP_KEY` to the access key and secret.
+3. **Your provider's backup option** (about €1 a month on Hetzner: server → Backups → Enable).
+
+To put a backup back, copy the `.tgz` to the server and run `/opt/party-line/deploy/backup.sh restore FILE.tgz`.
 
 Updates keep everything. People in voice are dropped for a few seconds and reconnect on their own.
 
@@ -140,6 +154,7 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **Private chats:** one-to-one chats, **group chats** for 3 to 10 people (the + next to Private chats), and **calls** in either (the Call button). Starting a call rings the others.
 - **You:** click your picture at the bottom left to set **Online, Idle, Do not disturb or Invisible** and a custom status. Settings has **About me** and a banner color. The desktop app shows **"Playing ..."** when you're in a known game (switch it off in the tray menu).
 - **Events:** the Events button in a server plans things like game night. Friends answer Going or Maybe, and Party Bot reminds everyone going 15 minutes before.
+- **Notifications:** the bell at the top of a chat chooses All messages, Only @mentions or Nothing (the server menu sets the default). In the website, Settings → **Even when Party Line is closed** sends private messages, @mentions and calls to the phone or computer even with the tab closed (on iPhone, Add to Home Screen first).
 - **Organising a server:** channel topics, **categories** (server menu), drag and drop to reorder channels, and **roles** with colors and permissions (server menu, Roles).
 
 ## Party Bot: music and fun commands
@@ -155,7 +170,7 @@ Each device plays the video in YouTube's own player, so it follows YouTube's rul
 ## Developer panel (for you)
 
 Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:
-- **Server:** the server's version (and the app you're using), how long it's been up, memory and storage, who's online, and who's in which voice channel.
+- **Server:** the server's version (and the app you're using), how long it's been up, memory and storage, who's online, who's in which voice channel, whether last night's backup worked, and **Download a backup**.
 - **My voice:** live numbers for each voice connection: direct or relayed, ping, lost packets, and how much sound is coming in and going out. "0 kbps" in red means sound stopped arriving from that friend.
 - **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
 - **Check a friend:** pulls a friend's live voice numbers to your screen. They get a short note that you checked.

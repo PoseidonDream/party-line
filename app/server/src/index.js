@@ -3,9 +3,11 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
 import express from 'express';
 import { config } from './config.js';
 import * as M from './model.js';
+import { db } from './db.js';
 import { proxyImage, signatureOk } from './preview.js';
 import * as Push from './push.js';
 import { attachHub, hub, voiceChannelOf, voiceCount } from './hub.js';
@@ -113,6 +115,34 @@ app.get('/api/dms/:userId/messages', auth, wrap((req) => {
   const d = M.dmWith(req.user.id, Number(req.params.userId), false);
   return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [], seenId: d ? M.seenBy(d.id, Number(req.params.userId)) : 0 };
 }));
+
+/* Backups an admin can download from the developer panel, in the same format as deploy/backup.sh (so
+   `backup.sh restore FILE` puts one back). The panel asks for a one-time link first, so the download can be a
+   plain link the browser saves to disk however big it is, without a password in the address. */
+const backupLinks = new Map();   // token -> expiry
+app.post('/api/dev/backup-link', auth, wrap((req) => {
+  if (!req.user.is_admin) throw new M.UserError('Admins only.');
+  for (const [t, exp] of backupLinks) if (exp < Date.now()) backupLinks.delete(t);
+  const token = crypto.randomBytes(24).toString('base64url');
+  backupLinks.set(token, Date.now() + 2 * 60_000);
+  return { url: `/api/dev/backup/${token}` };
+}));
+app.get('/api/dev/backup/:token', (req, res) => {
+  const exp = backupLinks.get(req.params.token);
+  backupLinks.delete(req.params.token);
+  if (!exp || exp < Date.now()) return res.status(404).type('text').send('This backup link has expired. Press “Download a backup” again.');
+  const dir = fs.mkdtempSync(path.join(config.dataDir, '.backup-'));
+  const done = () => fs.rmSync(dir, { recursive: true, force: true });
+  try { db.exec(`VACUUM INTO '${path.join(dir, 'snapshot.db').replace(/'/g, "''")}'`); } catch (e) { done(); console.error(e); return res.status(500).type('text').send('Couldn’t copy the database.'); }
+  fs.mkdirSync(uploadDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
+  res.setHeader('content-type', 'application/gzip');
+  res.setHeader('content-disposition', `attachment; filename="party-line-backup-${stamp}.tgz"`);
+  const tar = spawn('tar', ['czf', '-', '-C', dir, 'snapshot.db', '-C', config.dataDir, 'uploads'], { stdio: ['ignore', 'pipe', 'ignore'] });
+  tar.stdout.pipe(res);
+  tar.on('close', done); tar.on('error', (e) => { done(); console.error(e); res.destroy(); });
+  res.on('close', () => { if (tar.exitCode === null) tar.kill(); });
+});
 
 /* Push notifications (see push.js). */
 app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey() }));

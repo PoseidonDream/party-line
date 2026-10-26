@@ -1,6 +1,6 @@
 /* Developer panel (admins only) and the event log every app keeps.
    Voice events and errors are also reported to the server, so an admin can see what went wrong on a friend's device. */
-import { live } from './net.js';
+import { live, api } from './net.js';
 import { fmtTime, fmtSize, toast } from './util.js';
 
 /* ---------- the log ---------- */
@@ -112,6 +112,23 @@ function renderOverview() {
   card('Voice relay', s.turn ? 'On' : 'Off', s.turn ? 'friends on strict networks can connect' : 'not set up, strict networks may fail', !s.turn);
   card('Media server', s.sfu ? 'On' : 'Off', s.sfu ? 'voice goes through the server' : 'voice goes directly between people');
   b.appendChild(grid);
+  b.appendChild(el('h3', 'dev-h', 'Backups'));
+  const bk = s.backup;
+  b.appendChild(el('p', 'hint', bk && bk.at
+    ? `Last nightly backup: ${new Date(bk.at * 1000).toLocaleString()} (${fmtSize(bk.bytes || 0)}). ${bk.offsite ? `Also copied off the server to ${bk.offsite}.` : bk.offsiteError ? `Copying it off the server FAILED: ${bk.offsiteError}` : 'It’s only on this server: download one now and then, or set up off-server copies (see DEPLOY.md).'}`
+    : 'Nightly backups are made by the server setup (deploy/backup.sh). You can also download everything right now.'));
+  const dl = el('button', 'btn small', 'Download a backup');
+  dl.type = 'button'; dl.id = 'devBackup';
+  dl.addEventListener('click', async () => {
+    dl.disabled = true;
+    try {
+      const { url } = await api('/api/dev/backup-link', { method: 'POST' });
+      const a = document.createElement('a'); a.href = url; a.download = ''; document.body.appendChild(a); a.click(); a.remove();
+      toast('Your backup is downloading: every account, message, photo and file. Keep it somewhere safe and private.', 6000);
+    } catch (e) { toast(e.message, 5000); }
+    finally { dl.disabled = false; }
+  });
+  b.appendChild(dl);
   b.appendChild(el('h3', 'dev-h', 'Voice channels'));
   if (!stats.voice.length) b.appendChild(el('p', 'hint', 'Nobody is in voice.'));
   const byChan = new Map();

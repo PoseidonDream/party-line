@@ -28,3 +28,28 @@ docker compose exec -T partyline tar czf - -C /data snapshot.db uploads > "backu
 docker compose exec -T partyline rm -f /data/snapshot.db
 ls -1t backups/party-line-backup-*.tgz | tail -n +$((KEEP + 1)) | xargs -r rm -f
 echo "Saved $PWD/backups/$OUT ($(du -h "backups/$OUT" | cut -f1)). Keeping the newest $KEEP."
+
+# Off-server copy (optional): set BACKUP_REMOTE in .env, e.g. Backblaze B2 (see DEPLOY.md). Uses rclone in
+# Docker, so nothing extra is installed. Copies older than BACKUP_REMOTE_DAYS (default 30) are deleted there.
+[ -f .env ] && set -a && . ./.env && set +a
+OFFSITE="" OFFSITE_ERR=""
+if [ -n "${BACKUP_REMOTE:-}" ]; then
+  RC=(docker run --rm -v "$PWD/backups:/backups:ro" -e RCLONE_CONFIG_OFFSITE_TYPE="${BACKUP_TYPE:-b2}"
+      -e RCLONE_CONFIG_OFFSITE_ACCOUNT="${BACKUP_ACCOUNT:-}" -e RCLONE_CONFIG_OFFSITE_KEY="${BACKUP_KEY:-}"
+      -e RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID="${BACKUP_ACCOUNT:-}" -e RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY="${BACKUP_KEY:-}"
+      -e RCLONE_CONFIG_OFFSITE_PROVIDER="${BACKUP_PROVIDER:-Other}" -e RCLONE_CONFIG_OFFSITE_ENDPOINT="${BACKUP_ENDPOINT:-}"
+      rclone/rclone:1.68.2)
+  if ERR=$("${RC[@]}" copy "/backups/$OUT" "offsite:$BACKUP_REMOTE" 2>&1); then
+    OFFSITE="$BACKUP_REMOTE"
+    "${RC[@]}" delete --min-age "${BACKUP_REMOTE_DAYS:-30}d" --include 'party-line-backup-*.tgz' "offsite:$BACKUP_REMOTE" >/dev/null 2>&1 || true
+    echo "Copied off the server to $BACKUP_REMOTE."
+  else
+    OFFSITE_ERR=$(echo "$ERR" | tail -n 1 | tr -d '"\\' | cut -c1-200)
+    echo "Copying off the server FAILED: $ERR"
+  fi
+fi
+
+# Tell the developer panel how it went.
+STATUS="{\"at\":$(date +%s),\"file\":\"$OUT\",\"bytes\":$(stat -c %s "backups/$OUT"),\"offsite\":\"$OFFSITE\",\"offsiteError\":\"$OFFSITE_ERR\"}"
+echo "$STATUS" | docker compose exec -T partyline sh -c 'cat > /data/backup-status.json' || true
+[ -z "$OFFSITE_ERR" ]
