@@ -201,6 +201,7 @@ function start() {
 }
 async function signOut() {
   if (V.channelId) Voice.leaveVoice();
+  if (pushSupported() && settings.push) await Promise.race([setPush(false).catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);   // the next person on this device shouldn't get your messages
   try { await api('/api/logout', { method: 'POST' }); } catch {}
   live.close(); setToken(''); S.ready = false;
   $('#settings').close();
@@ -247,6 +248,8 @@ live.on('ready', (d) => {
   if (sentIdle) live.req('presence.idle', { idle: true }).catch(() => {});
   if (myActivity) live.req('presence.activity', { name: myActivity }).catch(() => {});
   if (S.pendingInvite) { const code = S.pendingInvite; S.pendingInvite = null; joinInvite(code); }
+  if (S.pendingOpen) { const q = S.pendingOpen; S.pendingOpen = null; openFromPush(q); }
+  if (first) syncPush();
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
 live.on('user', (d) => {
@@ -2150,6 +2153,7 @@ function syncSettingsForm() {
   $('#setPtt').checked = settings.ptt;
   $('#setNotify').checked = settings.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted';
   $('#notifyField').hidden = typeof Notification === 'undefined';
+  syncPushBox();
   $('#inVol').value = Math.round(settings.inputVol * 100); $('#inVolOut').textContent = `${$('#inVol').value}%`;
   $('#outVol').value = Math.round(settings.outputVol * 100); $('#outVolOut').textContent = `${$('#outVol').value}%`;
   $('#pttHint').textContent = desktop ? 'Hold the push-to-talk key to talk, even while you’re in a game (set it in the tray menu).' : 'Hold Space (or the Hold to talk button) to talk. Space only works while Party Line is in front.';
@@ -2197,6 +2201,54 @@ $('#setNotify').addEventListener('change', async (e) => {
   }
   settings.notify = e.target.checked; saveSettings();
 });
+/* Push notifications: the browser keeps a line open to its push service (Google, Mozilla, Apple, Microsoft),
+   so private messages, mentions and calls arrive even when Party Line is closed. Works in Chrome, Edge,
+   Firefox and Safari, and on iPhone once Party Line is added to the Home Screen. The desktop app and the
+   Android app have their own notifications while open, so this is for the website. */
+const pushSupported = () => !desktop && !phoneApp && window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+const b64bytes = (s) => { const t = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(t, (ch) => ch.charCodeAt(0)); };
+async function pushSub() { const reg = await navigator.serviceWorker.ready; return { reg, sub: await reg.pushManager.getSubscription() }; }
+async function setPush(on) {
+  const { reg, sub } = await pushSub();
+  if (!on) {
+    if (sub) { await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: sub.endpoint } }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+    settings.push = false; saveSettings(); return;
+  }
+  if (Notification.permission !== 'granted' && await Notification.requestPermission().catch(() => 'denied') !== 'granted') throw new Error('Notifications are blocked. Allow them in your browser or system settings.');
+  const { key } = await api('/api/push/key');
+  const s2 = sub || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64bytes(key) });
+  await api('/api/push/subscribe', { method: 'POST', body: { subscription: s2.toJSON(), device: S.appLabel || '' } });
+  settings.push = true; saveSettings();
+}
+/* On every start: tell the server again (it forgets addresses the push service retired, and you may have
+   signed in as someone else on this browser). */
+async function syncPush() {
+  if (!pushSupported() || !settings.push) return;
+  if (Notification.permission !== 'granted') { settings.push = false; saveSettings(); return; }
+  setPush(true).catch(() => {});
+}
+async function syncPushBox() {
+  $('#pushField').hidden = !pushSupported();
+  if (!pushSupported()) return;
+  const { sub } = await pushSub().catch(() => ({}));
+  $('#setPush').checked = !!(sub && settings.push && Notification.permission === 'granted');
+}
+$('#setPush').addEventListener('change', async (e) => {
+  const on = e.target.checked; e.target.disabled = true;
+  try { await setPush(on); if (on) toast('Done. You’ll get notifications even when Party Line is closed.', 4000); }
+  catch (err) { e.target.checked = false; toast(err.message || 'Couldn’t turn on notifications in this browser.', 6000); }
+  finally { e.target.disabled = false; }
+});
+/* Clicking a push notification opens Party Line at the chat (see sw.js). */
+function openFromPush(q) {
+  const p = q instanceof URLSearchParams ? q : new URLSearchParams(q);
+  if (p.get('dm') && S.users.has(Number(p.get('dm')))) return setView({ kind: 'dm', userId: Number(p.get('dm')) });
+  const f = findChannel(Number(p.get('channel') || p.get('call')));
+  if (f && f.channel.kind === 'text') return setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id });
+  if (f) return openServer(f.server.id);
+  if (p.get('friends')) { S.friendTab = 'pending'; setView({ kind: 'friends' }); }
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.open && S.ready) openFromPush(e.data.open.split('?')[1] || ''); });
 $('#setNameSave').addEventListener('click', async () => {
   const name = $('#setName').value.trim();
   if (!name || name === S.me.name) return;
@@ -2716,5 +2768,9 @@ Voice.initVoice({
 });
 const m = location.pathname.match(/^\/invite\/([\w-]+)/);
 if (m) { S.pendingInvite = m[1]; history.replaceState(null, '', '/'); }
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});
+if (location.search) {
+  const q = new URLSearchParams(location.search);
+  if (['dm', 'channel', 'call', 'friends'].some((k) => q.has(k))) { S.pendingOpen = q; history.replaceState(null, '', '/'); }
+}
+if ('serviceWorker' in navigator && window.isSecureContext && !desktop && !phoneApp) navigator.serviceWorker.register('/sw.js').catch(() => {});
 if (hasToken()) start(); else showJoinScreen();

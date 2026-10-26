@@ -178,6 +178,14 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  device TEXT,
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS notify_prefs (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target TEXT NOT NULL,

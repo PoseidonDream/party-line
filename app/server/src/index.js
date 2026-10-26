@@ -7,6 +7,7 @@ import express from 'express';
 import { config } from './config.js';
 import * as M from './model.js';
 import { proxyImage, signatureOk } from './preview.js';
+import * as Push from './push.js';
 import { attachHub, hub, voiceChannelOf, voiceCount } from './hub.js';
 
 M.ensureDefaultServer();
@@ -112,6 +113,11 @@ app.get('/api/dms/:userId/messages', auth, wrap((req) => {
   const d = M.dmWith(req.user.id, Number(req.params.userId), false);
   return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [], seenId: d ? M.seenBy(d.id, Number(req.params.userId)) : 0 };
 }));
+
+/* Push notifications (see push.js). */
+app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey() }));
+app.post('/api/push/subscribe', auth, wrap((req) => { Push.subscribe(req.user.id, req.body.subscription, req.body.device); return { ok: true }; }));
+app.post('/api/push/unsubscribe', auth, wrap((req) => { Push.unsubscribe(req.user.id, req.body.endpoint); return { ok: true }; }));
 
 /* Pinned messages in a channel (channelId) or a private chat (userId). */
 app.get('/api/pins', auth, wrap((req) => {

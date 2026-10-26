@@ -7,6 +7,7 @@ import * as M from './model.js';
 import { config } from './config.js';
 import * as Bot from './bot.js';
 import { previewFor, linksIn, imagePath } from './preview.js';
+import * as Push from './push.js';
 
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
@@ -53,6 +54,40 @@ function announce(userId) {
 /* Everyone online who can see this person (see M.canSeeUser). */
 const toWatchers = (userId, msg) => { for (const uid of byUser.keys()) if (M.canSeeUser(uid, userId)) toUser(uid, msg); };
 const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
+
+/* Push notifications reach people who have no Party Line open, following the same rules as the in-app ones:
+   private chats and group chats ring by default, servers only for @mentions and replies, mute is mute, and
+   Do Not Disturb silences everything. */
+const plainText = (body) => String(body || '')
+  .replace(/<@(\d+)>/g, (_, id) => '@' + ((M.getUser(Number(id)) || {}).name || 'someone'))
+  .replace(/<t:(\d+)(?::\w)?>/g, (_, t) => new Date(Number(t) * 1000).toUTCString().slice(0, 22))
+  .replace(/\|\|[\s\S]*?\|\|/g, '[spoiler]').replace(/```\w*\n?|[*_~`]{1,3}/g, '').replace(/^> /gm, '').replace(/\s+/g, ' ').trim();
+function pushIfAway(userId, payload) {
+  if (online(userId)) return;
+  const u = M.getUser(userId);
+  if (!u || u.is_bot || u.status === 'dnd' || !Push.hasPush(userId)) return;
+  Push.pushTo(userId, payload);
+}
+function pushMessage(m, author) {
+  const what = plainText(m.body) || (m.attachments && m.attachments.length ? '📎 sent a file' : '');
+  if (m.dmId || m.dm_id) {
+    const dm = M.getDm(m.dmId || m.dm_id), to = dm.user_a === author.id ? dm.user_b : dm.user_a;
+    if ((M.notifyPrefs(to)[`d:${author.id}`] || 'all') === 'mute') return;
+    return pushIfAway(to, { title: author.name, body: what, url: `/?dm=${author.id}`, tag: `d:${author.id}` });
+  }
+  const ch = M.getChannel(m.channelId || m.channel_id), srv = M.getServer(ch.server_id);
+  const mentioned = new Set(M.mentionedIds(m.body));
+  const replied = m.replyTo || m.reply_to ? M.getMessage(m.replyTo || m.reply_to) : null;
+  if (replied) mentioned.add(replied.user_id);
+  const hidden = srv.kind === 'group' || srv.kind === 'pair';
+  for (const id of M.memberIds(srv.id)) {
+    if (id === author.id || online(id)) continue;
+    const prefs = M.notifyPrefs(id);
+    const level = prefs[`c:${ch.id}`] || prefs[`s:${srv.id}`] || (hidden ? 'all' : 'mentions');
+    if (level === 'mute' || (level === 'mentions' && !mentioned.has(id))) continue;
+    pushIfAway(id, { title: hidden ? `${author.name} · ${srv.name || 'group chat'}` : `${author.name} in #${ch.name} · ${srv.name}`, body: what, url: `/?channel=${ch.id}`, tag: `c:${ch.id}` });
+  }
+}
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
   sharing: v.sharing, camera: !!v.camera, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
 const fail = (msg) => { throw new M.UserError(msg); };
@@ -163,6 +198,7 @@ const handlers = {
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
+      pushMessage(m, user);
       addPreviews(M.getMessage(m.id)).catch(() => {});
       return { msg: m };
     }
@@ -175,6 +211,7 @@ const handlers = {
     const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
+    pushMessage(m, user);
     addPreviews(M.getMessage(m.id)).catch(() => {});
     return { msg: m };
   },
@@ -411,6 +448,7 @@ const handlers = {
     const r = M.requestFriend(user.id, d.name);
     toUser(user.id, { t: 'friend', id: r.other.id, state: r.state, user: userView(r.other.id) });
     toUser(r.other.id, { t: 'friend', id: user.id, state: r.state === 'friends' ? 'friends' : 'incoming', user: userView(user.id) });
+    if (r.state !== 'friends') pushIfAway(r.other.id, { title: 'Friend request', body: `${user.name} wants to be friends.`, url: '/?friends=1', tag: `friend:${user.id}` });
     return { state: r.state, name: r.other.name };
   },
   'friend.accept'(c, user, d) {
@@ -443,7 +481,10 @@ const handlers = {
     // Starting a call in a group chat or a 1-on-1 call room rings everyone else.
     const srv = M.getServer(ch.server_id);
     if (wasEmpty && srv.kind && srv.kind !== 'server') {
-      for (const id of M.memberIds(srv.id)) if (id !== user.id) toUser(id, { t: 'ring', from: user.id, serverId: srv.id, channelId: ch.id });
+      for (const id of M.memberIds(srv.id)) if (id !== user.id) {
+        toUser(id, { t: 'ring', from: user.id, serverId: srv.id, channelId: ch.id });
+        if ((M.notifyPrefs(id)[`s:${srv.id}`] || 'all') !== 'mute') pushIfAway(id, { title: `📞 ${user.name} is calling`, body: srv.kind === 'group' ? (srv.name || 'Group call') : 'Open Party Line to answer.', url: `/?call=${ch.id}`, tag: `call:${srv.id}`, call: true });
+      }
     }
     return { peers: [...voice].filter(([id, x]) => id !== user.id && x.channelId === ch.id).map(([id]) => id) };
   },
