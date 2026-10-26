@@ -166,6 +166,7 @@
           <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
           <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
           <button type="button" id="mNotify"><svg class="ic"><use href="#i-bell"/></svg>Notifications</button>
+          <button type="button" id="mAfk"><svg class="ic"><use href="#i-headphones"/></svg>AFK channel</button>
           <button type="button" id="mEmoji"><svg class="ic"><use href="#i-smile"/></svg>Emoji &amp; stickers</button>
           <button type="button" id="mRoles"><svg class="ic"><use href="#i-shield"/></svg>Roles</button>
           <button type="button" id="mCategory" hidden><svg class="ic"><use href="#i-folder"/></svg>Create category</button>
@@ -396,6 +397,20 @@
     </div>
   </aside>
 </main>
+
+<!-- ================= AFK CHANNEL ================= -->
+<dialog id="afkDlg" aria-labelledby="afkTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="afkTitle">AFK channel</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body">
+    <p class="hint">People who are silent in voice and don’t touch Party Line for 15 minutes (or stay muted for 30) are moved here and muted, instead of being disconnected. They can come back any time.</p>
+    <div class="field"><label class="flabel" for="afkSelect">Move quiet people to</label>
+      <select id="afkSelect" class="input"></select></div>
+    <div class="row-btns"><button type="button" class="btn primary" id="afkSave">Save</button></div>
+  </div>
+</dialog>
+<div class="live-peek" id="livePeek" hidden><img id="livePeekImg" alt=""><small id="livePeekText"></small></div>
 
 <!-- ================= CUSTOM EMOJI & STICKERS ================= -->
 <dialog id="emojiDlg" aria-labelledby="emojiTitle">

@@ -1050,3 +1050,10 @@ body.in-call .watch-btn { display: inline-flex; }
 .pill { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: var(--bg); color: var(--dim); }
 .pill.on { background: color-mix(in srgb, var(--ok) 25%, var(--panel)); color: var(--fg); }
 .qr { display: block; width: 180px; height: 180px; margin: 6px 0; background: #fff; border-radius: 8px; padding: 6px; }
+
+/* AFK channel and Go Live preview */
+.chan-afk { margin-left: 6px; font-size: 12px; }
+.live-peek { position: fixed; z-index: 70; width: 260px; padding: 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); pointer-events: none; }
+.live-peek[hidden] { display: none; }
+.live-peek img { display: block; width: 100%; border-radius: 8px; background: #000; }
+.live-peek small { display: block; padding: 6px 4px 2px; color: var(--dim); }

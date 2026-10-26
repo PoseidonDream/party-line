@@ -7,7 +7,7 @@ import { log } from './dev.js';
 export const V = {
   channelId: null, serverId: null, joining: false,
   muted: false, deafened: false, serverMuted: false, pttHeld: false,
-  sharing: false, screenStream: null,
+  sharing: false, screenStream: null, joinedAt: 0,
   camera: false, camStream: null,
   rawStream: null, micStream: null, sendTrack: null, noMic: true, micIssue: null, fx: null,
   peers: new Map(),   // userId -> peer
@@ -155,7 +155,7 @@ export async function joinVoice(channelId) {
     if (V.channelId) closeAllPeers();
     const r = await live.req('voice.join', { channelId, muted: V.muted, deafened: V.deafened });
     log('info', `Joined voice channel ${channelId} (${V.sfu ? 'media server' : 'direct'}, ${r.peers.length} already there)`);
-    V.channelId = channelId;
+    V.channelId = channelId; V.joinedAt = Date.now();
     V.serverMuted = false;
     holdCallLock();
     if (V.sfu) {

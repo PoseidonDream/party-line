@@ -443,7 +443,8 @@ export function serverView(serverId, viewerId) {
   const memberRoles = {};
   for (const r of all('SELECT user_id, role_id FROM member_roles WHERE server_id = ?', serverId)) (memberRoles[r.user_id] ||= []).push(r.role_id);
   const categories = all('SELECT id, name, position FROM categories WHERE server_id = ? ORDER BY position, id', serverId);
-  return { id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories };
+  const afk = channels.some((c) => c.id === s.afk_channel_id && c.kind === 'voice') ? s.afk_channel_id : null;
+  return { id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories, afkChannelId: afk };
 }
 
 /* ---------- messages ---------- */
@@ -623,6 +624,12 @@ export function addSound(userId, serverId, d) {
   run('INSERT INTO sounds (server_id, user_id, name, emoji, upload_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', serverId, userId, name, emoji, up.id, now());
 }
 export const deleteSound = (id) => run('DELETE FROM sounds WHERE id = ?', id);
+/* The AFK channel: people quiet in voice for a while are moved there (by their own app). null turns it off. */
+export function setAfkChannel(serverId, channelId) {
+  const ch = channelId ? getChannel(Number(channelId)) : null;
+  if (channelId && (!ch || ch.server_id !== serverId || ch.kind !== 'voice')) fail('Pick one of this server’s voice channels.');
+  run('UPDATE servers SET afk_channel_id = ? WHERE id = ?', ch ? ch.id : null, serverId);
+}
 /* Custom emoji and stickers, per server. In messages, an emoji is written <:name:id>; a sticker message is
    just <s:id>. Anyone in a server can use its emoji anywhere (in other servers and private chats too). */
 const emojiView = (e) => ({ id: e.id, serverId: e.server_id, kind: e.kind, name: e.name, url: `/uploads/${e.upload_id}`, by: e.user_id });

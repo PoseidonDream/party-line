@@ -160,6 +160,7 @@ function readyFor(user) {
     friends: M.friendsOf(user.id),
     dms: M.dmsOf(user.id),
     voice: [...voice].filter(([, v]) => mine.has(v.serverId)).map(([id, v]) => voiceView(id, v)),
+    previews: [...voice].filter(([, v]) => mine.has(v.serverId) && v.preview).map(([userId, v]) => ({ userId, img: v.preview })),
     music: Bot.musicStates(mine),
     events: [...mine].flatMap((id) => M.eventsOf(id)),
     sounds: [...mine].flatMap((id) => M.soundsOf(id)),
@@ -301,6 +302,15 @@ const handlers = {
       if (!M.memberIds(s.id).length) M.deleteServer(s.id);
       else { const t = M.getChannel(groupText(s.id)); if (t) botHost.post({ channelId: t.id }, `👋 **${user.name}** left the group.`); }
     }
+    return {};
+  },
+  'server.afk'(c, user, d) {
+    const s = M.getServer(Number(d.id));
+    if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission for that.');
+    M.setAfkChannel(s.id, d.channelId || null);
+    const ch = d.channelId ? M.getChannel(Number(d.channelId)) : null;
+    log(user, s.id, 'Changed the AFK channel', ch ? `🔊 ${ch.name}` : 'off');
+    refreshServer(s.id);
     return {};
   },
   'server.rename'(c, user, d) {
@@ -606,7 +616,19 @@ const handlers = {
     v.muted = !!d.muted; v.deafened = !!d.deafened; v.sharing = !!d.sharing;
     v.screenId = d.sharing && typeof d.screenId === 'string' ? d.screenId.slice(0, 80) : null;
     v.camera = !!d.camera;
+    if (!v.sharing && v.preview) { v.preview = null; toServer(v.serverId, { t: 'voice.preview', userId: user.id, img: null }); }
     toServer(v.serverId, { t: 'voice', state: voiceView(user.id, v) });
+    return {};
+  },
+  /* Go Live preview: whoever shares their screen sends a small snapshot every so often, so people in the server
+     can peek before joining. Kept only in memory, and only while they share. */
+  'voice.preview'(c, user, d) {
+    const v = voice.get(user.id);
+    if (!v || v.connId !== c.id || !v.sharing) return {};
+    const img = String(d.img || '');
+    if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(img) || img.length > 120_000) fail('That preview is too big.');
+    v.preview = img;
+    toServer(v.serverId, { t: 'voice.preview', userId: user.id, img });
     return {};
   },
   rtc(c, user, d) {

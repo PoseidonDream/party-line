@@ -11,7 +11,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [],
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -241,6 +241,7 @@ live.on('ready', (d) => {
   S.serverNow = d.serverNow;
   S.resets = d.resets || [];
   S.notif = d.notify || {};
+  S.previews = new Map((d.previews || []).map((p) => [p.userId, p.img]));
   S.emoji = new Map((d.emoji || []).map((e) => [e.id, e]));
   S.gifs = d.gifs || [];
   renderResetBar();
@@ -336,7 +337,7 @@ live.on('voice', (d) => {
 });
 live.on('voice.left', (d) => {
   const prev = S.voice.get(d.userId);
-  S.voice.delete(d.userId);
+  S.voice.delete(d.userId); S.previews.delete(d.userId);
   Voice.onVoiceLeft(d.userId);
   if (prev && V.channelId && prev.channelId === V.channelId && d.userId !== S.me.id) chime('leave', V.deafened);
   if (S.watching === d.userId) S.watching = null;
@@ -628,6 +629,7 @@ function renderSide() {
       if (V.channelId === c.id) b.classList.add('in-voice');
       b.innerHTML = iconSvg('volume');
       const n = document.createElement('span'); n.className = 'chan-name'; n.textContent = c.name; b.appendChild(n);
+      if (c.id === s.afkChannelId) { const z = document.createElement('span'); z.className = 'chan-afk'; z.textContent = '💤'; z.title = 'AFK channel: quiet people are moved here'; b.appendChild(z); }
       if (people.some((p) => p.sharing)) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; b.appendChild(l); }
       const tune = S.music && S.music.get(c.id);
       if (tune) { const l = document.createElement('span'); l.className = 'chan-music'; l.title = `Playing: ${tune.now.title}`; l.innerHTML = iconSvg('music'); b.appendChild(l); }
@@ -643,7 +645,7 @@ function renderSide() {
           mb.appendChild(avEl(p.userId));
           const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = nameOf(p.userId); addCrown(nm, p.userId); mb.appendChild(nm);
           const rc = roleColor(s, p.userId); if (rc) nm.style.color = rc;
-          if (p.sharing) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; mb.appendChild(l); }
+          if (p.sharing) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; mb.appendChild(l); peekOn(mb, p.userId); }
           if (p.deafened) mb.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
           else if (p.muted || p.serverMuted) mb.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
           mb.addEventListener('click', (e) => openUserPop(p.userId, e.currentTarget));
@@ -674,6 +676,7 @@ function renderSide() {
     }
   }
   $('#mRename').hidden = !can(s, 'server');
+  $('#mAfk').hidden = !can(s, 'server') || s.kind !== 'server' || !s.channels.some((c) => c.kind === 'voice');
   $('#mRoles').hidden = !can(s, 'server') && !(s.roles || []).length;
   $('#mCategory').hidden = !manage;
   $('#mDev').hidden = !S.me.admin;
@@ -794,7 +797,7 @@ function renderMainView() {
     $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message #${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
   }
 }
-function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); sendOverlay(); }
+function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); sendOverlay(); syncPreview(); }
 /* Listen together (music.js): play what's on in my voice channel. */
 function syncMusic() {
   const ch = V.channelId || null, st = ch ? S.music.get(ch) : null;
@@ -1861,18 +1864,92 @@ window.addEventListener('blur', () => { if (V.pttHeld) Voice.setPtt(false); });
 if (desktop && desktop.onHotkey) desktop.onHotkey((what) => { if (!V.channelId) return; if (what === 'mute') toggleMute(); else if (what === 'deafen') toggleDeafen(); });
 if (desktop && desktop.onPtt) desktop.onPtt((held) => { if (settings.ptt && V.channelId) Voice.setPtt(held); });
 
-/* Muted or deafened in voice for 30 minutes: disconnect, with a warning from 25 minutes. Sharing pauses it. */
+/* Quiet in voice: muted or deafened for 30 minutes, or silent and not touching Party Line for 15. With an AFK
+   channel set for the server, you're moved there and muted; without one, muted people leave voice (silent
+   unmuted people stay). A warning shows 5 minutes before. Sharing your screen pauses it. */
+let lastSpoke = Date.now();
+function afkChannelFor(chId) { const f = findChannel(chId); return f && f.server.afkChannelId && f.server.afkChannelId !== chId ? f.server.afkChannelId : null; }
 setInterval(() => {
   const bar = $('#afkBar');
-  if (!V.channelId || !(V.muted || V.deafened) || V.sharing || !S.mutedSince) { bar.hidden = true; return; }
-  const left = 30 * 60_000 - (Date.now() - S.mutedSince);
-  if (left <= 0) { Voice.leaveVoice(); S.mutedSince = 0; bar.hidden = true; toast('You were muted for 30 minutes, so you left voice.', 6000); renderVoiceBits(); return; }
+  if (V.speaking.has(S.me && S.me.id)) lastSpoke = Date.now();
+  if (!V.channelId || V.sharing) { bar.hidden = true; return; }
+  const afk = afkChannelFor(V.channelId);
+  const mutedLeft = (V.muted || V.deafened) && S.mutedSince ? (window.PL_MUTED_MS || 30 * 60_000) - (Date.now() - S.mutedSince) : Infinity;
+  const quietLeft = afk && !(V.muted || V.deafened) ? (window.PL_QUIET_MS || 15 * 60_000) - (Date.now() - Math.max(lastSpoke, lastInput, V.joinedAt || 0)) : Infinity;
+  const left = Math.min(mutedLeft, quietLeft);
+  if (left <= 0) {
+    bar.hidden = true;
+    if (afk) {
+      const why = quietLeft <= 0 ? 'quiet for 15 minutes' : 'muted for 30 minutes';
+      S.mutedSince = 0; lastSpoke = Date.now();
+      joinVoice(afk).then(() => { if (!V.muted) toggleMute(); toast(`You were ${why}, so you were moved to the AFK channel. Click another voice channel to come back.`, 7000); });
+    } else { Voice.leaveVoice(); S.mutedSince = 0; toast('You were muted for 30 minutes, so you left voice.', 6000); renderVoiceBits(); }
+    return;
+  }
   if (left > 5 * 60_000) { bar.hidden = true; return; }
-  const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
-  $('#afkText').innerHTML = `You’ve been ${V.deafened ? 'deafened' : 'muted'} a while. Leaving voice in <b>${m}:${String(s).padStart(2, '0')}</b>.`;
+  const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);
+  const what = left === quietLeft ? 'quiet' : V.deafened ? 'deafened' : 'muted';
+  $('#afkText').innerHTML = `You’ve been ${what} a while. ${afk ? 'Moving you to the AFK channel' : 'Leaving voice'} in <b>${m}:${String(sec).padStart(2, '0')}</b>.`;
+  $('#afkUnmute').textContent = what === 'quiet' ? 'I’m here' : 'Unmute';
   bar.hidden = false;
 }, 1000);
-$('#afkUnmute').addEventListener('click', () => { if (V.deafened) Voice.setDeafened(false); Voice.setMuted(false); S.mutedSince = 0; renderVoiceBits(); });
+$('#afkUnmute').addEventListener('click', () => {
+  lastSpoke = Date.now();
+  if (V.muted || V.deafened) { if (V.deafened) Voice.setDeafened(false); Voice.setMuted(false); S.mutedSince = 0; renderVoiceBits(); }
+});
+
+/* Server menu → AFK channel */
+$('#mAfk').addEventListener('click', () => {
+  closeMenu();
+  const srv = curServer(); if (!srv) return;
+  const sel = $('#afkSelect');
+  sel.innerHTML = '<option value="">Nowhere (off)</option>';
+  for (const c of srv.channels.filter((x) => x.kind === 'voice')) { const o = document.createElement('option'); o.value = c.id; o.textContent = `🔊 ${c.name}`; sel.appendChild(o); }
+  sel.value = srv.afkChannelId ? String(srv.afkChannelId) : '';
+  $('#afkDlg').showModal();
+});
+$('#afkSave').addEventListener('click', async () => {
+  const srv = curServer();
+  if (await act(() => live.req('server.afk', { id: srv.id, channelId: Number($('#afkSelect').value) || null }), 'Saved.')) $('#afkDlg').close();
+});
+
+/* Go Live preview: while you share your screen, a small snapshot goes out every 15 s; others hover the LIVE badge
+   to peek before joining. */
+let previewTimer = null;
+function syncPreview() {
+  const on = V.sharing && V.screenStream;
+  if (!on) { clearInterval(previewTimer); previewTimer = null; return; }
+  if (previewTimer) return;
+  const snap = async () => {
+    const track = V.screenStream && V.screenStream.getVideoTracks()[0];
+    if (!track || !live.open) return;
+    const v = document.createElement('video'); v.muted = true; v.srcObject = new MediaStream([track]);
+    try { await v.play(); } catch { return; }
+    await new Promise((r) => (v.videoWidth ? r() : v.addEventListener('loadeddata', r, { once: true })));
+    const w = 320, h = Math.round(w * (v.videoHeight / v.videoWidth || 9 / 16));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(v, 0, 0, w, h);
+    v.srcObject = null;
+    live.req('voice.preview', { img: c.toDataURL('image/jpeg', 0.6) }).catch(() => {});
+  };
+  setTimeout(snap, 1500);
+  previewTimer = setInterval(snap, 15_000);
+}
+live.on('voice.preview', (d) => { if (d.img) S.previews.set(d.userId, d.img); else S.previews.delete(d.userId); });
+function peekOn(el, userId) {
+  const show = () => {
+    const img = S.previews.get(userId), box = $('#livePeek');
+    $('#livePeekImg').hidden = !img; if (img) $('#livePeekImg').src = img;
+    $('#livePeekText').textContent = `${nameOf(userId)} is sharing their screen${img ? '' : ' (preview coming)'} · click the channel to watch`;
+    box.hidden = false;
+    const r = el.getBoundingClientRect();
+    box.style.left = `${Math.min(innerWidth - box.offsetWidth - 8, r.right + 8)}px`;
+    box.style.top = `${Math.max(8, Math.min(innerHeight - box.offsetHeight - 8, r.top - 20))}px`;
+  };
+  const hide = () => { $('#livePeek').hidden = true; };
+  el.addEventListener('mouseenter', show); el.addEventListener('mouseleave', hide);
+  el.addEventListener('focus', show); el.addEventListener('blur', hide);
+}
 
 /* ---------- meters ---------- */
 function meterLoop() {
