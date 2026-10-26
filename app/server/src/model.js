@@ -130,6 +130,20 @@ export function resetStatus(id, secret) {
   }
   return { state: r.state === 'approved' ? 'used' : r.state };
 }
+/* Notification settings per person, kept on the server so they follow you to every device.
+   Targets: s:<server>, c:<channel>, d:<other person>. Levels: all, mentions, mute. */
+export function notifyPrefs(userId) {
+  const out = {};
+  for (const r of all('SELECT target, level FROM notify_prefs WHERE user_id = ?', userId)) out[r.target] = r.level;
+  return out;
+}
+export function setNotifyPref(userId, target, level) {
+  if (!/^[scd]:\d+$/.test(String(target))) fail('Unknown chat.');
+  if (level === null || level === '' || level === undefined) run('DELETE FROM notify_prefs WHERE user_id = ? AND target = ?', userId, target);
+  else if (['all', 'mentions', 'mute'].includes(level)) run('INSERT INTO notify_prefs (user_id, target, level) VALUES (?, ?, ?) ON CONFLICT (user_id, target) DO UPDATE SET level = excluded.level', userId, target, level);
+  else fail('Unknown setting.');
+  return notifyPrefs(userId);
+}
 export function rename(userId, name) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');

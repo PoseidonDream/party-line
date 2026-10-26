@@ -950,3 +950,12 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .spoiler * { visibility: hidden; }
 .spoiler.shown { background: var(--panel-2); color: inherit; cursor: auto; }
 .spoiler.shown * { visibility: visible; }
+/* Notification settings and the new-messages line */
+.notif-pop { width: 290px; gap: 8px; }
+.radio-dot { flex: none; width: 14px; height: 14px; margin-top: 3px; border-radius: 50%; border: 2px solid var(--dim); }
+[aria-checked="true"] > .radio-dot { border-color: var(--lamp, #f4a52a); background: radial-gradient(var(--lamp, #f4a52a) 45%, transparent 50%); }
+#notifBtn.on { color: var(--danger); }
+.chan.muted { opacity: .55; }
+.new-divider { list-style: none; display: flex; align-items: center; gap: 8px; margin: 8px 0; color: var(--danger); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.new-divider::before, .new-divider::after { content: ''; flex: 1; height: 1px; background: var(--danger); opacity: .6; }
+.new-bar { position: sticky; top: 0; z-index: 5; width: 100%; padding: 6px 16px; border: 0; background: var(--danger); color: #fff; font-weight: 700; text-align: left; cursor: pointer; }

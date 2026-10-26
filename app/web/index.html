@@ -40,6 +40,8 @@
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
@@ -158,6 +160,7 @@
         <div class="menu" id="serverMenu" hidden>
           <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
           <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
+          <button type="button" id="mNotify"><svg class="ic"><use href="#i-bell"/></svg>Notifications</button>
           <button type="button" id="mRoles"><svg class="ic"><use href="#i-shield"/></svg>Roles</button>
           <button type="button" id="mCategory" hidden><svg class="ic"><use href="#i-folder"/></svg>Create category</button>
           <button type="button" id="mFeedback"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
@@ -202,6 +205,7 @@
         <button type="button" class="btn small" id="groupAddBtn" title="Add people" hidden><svg class="ic"><use href="#i-user-plus"/></svg><span class="hide-sm">Add people</span></button>
         <button type="button" class="btn small" id="groupLeaveBtn" title="Leave group" hidden><svg class="ic"><use href="#i-leave"/></svg><span class="sr">Leave group</span></button>
         <button type="button" class="btn small" id="eventsBtn" title="Events" hidden><svg class="ic"><use href="#i-calendar"/></svg><span class="hide-sm">Events</span><span class="count-pill" id="eventsCount" hidden></span></button>
+        <button type="button" class="btn small icon-btn" id="notifBtn" title="Notification settings" aria-controls="notifPop" hidden><svg class="ic"><use href="#i-bell"/></svg><span class="sr">Notification settings</span></button>
         <button type="button" class="btn small" id="pinsBtn" title="Pinned messages" hidden><svg class="ic"><use href="#i-pin"/></svg><span class="hide-sm">Pinned</span></button>
         <button type="button" class="btn small" id="searchBtn" title="Search messages (Ctrl+K)"><svg class="ic"><use href="#i-search"/></svg><span class="hide-sm">Search</span></button>
         <button type="button" class="btn small" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
@@ -219,6 +223,7 @@
       <p class="hint" id="searchNote"></p>
       <ol class="search-results" id="searchResults"></ol>
     </div>
+    <button type="button" class="new-bar" id="newBar" hidden></button>
     <div class="update-bar reset-bar" id="resetBar" role="status" hidden><span id="resetBarText"></span><button type="button" class="btn small primary" id="resetReview">Review</button></div>
     <div class="update-bar" id="updateBar" role="status" hidden><span>A new version of the Party Line app is ready.</span><a class="btn small primary" id="updateGo" target="_blank" rel="noopener">Update</a><button type="button" class="btn small" id="updateLater">Later</button></div>
     <div class="offline-bar" id="offlineBar" role="status" hidden><span class="spinner" aria-hidden="true"></span><span>Lost connection to the server. Reconnecting…</span></div>
@@ -624,6 +629,11 @@
     <small class="hint" id="soundFileName">Pick a short clip: up to 7 seconds and 1 MB.</small>
     <div class="row-btns"><button type="button" class="btn small" id="soundPick">Choose file</button><button type="submit" class="btn small primary">Add</button></div>
   </form>
+</div>
+
+<div class="popover notif-pop" id="notifPop" role="dialog" aria-label="Notification settings" hidden>
+  <b id="notifTitle">Notifications</b>
+  <div class="status-opts" id="notifOpts" role="radiogroup"></div>
 </div>
 
 <div class="popover status-pop" id="statusPop" role="dialog" aria-label="Your status" hidden>

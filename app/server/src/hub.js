@@ -126,6 +126,7 @@ function readyFor(user) {
     commands: Bot.COMMAND_LIST,
     serverNow: Date.now(),
     resets: user.is_admin ? M.pendingResets() : [],
+    notify: M.notifyPrefs(user.id),
   };
 }
 
@@ -571,6 +572,11 @@ const handlers = {
     for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reset.done', id: r.id, approved: !!d.approve, by: user.id });
     // Approved: everywhere they were signed in with the old password is signed out.
     if (d.approve) for (const x of [...(byUser.get(r.user_id) || [])]) x.ws.close(4001, 'auth');
+    return {};
+  },
+  'notify.set'(c, user, d) {
+    const prefs = M.setNotifyPref(user.id, String(d.target || ''), d.level);
+    toUser(user.id, { t: 'notify', prefs });
     return {};
   },
   'client.info'(c, user, d) { c.client = String(d.label || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60) || null; return {}; },

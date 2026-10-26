@@ -10,7 +10,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], sounds: new Map(), soundFlash: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -61,6 +61,14 @@ function groupName(srv) {
 }
 const groupText = (srv) => srv.channels.find((c) => c.kind === 'text');
 const groupVoice = (srv) => srv.channels.find((c) => c.kind === 'voice');
+/* Notification level for a chat ('c:<channel>' or 'd:<person>'): all, mentions or mute. A channel follows
+   its server's setting unless it has its own; servers default to mentions, group and private chats to all. */
+function serverLevel(srv) { return S.notif[`s:${srv.id}`] || (srv.kind === 'group' || srv.kind === 'pair' ? 'all' : 'mentions'); }
+function levelFor(key) {
+  if (key.startsWith('d:')) return S.notif[key] || 'all';
+  const f = findChannel(Number(key.slice(2)));
+  return S.notif[key] || (f ? serverLevel(f.server) : 'mentions');
+}
 const rolesOf = (srv, userId) => (srv && srv.roles ? srv.roles.filter((r) => (srv.memberRoles[userId] || []).includes(r.id)).sort((a, b) => b.position - a.position) : []);
 /* A name's color: the highest role that has one. */
 const roleColor = (srv, userId) => { const r = rolesOf(srv, userId).find((x) => x.color); return r ? r.color : null; };
@@ -218,6 +226,7 @@ live.on('ready', (d) => {
   S.commands = d.commands || [];
   S.serverNow = d.serverNow;
   S.resets = d.resets || [];
+  S.notif = d.notify || {};
   renderResetBar();
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
@@ -343,6 +352,7 @@ live.on('reset.request', (d) => {
   toast(`🔑 ${d.request.name} wants to reset their password.`, 6000, { label: 'Review', fn: openResets });
   notify('🔑 Password reset request', `${d.request.name} wants to reset their password.`, openResets);
 });
+live.on('notify', (d) => { S.notif = d.prefs; renderAll(); });
 live.on('reset.done', (d) => { S.resets = S.resets.filter((x) => x.id !== d.id); renderResetBar(); if ($('#resetDlg').open) renderResets(); });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
 live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
@@ -391,6 +401,7 @@ const dmKeyById = (dmId) => { for (const x of S.dms.values()) if (x.id === dmId)
 const openDms = new Set(store.get('openDms', []) || []), closedDms = new Set(store.get('closedDms', []) || []);
 const saveDmList = () => { store.set('openDms', [...openDms]); store.set('closedDms', [...closedDms]); };
 function setView(v) {
+  noteUnread(v);
   S.view = v;
   if (v.kind === 'dm' && (!openDms.has(v.userId) || closedDms.has(v.userId))) { openDms.add(v.userId); closedDms.delete(v.userId); saveDmList(); }
   cancelReply(); closeMentionPop(); closeSearch();
@@ -465,20 +476,17 @@ function onMessage(key, msg) {
     if (f) {
       f.channel.lastId = msg.id;
       if (!mine && !viewing) f.channel.unread = (f.channel.unread || 0) + 1;
-      if (!mine && !viewing && f.server.kind === 'group' && !mentionsMe(msg)) {
+      const level = levelFor(key), where = isPrivate(f.server) ? groupName(f.server) : `#${f.channel.name}`;
+      if (!mine && !viewing && mentionsMe(msg)) f.channel.mentions = (f.channel.mentions || 0) + 1;
+      if (!mine && !viewing && level !== 'mute' && (level === 'all' || mentionsMe(msg))) {
         if (!quiet()) chime('msg', V.deafened);
-        notify(`${nameOf(msg.userId)} in ${groupName(f.server)}`, decodeMentions(msg.body) || 'Sent a file', () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
-      }
-      if (!mine && !viewing && mentionsMe(msg)) {
-        f.channel.mentions = (f.channel.mentions || 0) + 1;
-        if (!quiet()) chime('msg', V.deafened);
-        notify(`${nameOf(msg.userId)} in #${f.channel.name}`, decodeMentions(msg.body), () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
+        notify(`${nameOf(msg.userId)} in ${where}`, decodeMentions(msg.body) || 'Sent a file', () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
       }
     }
   } else {
     const x = S.dms.get(Number(key.slice(2)));
     if (x && !mine && !viewing) x.unread = (x.unread || 0) + 1;
-    if (!mine && !viewing) {
+    if (!mine && !viewing && levelFor(key) !== 'mute') {
       if (!quiet()) chime('msg', V.deafened);
       notify(nameOf(msg.userId), decodeMentions(msg.body) || 'Sent a photo or video', () => setView({ kind: 'dm', userId: msg.userId }));
     }
@@ -520,7 +528,7 @@ function renderRail() {
     if (isPrivate(s)) continue;
     const li = document.createElement('li');
     const on = S.view.serverId === s.id;
-    const unread = s.channels.some((c) => c.unread);
+    const unread = serverLevel(s) !== 'mute' && s.channels.some((c) => c.unread && levelFor(`c:${c.id}`) !== 'mute');
     li.className = 'rail-item' + (on ? ' current' : '') + (unread && !on ? ' joined' : '');
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'rail-btn'; b.title = s.name; b.setAttribute('aria-label', s.name);
@@ -579,7 +587,9 @@ function renderSide() {
     const current = S.view.channelId === c.id;
     b.setAttribute('aria-current', String(current));
     if (c.kind === 'text') {
-      if (c.unread && !current) b.classList.add('unread');
+      const muted = levelFor(`c:${c.id}`) === 'mute';
+      if (c.unread && !current && !muted) b.classList.add('unread');
+      if (muted) b.classList.add('muted');
       b.innerHTML = '<span class="glyph" aria-hidden="true">#</span>';
       const n = document.createElement('span'); n.className = 'chan-name'; n.textContent = c.name; b.appendChild(n);
       if (c.mentions && !current) { const bd = document.createElement('span'); bd.className = 'chan-badge'; bd.title = 'Mentions of you'; bd.textContent = c.mentions > 99 ? '99+' : c.mentions; b.appendChild(bd); }
@@ -714,6 +724,12 @@ function renderHeader() {
   const v = S.view, icon = $('#viewIcon');
   $('#copyInvite').hidden = !v.serverId;
   $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
+  $('#notifBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
+  if (!$('#notifBtn').hidden) {
+    const lv = levelFor(v.kind === 'dm' ? `d:${v.userId}` : `c:${v.channelId}`);
+    $('#notifBtn').querySelector('use').setAttribute('href', lv === 'mute' ? '#i-bell-off' : '#i-bell');
+    $('#notifBtn').classList.toggle('on', lv === 'mute');
+  }
   const priv = isPrivate(S.servers.get(v.serverId)), grp = priv && S.servers.get(v.serverId).kind === 'group';
   $('#eventsBtn').hidden = !v.serverId || priv;
   if (priv) $('#copyInvite').hidden = true;
@@ -1141,9 +1157,17 @@ function renderMessages(keepScroll) {
   } else if (m.loaded) box.appendChild(introEl());
   if (!m.loaded) { const li = document.createElement('li'); li.className = 'sys'; li.textContent = 'Loading messages…'; box.appendChild(li); }
   let prev = null;
-  for (const msg of m.list) { box.appendChild(messageEl(msg, prev)); prev = msg; }
+  const mark = S.newMark && S.newMark.key === key && m.loaded ? m.list[Math.max(0, m.list.length - S.newMark.count)] : null;
+  for (const msg of m.list) {
+    if (mark && msg === mark && msg.userId !== S.me.id) { const d = document.createElement('li'); d.className = 'new-divider'; d.innerHTML = '<span>New messages</span>'; box.appendChild(d); prev = null; }
+    box.appendChild(messageEl(msg, prev)); prev = msg;
+  }
   lastRendered = { key, prev };
   if (keepScroll && !atBottom) box.scrollTop = top; else box.scrollTop = box.scrollHeight;
+  // Opening a chat with lots of unread: start at the "New messages" line instead of the bottom.
+  const div = box.querySelector('.new-divider');
+  if (!keepScroll && div && S.newMark.count > 6) box.scrollTop = Math.max(0, div.offsetTop - 40);
+  renderNewBar();
 }
 function appendMessage(msg) {
   const box = $('#messages');
@@ -2166,6 +2190,57 @@ $('#fbForm').addEventListener('submit', async (e) => {
   } catch (ex) { $('#fbError').textContent = ex.message; $('#fbError').hidden = false; }
   $('#fbSend').disabled = false;
 });
+
+/* ================= notification settings ================= */
+const LEVEL_TEXT = { all: ['All messages', 'A sound and a notification for every message'], mentions: ['Only @mentions', 'Only when someone mentions you'], mute: ['Nothing', 'Muted: no sounds, notifications or unread highlight'] };
+function openNotif(target, anchor) {
+  const pop = $('#notifPop'), opts = $('#notifOpts'); opts.textContent = '';
+  let cur, choices = ['all', 'mentions', 'mute'], dflt = null;
+  if (target.startsWith('s:')) { const srv = S.servers.get(Number(target.slice(2))); cur = serverLevel(srv); $('#notifTitle').textContent = `Notifications for ${srv.name}`; }
+  else if (target.startsWith('d:')) { cur = S.notif[target] || 'all'; choices = ['all', 'mute']; $('#notifTitle').textContent = `Notifications from ${nameOf(Number(target.slice(2)))}`; }
+  else {
+    const f = findChannel(Number(target.slice(2)));
+    dflt = serverLevel(f.server); cur = S.notif[target] || 'default';
+    $('#notifTitle').textContent = isPrivate(f.server) ? `Notifications for ${groupName(f.server)}` : `Notifications for #${f.channel.name}`;
+    if (isPrivate(f.server)) { dflt = null; cur = S.notif[target] || serverLevel(f.server); }
+  }
+  const opt = (value, label, desc) => {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(cur === value)); b.dataset.level = value;
+    b.innerHTML = '<span class="radio-dot"></span><span><b></b><small></small></span>';
+    b.querySelector('b').textContent = label; b.querySelector('small').textContent = desc;
+    b.addEventListener('click', () => { act(() => live.req('notify.set', { target, level: value === 'default' ? null : value })); pop.hidden = true; });
+    opts.appendChild(b);
+  };
+  if (dflt) opt('default', `Same as the server (${LEVEL_TEXT[dflt][0]})`, 'Follow the server’s notification setting');
+  for (const c of choices) opt(c, ...LEVEL_TEXT[c]);
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth))}px`;
+  pop.style.top = `${Math.min(innerHeight - pop.offsetHeight - 8, r.bottom + 6)}px`;
+}
+$('#notifBtn').addEventListener('click', (e) => {
+  if (!$('#notifPop').hidden) { $('#notifPop').hidden = true; return; }
+  openNotif(S.view.kind === 'dm' ? `d:${S.view.userId}` : `c:${S.view.channelId}`, e.currentTarget);
+});
+$('#mNotify').addEventListener('click', () => { const s = curServer(); closeMenu(); if (s) openNotif(`s:${s.id}`, $('#serverBtn')); });
+document.addEventListener('pointerdown', (e) => { if (!$('#notifPop').hidden && !e.target.closest('#notifPop, #notifBtn, #mNotify')) $('#notifPop').hidden = true; });
+
+/* "New messages" line where you left off, and a bar to jump to it when it's scrolled out of view. */
+function noteUnread(v) {
+  let count = 0, key = null;
+  if (v.kind === 'text') { const f = findChannel(v.channelId); count = f ? f.channel.unread || 0 : 0; key = `c:${v.channelId}`; }
+  else if (v.kind === 'dm') { count = (S.dms.get(v.userId) || {}).unread || 0; key = `d:${v.userId}`; }
+  S.newMark = count ? { key, count } : null;
+}
+function renderNewBar() {
+  const bar = $('#newBar'), div = document.querySelector('#messages .new-divider');
+  if (!div || !S.newMark) { bar.hidden = true; return; }
+  const box = $('#messages'), above = div.offsetTop < box.scrollTop;
+  bar.hidden = !above;
+  bar.textContent = `${S.newMark.count} new message${S.newMark.count === 1 ? '' : 's'} · Jump to them`;
+}
+$('#newBar').addEventListener('click', () => { const d = document.querySelector('#messages .new-divider'); if (d) d.scrollIntoView({ block: 'start' }); renderNewBar(); });
+$('#messages').addEventListener('scroll', renderNewBar, { passive: true });
 
 /* ================= password reset requests (admins) ================= */
 function renderResetBar() {

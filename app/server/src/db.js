@@ -178,6 +178,12 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS notify_prefs (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target TEXT NOT NULL,
+  level TEXT NOT NULL,
+  PRIMARY KEY (user_id, target)
+);
 CREATE TABLE IF NOT EXISTS link_previews (
   url TEXT PRIMARY KEY,
   data TEXT,
