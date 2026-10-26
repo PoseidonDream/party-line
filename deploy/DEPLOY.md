@@ -155,6 +155,7 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **You:** click your picture at the bottom left to set **Online, Idle, Do not disturb or Invisible** and a custom status. Settings has **About me** and a banner color. The desktop app shows **"Playing ..."** when you're in a known game (switch it off in the tray menu).
 - **Events:** the Events button in a server plans things like game night. Friends answer Going or Maybe, and Party Bot reminds everyone going 15 minutes before.
 - **Notifications:** the bell at the top of a chat chooses All messages, Only @mentions or Nothing (the server menu sets the default). In the website, Settings → **Even when Party Line is closed** sends private messages, @mentions and calls to the phone or computer even with the tab closed (on iPhone, Add to Home Screen first).
+- **Desktop app extras** (all in the tray icon's menu): **Ctrl+Shift+M** mutes and **Ctrl+Shift+D** deafens from any app, even mid-game (pick other keys in the menu). An **overlay** in the top-left corner shows who's in your voice channel and who's talking while you're in a game (works in windowed and borderless games, not exclusive full screen). **Start with the computer** can start quietly in the tray.
 - **Organising a server:** channel topics, **categories** (server menu), drag and drop to reorder channels, and **roles** with colors and permissions (server menu, Roles).
 
 ## Party Bot: music and fun commands

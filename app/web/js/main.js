@@ -777,7 +777,7 @@ function renderMainView() {
     $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message #${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
   }
 }
-function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); }
+function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); sendOverlay(); }
 /* Listen together (music.js): play what's on in my voice channel. */
 function syncMusic() {
   const ch = V.channelId || null, st = ch ? S.music.get(ch) : null;
@@ -1666,6 +1666,21 @@ function camVideo(id, stream, mirror) {
 }
 function renderSpeaking(set) {
   document.querySelectorAll('.tile[data-uid], .member[data-uid]').forEach((el) => el.classList.toggle('speaking', set.has(Number(el.dataset.uid))));
+  sendOverlay();
+}
+/* Desktop app: who's in my voice channel and who's talking, for the overlay shown over games. */
+let lastOverlay = '';
+function sendOverlay() {
+  if (!desktop || !desktop.setOverlay) return;
+  const f = V.channelId && findChannel(V.channelId);
+  const st = f ? {
+    channel: f.channel.name,
+    people: [...S.voice.values()].filter((v) => v.channelId === V.channelId).map((v) => ({
+      name: nameOf(v.userId), talking: V.speaking.has(v.userId), muted: !!(v.muted || v.deafened || v.serverMuted), color: `hsl(${hue(nameOf(v.userId))} 45% 45%)`,
+    })),
+  } : null;
+  const key = JSON.stringify(st);
+  if (key !== lastOverlay) { lastOverlay = key; desktop.setOverlay(st); }
 }
 /* ---------- your controls ---------- */
 const MIC_ISSUES = {
@@ -1802,6 +1817,8 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => { if (e.code === 'Space' && settings.ptt) Voice.setPtt(false); });
 window.addEventListener('blur', () => { if (V.pttHeld) Voice.setPtt(false); });
 // Desktop app: push to talk works even when Party Line isn't the window in front.
+/* Desktop app: the mute and deafen keys work even while a game is in front. */
+if (desktop && desktop.onHotkey) desktop.onHotkey((what) => { if (!V.channelId) return; if (what === 'mute') toggleMute(); else if (what === 'deafen') toggleDeafen(); });
 if (desktop && desktop.onPtt) desktop.onPtt((held) => { if (settings.ptt && V.channelId) Voice.setPtt(held); });
 
 /* Muted or deafened in voice for 30 minutes: disconnect, with a warning from 25 minutes. Sharing pauses it. */

@@ -1,7 +1,8 @@
 /* Party Line desktop app. Opens your group's Party Line server in its own window and adds what a browser
    can't: a screen and window picker for screen sharing, push to talk that works while a game is in front,
-   a tray icon, unread badges and automatic updates. */
-const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell, nativeImage, dialog, nativeTheme } = require('electron');
+   mute and deafen keys that work in any app, an overlay showing who's talking while you play, a tray icon,
+   unread badges and automatic updates. */
+const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell, nativeImage, dialog, nativeTheme, globalShortcut, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const pkg = require('../package.json');
@@ -11,7 +12,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 /* ---------- settings saved on this computer ---------- */
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
-let cfg = { server: '', pttKey: 'none', closeToTray: true, showGame: true };
+let cfg = { server: '', pttKey: 'none', closeToTray: true, showGame: true, muteKey: 'CommandOrControl+Shift+M', deafenKey: 'CommandOrControl+Shift+D', overlay: true, startInTray: true };
 function loadCfg() {
   try { cfg = Object.assign(cfg, JSON.parse(fs.readFileSync(cfgFile(), 'utf8'))); } catch {}
   if (!cfg.server && pkg.partyLine && pkg.partyLine.server) cfg.server = pkg.partyLine.server;
@@ -28,7 +29,10 @@ function createWindow() {
     backgroundColor: '#11151d', title: 'Party Line', icon: icon(), autoHideMenuBar: true, show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
-  win.once('ready-to-show', () => win.show());
+  // Started with the computer: wait quietly in the tray (if that's what they chose).
+  const atLogin = process.argv.includes('--hidden') || (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAsHidden);
+  win.once('ready-to-show', () => { if (!(atLogin && cfg.startInTray)) win.show(); });
+  win.on('focus', updateOverlay); win.on('blur', updateOverlay); win.on('show', updateOverlay); win.on('hide', updateOverlay);
   win.on('close', (e) => {
     if (!quitting && cfg.closeToTray && tray) { e.preventDefault(); win.hide(); }
   });
@@ -117,6 +121,44 @@ function setupPtt() {
   try { uIOhook.start(); } catch { hook = null; }
 }
 
+/* ---------- mute and deafen keys that work in any app (even while a game is in front) ---------- */
+const MUTE_KEYS = ['CommandOrControl+Shift+M', 'CommandOrControl+Alt+M', 'F9', 'Pause', 'none'];
+const DEAFEN_KEYS = ['CommandOrControl+Shift+D', 'CommandOrControl+Alt+D', 'F10', 'none'];
+const keyLabel = (k) => (k === 'none' ? 'Off' : k.replace('CommandOrControl', process.platform === 'darwin' ? 'Cmd' : 'Ctrl'));
+function setupHotkeys() {
+  globalShortcut.unregisterAll();
+  const reg = (key, what) => {
+    if (!key || key === 'none') return;
+    try { if (!globalShortcut.register(key, () => { if (win && !win.isDestroyed()) win.webContents.send('hotkey', what); })) console.warn('hotkey taken:', key); } catch {}
+  };
+  reg(cfg.muteKey, 'mute'); reg(cfg.deafenKey, 'deafen');
+}
+
+/* ---------- overlay: who's talking, in a corner of the screen while you're in another app ---------- */
+let overlay = null, overlayState = null;
+function updateOverlay() {
+  const want = cfg.overlay && overlayState && overlayState.people.length && win && !win.isDestroyed() && !(win.isVisible() && win.isFocused());
+  if (!want) { if (overlay && !overlay.isDestroyed()) overlay.hide(); return; }
+  const height = 34 + Math.min(overlayState.people.length, 10) * 30;
+  if (!overlay || overlay.isDestroyed()) {
+    const { workArea } = screen.getPrimaryDisplay();
+    overlay = new BrowserWindow({
+      x: workArea.x + 12, y: workArea.y + 12, width: 230, height, frame: false, transparent: true, resizable: false, movable: false,
+      skipTaskbar: true, focusable: false, show: false, hasShadow: false, alwaysOnTop: true,
+      webPreferences: { preload: path.join(__dirname, 'overlay-preload.js'), contextIsolation: true, sandbox: true },
+    });
+    overlay.setAlwaysOnTop(true, 'screen-saver');
+    overlay.setIgnoreMouseEvents(true);   // clicks go through to the game
+    overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    overlay.loadFile(path.join(__dirname, 'overlay.html'));
+    overlay.webContents.once('did-finish-load', () => { overlay.webContents.send('overlay', overlayState); overlay.showInactive(); });
+    return;
+  }
+  overlay.setSize(230, height);
+  overlay.webContents.send('overlay', overlayState);
+  if (!overlay.isVisible()) overlay.showInactive();
+}
+
 /* ---------- tray ---------- */
 let games = null;
 function buildTray() {
@@ -129,15 +171,20 @@ function buildTray() {
     { label: 'Open Party Line', click: showWin },
     { type: 'separator' },
     { label: 'Push-to-talk key', enabled: !!hook, submenu: PTT_KEYS.map((k) => ({ label: k.label, type: 'radio', checked: cfg.pttKey === k.id, click: () => { cfg.pttKey = k.id; saveCfg(); buildTray(); } })) },
+    { label: 'Mute key (works in any app)', submenu: MUTE_KEYS.map((k) => ({ label: keyLabel(k), type: 'radio', checked: cfg.muteKey === k, click: () => { cfg.muteKey = k; saveCfg(); setupHotkeys(); buildTray(); } })) },
+    { label: 'Deafen key (works in any app)', submenu: DEAFEN_KEYS.map((k) => ({ label: keyLabel(k), type: 'radio', checked: cfg.deafenKey === k, click: () => { cfg.deafenKey = k; saveCfg(); setupHotkeys(); buildTray(); } })) },
+    { label: 'Show who’s talking over games (overlay)', type: 'checkbox', checked: cfg.overlay !== false, click: (i) => { cfg.overlay = i.checked; saveCfg(); updateOverlay(); } },
     { label: 'Show friends what game I’m playing', type: 'checkbox', checked: cfg.showGame !== false, click: (i) => { cfg.showGame = i.checked; saveCfg(); if (games) games.refresh(); } },
     { label: 'Keep running in the tray when closed', type: 'checkbox', checked: cfg.closeToTray, click: (i) => { cfg.closeToTray = i.checked; saveCfg(); } },
-    { label: 'Start when I sign in to my computer', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }) },
+    { label: 'Start when I sign in to my computer', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => { setLogin(i.checked); buildTray(); } },
+    { label: '…and start in the tray (no window)', type: 'checkbox', checked: cfg.startInTray !== false, enabled: app.getLoginItemSettings().openAtLogin, click: (i) => { cfg.startInTray = i.checked; saveCfg(); } },
     { label: 'Change server…', click: () => { showWin(); win.loadFile(path.join(__dirname, 'setup.html'), { query: { server: cfg.server } }); } },
     { type: 'separator' },
     { label: `Version ${app.getVersion()}`, enabled: false },
     { label: 'Quit Party Line', click: () => { quitting = true; app.quit(); } },
   ]));
 }
+const setLogin = (on) => app.setLoginItemSettings({ openAtLogin: on, openAsHidden: on, args: on ? ['--hidden'] : [] });
 function showWin() { if (!win) return; if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
 
 /* ---------- messages from the pages ---------- */
@@ -165,6 +212,11 @@ ipcMain.on('badge', (e, n) => {
   }
 });
 ipcMain.on('focus', showWin);
+ipcMain.on('overlay', (e, st) => {
+  // { channel, people: [{ name, talking, muted, color }] } or null when not in voice
+  overlayState = st && Array.isArray(st.people) ? { channel: String(st.channel || '').slice(0, 40), people: st.people.slice(0, 10).map((p) => ({ name: String(p.name || '').slice(0, 32), talking: !!p.talking, muted: !!p.muted, color: /^#[0-9a-f]{6}$|^hsl\([\d.% ]+\)$/i.test(p.color) ? p.color : '#888' })) } : null;
+  updateOverlay();
+});
 ipcMain.on('theme', (e, t) => { if (['system', 'dark', 'light'].includes(t)) nativeTheme.themeSource = t; });
 ipcMain.on('app-version', (e) => { e.returnValue = app.getVersion(); });
 
@@ -186,6 +238,9 @@ app.whenReady().then(() => {
   if (process.platform === 'win32') app.setAppUserModelId('com.poseidondream.partyline');
   setupPermissions();
   setupPtt();
+  setupHotkeys();
+  // Older versions turned on "start with the computer" without the start-in-tray flag.
+  if (app.getLoginItemSettings().openAtLogin) setLogin(true);
   createWindow();
   games = watchGames((name) => { if (win) win.webContents.send('activity', name); }, () => cfg.showGame !== false);
   // The page asks again after it (re)loads.
@@ -200,6 +255,7 @@ app.whenReady().then(() => {
     if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {});
   } catch {}
 });
+app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('before-quit', () => { quitting = true; if (hook) { try { hook.uIOhook.stop(); } catch {} } });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', showWin);

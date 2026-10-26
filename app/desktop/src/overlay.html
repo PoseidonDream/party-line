@@ -1,0 +1,15 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'">
+<title>Party Line overlay</title>
+<style>
+  html, body { margin: 0; background: transparent; font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; overflow: hidden; user-select: none; }
+  .head { display: inline-block; margin: 4px 0 4px 4px; padding: 3px 8px; border-radius: 6px; background: rgba(10, 12, 18, .72); font-size: 11px; color: #cfd6e4; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: center; gap: 8px; margin: 2px 4px; padding: 3px 8px 3px 3px; width: max-content; max-width: 210px; border-radius: 14px; background: rgba(10, 12, 18, .72); opacity: .78; }
+  li.talking { opacity: 1; box-shadow: 0 0 0 2px #3ba55d; }
+  .av { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; flex: none; }
+  .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
+  .muted { color: #f04747; font-size: 11px; }
+</style></head>
+<body><div class="head" id="head"></div><ul id="list"></ul><script src="overlay.js"></script></body></html>
