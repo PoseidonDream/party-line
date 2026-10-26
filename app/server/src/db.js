@@ -264,7 +264,13 @@ CREATE TABLE IF NOT EXISTS reminders (
   body TEXT NOT NULL,
   due_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS kv (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `);
+// Which sign-in a push subscription belongs to, so signing that device out also stops its notifications.
+if (!columns('push_subs').includes('session')) db.exec('ALTER TABLE push_subs ADD COLUMN session TEXT');
 
 const cache = new Map();
 /* Prepared statements are cached by their SQL text. */

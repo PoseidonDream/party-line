@@ -28,6 +28,6 @@ if out=$(./update.sh 2>&1); then
   report "{\"ok\":true,\"at\":$(date +%s)}"
 else
   echo "$out"
-  err=$(echo "$out" | tail -n 3 | tr '\n"\\' '   ' | cut -c1-300)
+  err=$(echo "$out" | tail -n 3 | tr '\000-\037' ' ' | tr -d '"\\' | cut -c1-300)   # plain text only: it goes into JSON
   report "{\"ok\":false,\"at\":$(date +%s),\"version\":\"$(echo "$target" | tr -d '"\\' | cut -c1-80)\",\"error\":\"$err\"}"
 fi

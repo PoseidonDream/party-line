@@ -117,7 +117,11 @@ export const sessionKey = (t) => sha(String(t || ''));
 export const sessionsOf = (userId) => all('SELECT token_hash, device, created_at, last_seen FROM sessions WHERE user_id = ? ORDER BY last_seen DESC', userId)
   .map((s) => ({ id: s.token_hash.slice(0, 16), key: s.token_hash, device: s.device || 'Unknown device', createdAt: s.created_at, lastSeen: s.last_seen }));
 export function setSessionDevice(key, device) { run('UPDATE sessions SET device = ? WHERE token_hash = ?', String(device || '').slice(0, 60) || null, key); }
-export function endSessions(userId, keys) { for (const k of keys) run('DELETE FROM sessions WHERE user_id = ? AND token_hash = ?', userId, k); }
+/* Signing a device out also stops its push notifications (a lost phone shouldn't keep showing your messages). */
+export function endSessions(userId, keys) {
+  for (const k of keys) { run('DELETE FROM sessions WHERE user_id = ? AND token_hash = ?', userId, k); run('DELETE FROM push_subs WHERE user_id = ? AND session = ?', userId, k); }
+}
+const signOutEverywhere = (userId) => { run('DELETE FROM sessions WHERE user_id = ?', userId); run('DELETE FROM push_subs WHERE user_id = ?', userId); };
 function newSession(userId, device) {
   const t = token();
   run('INSERT INTO sessions (token_hash, user_id, created_at, last_seen, device) VALUES (?, ?, ?, ?, ?)', sha(t), userId, now(), now(), device ? String(device).slice(0, 60) : null);
@@ -130,7 +134,7 @@ export function userForToken(t) {
   if (now() - s.last_seen > 60_000) run('UPDATE sessions SET last_seen = ? WHERE token_hash = ?', now(), s.token_hash);
   return getUser(s.user_id);
 }
-export const logout = (t) => run('DELETE FROM sessions WHERE token_hash = ?', sha(String(t || '')));
+export function logout(t) { const k = sha(String(t || '')); run('DELETE FROM sessions WHERE token_hash = ?', k); run('DELETE FROM push_subs WHERE session = ?', k); }
 export function changePassword(userId, oldPass, newPass) {
   const u = getUser(userId);
   if (!checkPass(oldPass, u.pass_hash)) fail('Your current password is wrong.');
@@ -143,7 +147,7 @@ export function resetPassword(userId) {
   const pick = () => WORDS[crypto.randomInt(WORDS.length)];
   const temp = `${pick()}-${pick()}-${crypto.randomInt(100, 1000)}`;
   run('UPDATE users SET pass_hash = ?, totp_secret = NULL, totp_pending = NULL WHERE id = ?', hashPass(temp), userId);
-  run('DELETE FROM sessions WHERE user_id = ?', userId);
+  signOutEverywhere(userId);
   return temp;
 }
 /* Forgot password: the person picks a new password and asks; an admin confirms it's really them. The new
@@ -168,7 +172,7 @@ export function decideReset(id, adminId, approve) {
   if (!r || r.state !== 'pending' || r.created_at < now() - RESET_TTL) fail('That request is no longer waiting.');
   if (approve) {
     run('UPDATE users SET pass_hash = ?, totp_secret = NULL, totp_pending = NULL WHERE id = ?', r.pass_hash, r.user_id);
-    run('DELETE FROM sessions WHERE user_id = ?', r.user_id);
+    signOutEverywhere(r.user_id);
   }
   run('UPDATE reset_requests SET state = ?, decided_by = ?, decided_at = ? WHERE id = ?', approve ? 'approved' : 'denied', adminId, now(), id);
   return r;
@@ -493,13 +497,18 @@ function decorate(rows) {
   return out;
 }
 export const publicMessage = (m) => m && decorate([m])[0];
+/* A message that is only <g:upload> (a saved GIF) or <s:id> (a sticker) must point at a real one. Checked for new
+   and edited messages alike. */
+function checkSpecial(body) {
+  const g = /^<g:([\w-]+)>$/.exec(body), st = /^<s:(\d+)>$/.exec(body);
+  if (g) { const up = getUpload(g[1]); if (!up || !up.type.startsWith('image/')) fail('That GIF is gone.'); }
+  if (st) { const e = getEmoji(Number(st[1])); if (!e || e.kind !== 'sticker') fail('That sticker is gone.'); }
+}
 export function postMessage(userId, where, body, attachments, replyTo) {
   body = cleanBody(body);
   const att = attachmentsFrom(userId, attachments);
   if (!body && !att.length) fail('Empty message.');
-  const g = /^<g:([\w-]+)>$/.exec(body), st = /^<s:(\d+)>$/.exec(body);
-  if (g) { const up = getUpload(g[1]); if (!up || !up.type.startsWith('image/')) fail('That GIF is gone.'); }
-  if (st && !getEmoji(Number(st[1]))) fail('That sticker is gone.');
+  checkSpecial(body);
   const parent = replyTo ? getMessage(Number(replyTo)) : null;
   const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
   const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -554,6 +563,7 @@ export const getMessage = (id) => one('SELECT * FROM messages WHERE id = ?', id)
 export function editMessage(id, body) {
   body = cleanBody(body);
   if (!body) fail('Empty message.');
+  checkSpecial(body);
   run('UPDATE messages SET body = ?, edited_at = ? WHERE id = ?', body, now(), id);
   return publicMessage(getMessage(id));
 }

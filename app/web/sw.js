@@ -7,13 +7,10 @@ self.addEventListener('fetch', () => {});
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-    // Party Line just opened in a tab: the app shows its own notification, so don't double up.
-    if (wins.some((w) => w.visibilityState === 'visible' && w.focused)) return;
-    return self.registration.showNotification(d.title || 'Party Line', {
-      body: d.body || '', tag: d.tag, renotify: !!d.tag, icon: '/icon-512.png', badge: '/icon-512.png',
-      data: { url: d.url || '/' }, requireInteraction: !!d.call, vibrate: d.call ? [300, 150, 300, 150, 300] : [120],
-    });
+  // Always show it: browsers require a notification for every push (the server only pushes when no Party Line is open).
+  e.waitUntil(self.registration.showNotification(d.title || 'Party Line', {
+    body: d.body || '', tag: d.tag, renotify: !!d.tag, icon: '/icon-512.png', badge: '/icon-512.png',
+    data: { url: d.url || '/' }, requireInteraction: !!d.call, vibrate: d.call ? [300, 150, 300, 150, 300] : [120],
   }));
 });
 

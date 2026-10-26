@@ -996,7 +996,7 @@ function messageEl(msg, prev) {
   if (special) li.appendChild(special[1] === 's' ? stickerEl(Number(special[2])) : gifEl(special[2]));
   else if (msg.body) {
     const body = document.createElement('div'); body.className = 'msg-body';
-    if (/^(\s*(<:\w{2,32}:\d+>|\p{Extended_Pictographic}[\u200d\ufe0f\p{Extended_Pictographic}\p{Emoji_Modifier}]*))+\s*$/u.test(msg.body)) body.classList.add('jumbo');
+    if (isJumbo(msg.body)) body.classList.add('jumbo');
     richText(body, msg.body);
     if (msg.editedAt) { const e = document.createElement('span'); e.className = 'msg-edited'; e.textContent = '(edited)'; body.appendChild(e); }
     li.appendChild(body);
@@ -1869,13 +1869,18 @@ if (desktop && desktop.onPtt) desktop.onPtt((held) => { if (settings.ptt && V.ch
 
 /* Quiet in voice: muted or deafened for 30 minutes, or silent and not touching Party Line for 15. With an AFK
    channel set for the server, you're moved there and muted; without one, muted people leave voice (silent
-   unmuted people stay). A warning shows 5 minutes before. Sharing your screen pauses it. */
+   unmuted people stay). A warning shows 5 minutes before. Sharing your screen pauses it, and so does listening or
+   watching together or watching someone's screen (you're there, just quiet). In the AFK channel itself nothing
+   happens: that's where quiet people are meant to stay. */
 let lastSpoke = Date.now();
 function afkChannelFor(chId) { const f = findChannel(chId); return f && f.server.afkChannelId && f.server.afkChannelId !== chId ? f.server.afkChannelId : null; }
 setInterval(() => {
   const bar = $('#afkBar');
   if (V.speaking.has(S.me && S.me.id)) lastSpoke = Date.now();
-  if (!V.channelId || V.sharing) { bar.hidden = true; return; }
+  const busy = !!V.channelId && (listening() || !!(S.watching && S.view.kind === 'voice'));
+  if (busy) { lastSpoke = Date.now(); if (S.mutedSince) S.mutedSince = Date.now(); }
+  const here = V.channelId && findChannel(V.channelId);
+  if (!V.channelId || V.sharing || busy || (here && here.server.afkChannelId === V.channelId)) { bar.hidden = true; return; }
   const afk = afkChannelFor(V.channelId);
   const mutedLeft = (V.muted || V.deafened) && S.mutedSince ? (window.PL_MUTED_MS || 30 * 60_000) - (Date.now() - S.mutedSince) : Infinity;
   const quietLeft = afk && !(V.muted || V.deafened) ? (window.PL_QUIET_MS || 15 * 60_000) - (Date.now() - Math.max(lastSpoke, lastInput, V.joinedAt || 0)) : Infinity;
@@ -2375,13 +2380,21 @@ function customEmojiEl(name, id) {
 }
 const emojiLabel = (e) => { const m = /^<:(\w+):\d+>$/.exec(e); return m ? `:${m[1]}:` : e; };
 function emojiInto(el, e) { const m = /^<:(\w+):(\d+)>$/.exec(e); if (m) el.appendChild(customEmojiEl(m[1], Number(m[2]))); else el.appendChild(document.createTextNode(e)); }
+/* Only emoji (and custom emoji), so it shows big. Checked without nested repeats: a long run of emoji followed by
+   a letter must not make the regex try every way of splitting the run (that froze the page). */
+function isJumbo(body) {
+  if (body.length > 400) return false;
+  const rest = body.replace(/<:\w{2,32}:\d+>/g, '').replace(/\s+/g, '');
+  return !rest || /^\p{Extended_Pictographic}[‍️\p{Extended_Pictographic}\p{Emoji_Modifier}]*$/u.test(rest);
+}
 /* ":bora_laugh:" -> "<:bora_laugh:7>". This server's emoji first, then any you can use. Not inside `code`. */
 function encodeEmoji(text) {
   if (!text.includes(':') || !S.emoji.size) return text;
   const srv = curServer(), mine = [...S.emoji.values()].filter((e) => e.kind === 'emoji');
-  return text.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((part, i) => (i % 2 ? part : part.replace(/(^|[^<\w]):(\w{2,32}):(?!\d+>)/g, (x, pre, name) => {
+  // The lookbehind (not a captured character) lets back-to-back emoji like :a::b: both convert.
+  return text.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((part, i) => (i % 2 ? part : part.replace(/(?<![<\w]):(\w{2,32}):(?!\d+>)/g, (x, name) => {
     const e = mine.find((x2) => x2.name === name.toLowerCase() && srv && x2.serverId === srv.id) || mine.find((x2) => x2.name === name.toLowerCase());
-    return e ? `${pre}<:${e.name}:${e.id}>` : x;
+    return e ? `<:${e.name}:${e.id}>` : x;
   }))).join('');
 }
 function stickerEl(id) {

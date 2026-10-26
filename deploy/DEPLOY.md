@@ -156,6 +156,12 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **Events:** the Events button in a server plans things like game night. Friends answer Going or Maybe, and Party Bot reminds everyone going 15 minutes before.
 - **Notifications:** the bell at the top of a chat chooses All messages, Only @mentions or Nothing (the server menu sets the default). In the website, Settings → **Even when Party Line is closed** sends private messages, @mentions and calls to the phone or computer even with the tab closed (on iPhone, Add to Home Screen first).
 - **Desktop app extras** (all in the tray icon's menu): **Ctrl+Shift+M** mutes and **Ctrl+Shift+D** deafens from any app, even mid-game (pick other keys in the menu). An **overlay** in the top-left corner shows who's in your voice channel and who's talking while you're in a game (works in windowed and borderless games, not exclusive full screen). **Start with the computer** can start quietly in the tray.
+- **Games to play:** every chat has a 🎮 button with its own list of games to try later. Vote 👍, tick off what you've played, and press **🎲 Pick one** to let Party Bot choose. `/game Name` adds one from the message box.
+- **Emoji, stickers and GIFs:** server menu → **Emoji & stickers** to add your own. Type `:name:` or use the 🙂 button next to the message box, which also holds stickers and the GIFs you saved (☆ under any picture).
+- **Birthdays:** add yours in Settings. Friends see 🎂 next to your name on the day and Party Bot says happy birthday in #general.
+- **Voice extras:** server menu → **AFK channel** moves people who are quiet for 15 minutes (or muted for 30) there instead of disconnecting them. Point at a **LIVE** badge to peek at someone's screen before joining.
+- **Safety:** Settings → **Devices you're signed in on** (sign out a lost phone) and **2-step sign-in** (a code from an authenticator app). If someone loses their phone, an approved password reset turns 2-step off.
+- **What's new:** after an update, everyone sees a short list of new features once.
 - **Organising a server:** channel topics, **categories** (server menu), drag and drop to reorder channels, and **roles** with colors and permissions (server menu, Roles).
 
 ## Party Bot: music and fun commands
@@ -182,7 +188,7 @@ It uses Claude Opus 5.5 at low effort, which answers well. To make it much cheap
 ## Developer panel (for you)
 
 Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:
-- **Server:** the server's version (and the app you're using), how long it's been up, memory and storage, who's online, who's in which voice channel, whether last night's backup worked, and **Download a backup**.
+- **Server:** the server's version (and the app you're using), how long it's been up, memory and storage, who's online, who's in which voice channel, **Health** (disk, memory, updates, backups), whether last night's backup worked, and **Download a backup**. If something needs you, Party Bot also messages you privately.
 - **My voice:** live numbers for each voice connection: direct or relayed, ping, lost packets, and how much sound is coming in and going out. "0 kbps" in red means sound stopped arriving from that friend.
 - **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
 - **Check a friend:** pulls a friend's live voice numbers to your screen. They get a short note that you checked.

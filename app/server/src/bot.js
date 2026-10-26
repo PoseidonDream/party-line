@@ -235,6 +235,7 @@ function games(ctx) {
 async function ask(ctx) {
   const q = checkAsk(ctx.user, ctx.args);
   const asked = post(ctx.where, `❓ ${who(ctx.user.id)} asked: ${q.slice(0, 1500)}`);
+  if (!asked) return { ephemeral: 'Party Bot couldn’t post in this chat just now. Try again in a bit.' };   // post() returns null when it fails
   askClaude(ctx.user, ctx.where, q)
     .then((answer) => host.post(ctx.where, answer, asked.id))
     .catch((e) => host.post(ctx.where, `😕 ${e instanceof M.UserError ? e.message : 'Party Bot couldn’t answer just now.'}`, asked.id));
@@ -272,7 +273,9 @@ export function healthProblems() {
   const memFree = os.freemem() / os.totalmem();
   if (memFree < 0.05) out.push(['memory', `🧠 The server’s memory is nearly used up (${Math.round(memFree * 100)}% free). If things get slow, restart it: \`cd /opt/party-line/deploy && docker compose restart\`.`]);
   const up = readJson('update-status.json');
-  if (up && up.ok === false) out.push([`update:${up.at}`, `⚠️ An automatic update failed${up.version ? ` (to ${up.version})` : ''}, so the server is still on the old version. It tries again every 10 minutes. ${up.error ? `The error: ${up.error}` : ''} See \`tail /var/log/party-line-update.log\` on the server.`]);
+  // Keyed by the version it tried, not the time: an update that keeps failing the same way is one problem (told
+  // every 12 hours), not a new one every 10 minutes.
+  if (up && up.ok === false) out.push([`update:${up.version || ''}`, `⚠️ An automatic update failed${up.version ? ` (to ${up.version})` : ''}, so the server is still on the old version. ${up.error ? `The error: ${up.error}` : ''} See \`tail /var/log/party-line-update.log\` on the server.`]);
   const bk = readJson('backup-status.json');
   if (bk && bk.at && Date.now() / 1000 - bk.at > 50 * 3600) out.push(['backup', `🗄️ The nightly backup hasn’t run for ${Math.round((Date.now() / 1000 - bk.at) / 3600)} hours. Check \`tail /var/log/party-line-backup.log\` on the server.`]);
   if (bk && bk.offsiteError) out.push([`offsite:${bk.at}`, `🗄️ Last night’s backup couldn’t be copied off the server: ${bk.offsiteError}`]);

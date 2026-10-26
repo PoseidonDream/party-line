@@ -960,6 +960,10 @@ body.in-call .watch-btn { display: inline-flex; }
 .reset-wait { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 12px 4px; }
 .reset-wait h2 { margin: 0; font-size: 20px; }
 .reset-wait p { margin: 0; color: var(--dim); max-width: 380px; }
+/* The bar under the header (an admin's "someone asked for a password reset"). */
+.update-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--line); font-weight: 600; }
+.update-bar span { flex: 1; min-width: 180px; }
+.update-bar .btn { width: auto; }
 .reset-bar { background: color-mix(in srgb, var(--lamp, #f4a52a) 20%, var(--panel)); }
 .reset-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .reset-item { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }

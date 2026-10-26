@@ -33,6 +33,7 @@ function createWindow() {
   const atLogin = process.argv.includes('--hidden') || (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAsHidden);
   win.once('ready-to-show', () => { if (!(atLogin && cfg.startInTray)) win.show(); });
   win.on('focus', updateOverlay); win.on('blur', updateOverlay); win.on('show', updateOverlay); win.on('hide', updateOverlay);
+  win.on('focus', setupHotkeys); win.on('blur', setupHotkeys);
   win.on('close', (e) => {
     if (!quitting && cfg.closeToTray && tray) { e.preventDefault(); win.hide(); }
   });
@@ -122,11 +123,14 @@ function setupPtt() {
 }
 
 /* ---------- mute and deafen keys that work in any app (even while a game is in front) ---------- */
-const MUTE_KEYS = ['CommandOrControl+Shift+M', 'CommandOrControl+Alt+M', 'F9', 'Pause', 'none'];
+const MUTE_KEYS = ['CommandOrControl+Shift+M', 'CommandOrControl+Alt+M', 'F9', 'none'];
 const DEAFEN_KEYS = ['CommandOrControl+Shift+D', 'CommandOrControl+Alt+D', 'F10', 'none'];
 const keyLabel = (k) => (k === 'none' ? 'Off' : k.replace('CommandOrControl', process.platform === 'darwin' ? 'Cmd' : 'Ctrl'));
+/* Registered only while Party Line isn't the window in front: a global key would otherwise swallow the page's own
+   shortcuts (Ctrl+Shift+D opens the developer panel), and in Party Line the M and D keys already mute and deafen. */
 function setupHotkeys() {
   globalShortcut.unregisterAll();
+  if (win && !win.isDestroyed() && win.isFocused()) return;
   const reg = (key, what) => {
     if (!key || key === 'none') return;
     try { if (!globalShortcut.register(key, () => { if (win && !win.isDestroyed()) win.webContents.send('hotkey', what); })) console.warn('hotkey taken:', key); } catch {}
@@ -136,9 +140,9 @@ function setupHotkeys() {
 
 /* ---------- overlay: who's talking, in a corner of the screen while you're in another app ---------- */
 let overlay = null, overlayState = null;
+const overlayWanted = () => !!(cfg.overlay && overlayState && overlayState.people.length && win && !win.isDestroyed() && !(win.isVisible() && win.isFocused()));
 function updateOverlay() {
-  const want = cfg.overlay && overlayState && overlayState.people.length && win && !win.isDestroyed() && !(win.isVisible() && win.isFocused());
-  if (!want) { if (overlay && !overlay.isDestroyed()) overlay.hide(); return; }
+  if (!overlayWanted()) { if (overlay && !overlay.isDestroyed()) overlay.hide(); return; }
   const height = 34 + Math.min(overlayState.people.length, 10) * 30;
   if (!overlay || overlay.isDestroyed()) {
     const { workArea } = screen.getPrimaryDisplay();
@@ -149,9 +153,12 @@ function updateOverlay() {
     });
     overlay.setAlwaysOnTop(true, 'screen-saver');
     overlay.setIgnoreMouseEvents(true);   // clicks go through to the game
-    overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    // skipTransformProcessType: on a Mac, visibleOnFullScreen otherwise hides Party Line's Dock icon (app.dock.hide()).
+    overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     overlay.loadFile(path.join(__dirname, 'overlay.html'));
-    overlay.webContents.once('did-finish-load', () => { overlay.webContents.send('overlay', overlayState); overlay.showInactive(); });
+    const ov = overlay;
+    // Things may have changed while it loaded (Party Line came to the front, or they left voice).
+    ov.webContents.once('did-finish-load', () => { if (ov.isDestroyed()) return; ov.webContents.send('overlay', overlayState); if (overlayWanted()) ov.showInactive(); });
     return;
   }
   overlay.setSize(230, height);

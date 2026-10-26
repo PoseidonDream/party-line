@@ -142,12 +142,15 @@ function expected() {
   return n.startedAt == null ? n.pausedAt : (Date.now() + offset - n.startedAt) / 1000;
 }
 function sync() {
-  if (!player || !playerReady || !state || leftSeq != null) return;
+  if (!player || !state || leftSeq != null) return;
   const n = state.now;
   if (loadedSeq !== n.seq) {
     if ((player.kind === 'file') !== !!n.file) { teardown(); ensurePlayer().then(sync); if (!timer) timer = setInterval(sync, 2000); return; }   // YouTube <-> file: a different player
-    loadedSeq = n.seq; player.loadVideoById({ videoId: n.videoId, file: n.file, startSeconds: Math.max(0, expected()) }); return;
+    // A file player whose last video couldn't play never gets ready, so the next one mustn't wait for that.
+    if (playerReady || player.kind === 'file') { loadedSeq = n.seq; player.loadVideoById({ videoId: n.videoId, file: n.file, startSeconds: Math.max(0, expected()) }); }
+    return;
   }
+  if (!playerReady) return;
   const want = expected(), have = player.getCurrentTime() || 0, ps = player.getPlayerState();
   if (n.startedAt == null || want < 0) {
     if (ps === 1 || ps === 3) player.pauseVideo();

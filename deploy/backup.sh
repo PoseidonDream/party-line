@@ -38,6 +38,7 @@ if [ -n "${BACKUP_REMOTE:-}" ]; then
       -e RCLONE_CONFIG_OFFSITE_ACCOUNT="${BACKUP_ACCOUNT:-}" -e RCLONE_CONFIG_OFFSITE_KEY="${BACKUP_KEY:-}"
       -e RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID="${BACKUP_ACCOUNT:-}" -e RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY="${BACKUP_KEY:-}"
       -e RCLONE_CONFIG_OFFSITE_PROVIDER="${BACKUP_PROVIDER:-Other}" -e RCLONE_CONFIG_OFFSITE_ENDPOINT="${BACKUP_ENDPOINT:-}"
+      -e RCLONE_B2_HARD_DELETE=true   # on B2 a plain delete only hides the file, which keeps using (and billing) space
       rclone/rclone:1.68.2)
   if ERR=$("${RC[@]}" copy "/backups/$OUT" "offsite:$BACKUP_REMOTE" 2>&1); then
     OFFSITE="$BACKUP_REMOTE"

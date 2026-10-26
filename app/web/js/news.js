@@ -25,5 +25,5 @@ export const latestNews = () => NEWS[0].id;
 /* seen: the newest id this person has seen. Returns the items to show (newest first), or []. */
 export function unseenNews(seen) {
   if (seen < 0) return [];
-  return NEWS.filter((n) => n.id > seen).flatMap((n) => n.items).slice(0, 8);
+  return NEWS.filter((n) => n.id > seen).flatMap((n) => n.items).slice(0, 14);
 }
