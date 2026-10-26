@@ -144,6 +144,46 @@ export function setNotifyPref(userId, target, level) {
   else fail('Unknown setting.');
   return notifyPrefs(userId);
 }
+/* ---------- admin action log ---------- */
+export function audit(actorId, serverId, action, details) {
+  run('INSERT INTO audit (at, actor_id, server_id, action, details) VALUES (?, ?, ?, ?, ?)', now(), actorId, serverId || null, action, String(details || '').slice(0, 300));
+  run('DELETE FROM audit WHERE id <= (SELECT MAX(id) FROM audit) - 2000');
+}
+export const auditLog = (limit = 300) => all('SELECT a.*, u.name AS actor, s.name AS server FROM audit a LEFT JOIN users u ON u.id = a.actor_id LEFT JOIN servers s ON s.id = a.server_id ORDER BY a.id DESC LIMIT ?', limit)
+  .map((r) => ({ id: r.id, at: r.at, actorId: r.actor_id, actor: r.actor, server: r.server, action: r.action, details: r.details }));
+
+/* ---------- invite links that expire or run out ---------- */
+export function createInvite(serverId, creatorId, hours, maxUses) {
+  if (all('SELECT code FROM invites WHERE server_id = ?', serverId).length >= 50) fail('This server has too many invite links. Remove some first.');
+  const code = inviteCode();
+  const h = Number(hours) || 0, uses = Number(maxUses) || 0;
+  run('INSERT INTO invites (code, server_id, creator_id, expires_at, max_uses, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    code, serverId, creatorId, h > 0 ? now() + Math.min(h, 24 * 365) * 3600_000 : null, uses > 0 ? Math.min(uses, 1000) : null, now());
+  return code;
+}
+export const invitesOf = (serverId) => all('SELECT * FROM invites WHERE server_id = ? AND (expires_at IS NULL OR expires_at > ?) AND (max_uses IS NULL OR uses < max_uses) ORDER BY created_at DESC', serverId, now())
+  .map((r) => ({ code: r.code, creatorId: r.creator_id, expiresAt: r.expires_at, maxUses: r.max_uses, uses: r.uses }));
+export const deleteInvite = (code) => run('DELETE FROM invites WHERE code = ?', code);
+export const getInvite = (code) => one('SELECT * FROM invites WHERE code = ?', String(code || ''));
+/* Which server an invite code opens: an expiring link (if still valid) or the server's permanent link. */
+export function serverForInvite(code) {
+  code = String(code || '').trim();
+  const inv = getInvite(code);
+  if (inv) {
+    if ((inv.expires_at && inv.expires_at <= now()) || (inv.max_uses && inv.uses >= inv.max_uses)) fail('That invite has expired. Ask for a new one.');
+    return { server: getServer(inv.server_id), invite: inv };
+  }
+  const s = serverByInvite(code);
+  return s ? { server: s, invite: null } : null;
+}
+export const useInvite = (code) => run('UPDATE invites SET uses = uses + 1 WHERE code = ?', code);
+export function resetServerInvite(serverId) { const code = inviteCode(); run('UPDATE servers SET invite = ? WHERE id = ?', code, serverId); return code; }
+
+/* Read receipts: how far the other person in a private chat has read. */
+export function seenBy(dmId, userId) {
+  const r = one('SELECT last_id FROM reads WHERE user_id = ? AND target = ?', userId, `d:${dmId}`);
+  return r ? r.last_id : 0;
+}
 export function rename(userId, name) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
@@ -408,19 +448,33 @@ export function react(userId, messageId, emoji, on) {
   } else run('DELETE FROM reactions WHERE message_id = ? AND user_id = ? AND emoji = ?', messageId, userId, emoji);
   return publicMessage(getMessage(messageId)).reactions;
 }
+/* Search, with optional filters: from:Name, in:#channel (or in:channel), has:file / image / video / audio / link. */
 export function search(userId, text, serverId) {
-  text = String(text || '').trim().slice(0, 100);
-  if (text.length < 2) return [];
-  const like = `%${text.replace(/[\\%_]/g, (c) => '\\' + c)}%`;
+  let q = String(text || '').trim().slice(0, 200);
+  const where = [], args = [];
+  q = q.replace(/(^|\s)from:(\S+)/gi, (x, sp, name) => {
+    const u = userByName(name.replace(/^@/, '').replace(/_/g, ' ')) || userByName(name.replace(/^@/, ''));
+    where.push('m.user_id = ?'); args.push(u ? u.id : -1); return sp;
+  });
+  q = q.replace(/(^|\s)in:#?(\S+)/gi, (x, sp, name) => {
+    const ch = serverId > 0 ? one('SELECT id FROM channels WHERE server_id = ? AND name = ? COLLATE NOCASE', serverId, name) : null;
+    where.push('m.channel_id = ?'); args.push(ch ? ch.id : -1); return sp;
+  });
+  const HAS = { file: 'm.attachments IS NOT NULL', image: `m.attachments LIKE '%"type":"image/%'`, photo: `m.attachments LIKE '%"type":"image/%'`,
+    video: `m.attachments LIKE '%"type":"video/%'`, audio: `m.attachments LIKE '%"type":"audio/%'`, link: "m.body LIKE '%http%'", pin: 'm.pinned_at IS NOT NULL' };
+  q = q.replace(/(^|\s)has:(\w+)/gi, (x, sp, k) => { where.push(HAS[k.toLowerCase()] || '0'); return sp; });
+  q = q.trim().slice(0, 100);
+  if (q.length < 2 && !where.length) return [];
+  if (q) { where.push("m.body LIKE ? ESCAPE '\\'"); args.push(`%${q.replace(/[\\%_]/g, (c) => '\\' + c)}%`); }
   const rows = all(`SELECT m.* FROM messages m
       LEFT JOIN channels c ON c.id = m.channel_id
       LEFT JOIN members mb ON mb.server_id = c.server_id AND mb.user_id = ?
       LEFT JOIN dms d ON d.id = m.dm_id
     WHERE (mb.user_id IS NOT NULL OR d.user_a = ? OR d.user_b = ?)
-      AND m.body LIKE ? ESCAPE '\\'
       AND (? = 0 OR c.server_id = ?)
       AND (? != -1 OR m.dm_id IS NOT NULL)
-    ORDER BY m.id DESC LIMIT 50`, userId, userId, userId, like, serverId > 0 ? serverId : 0, serverId > 0 ? serverId : 0, serverId);
+      ${where.map((w) => `AND ${w}`).join(' ')}
+    ORDER BY m.id DESC LIMIT 50`, userId, userId, userId, serverId > 0 ? serverId : 0, serverId > 0 ? serverId : 0, serverId, ...args);
   return decorate(rows);
 }
 export const getMessage = (id) => one('SELECT * FROM messages WHERE id = ?', id);

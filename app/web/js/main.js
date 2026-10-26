@@ -352,6 +352,10 @@ live.on('reset.request', (d) => {
   toast(`🔑 ${d.request.name} wants to reset their password.`, 6000, { label: 'Review', fn: openResets });
   notify('🔑 Password reset request', `${d.request.name} wants to reset their password.`, openResets);
 });
+live.on('seen', (d) => {
+  const m = S.msgs.get(`d:${d.userId}`);
+  if (m) { m.seenId = Math.max(m.seenId || 0, d.id); if (msgKey() === `d:${d.userId}`) renderSeen(); }
+});
 live.on('notify', (d) => { S.notif = d.prefs; renderAll(); });
 live.on('reset.done', (d) => { S.resets = S.resets.filter((x) => x.id !== d.id); renderResetBar(); if ($('#resetDlg').open) renderResets(); });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
@@ -441,8 +445,10 @@ async function loadHistory(key, older) {
     const ids = new Set(m.list.map((x) => x.id));
     const got = r.messages.filter((x) => !ids.has(x.id));
     m.list = older ? got.concat(m.list) : got.concat(m.list.filter((x) => x.id > (got.length ? got[got.length - 1].id : 0)));
+    if (m.early) { const have = new Set(m.list.map((x) => x.id)); m.list.push(...m.early.filter((x) => !have.has(x.id))); m.list.sort((x, y) => x.id - y.id); m.early = null; }
     m.hasMore = r.messages.length >= 50;
     m.loaded = true;
+    if (!older && r.seenId !== undefined) m.seenId = r.seenId;
   } catch (e) { toast(e.message, 4000); }
   m.loading = false;
   if (msgKey() === key) {
@@ -468,6 +474,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && S.
 function onMessage(key, msg) {
   const m = S.msgs.get(key);
   if (m && m.loaded && !m.list.some((x) => x.id === msg.id)) m.list.push(msg);
+  else if (m && !m.loaded) (m.early ||= []).push(msg);   // history is still loading: add it when that arrives
   if (typing.has(key)) { typing.get(key).delete(msg.userId); renderTyping(); }
   const mine = msg.userId === S.me.id;
   const viewing = msgKey() === key && !document.hidden;
@@ -1163,6 +1170,7 @@ function renderMessages(keepScroll) {
     box.appendChild(messageEl(msg, prev)); prev = msg;
   }
   lastRendered = { key, prev };
+  renderSeen();
   if (keepScroll && !atBottom) box.scrollTop = top; else box.scrollTop = box.scrollHeight;
   // Opening a chat with lots of unread: start at the "New messages" line instead of the bottom.
   const div = box.querySelector('.new-divider');
@@ -1176,7 +1184,19 @@ function appendMessage(msg) {
   const list = m ? m.list : [];
   const prev = list.length > 1 ? list[list.length - 2] : null;
   box.appendChild(messageEl(msg, prev));
+  renderSeen();
   if (near) box.scrollTop = box.scrollHeight;
+}
+/* Read receipts in private chats: "Seen" under your last message once they've read it. */
+function renderSeen() {
+  const old = document.querySelector('#messages .seen-line'); if (old) old.remove();
+  if (S.view.kind !== 'dm') return;
+  const m = S.msgs.get(msgKey());
+  if (!m || !m.list.length) return;
+  const last = m.list[m.list.length - 1];
+  if (last.userId !== S.me.id || !(m.seenId >= last.id)) return;
+  const li = document.createElement('li'); li.className = 'seen-line'; li.textContent = 'Seen';
+  $('#messages').appendChild(li);
 }
 function rerenderMessagesSoft() { if (S.view.kind === 'text' || S.view.kind === 'dm') renderMessages(true); }
 $('#messages').addEventListener('scroll', () => {
@@ -1965,8 +1985,55 @@ async function copyInvite() {
   try { await navigator.clipboard.writeText(inviteLink(s)); toast('Invite link copied. Send it to a friend.', 2600); }
   catch { await confirmBox('Invite link', 'Copy this and send it to a friend:', 'Done', inviteLink(s)); }
 }
-$('#copyInvite').addEventListener('click', copyInvite);
-$('#mInvite').addEventListener('click', () => { closeMenu(); copyInvite(); });
+/* Invite dialog: the permanent link, and links that expire or run out. */
+async function openInvites() {
+  const s = curServer();
+  if (!s) return;
+  $('#ivTitle').textContent = `Invite friends to ${s.name}`;
+  $('#ivPermanent').value = inviteLink(s);
+  $('#ivReset').hidden = !can(s, 'server');
+  await renderInvites();
+  $('#inviteDlg').showModal();
+}
+async function renderInvites() {
+  const s = curServer(), ol = $('#ivList'); ol.textContent = '';
+  let list = [];
+  try { list = (await live.req('invite.list', { serverId: s.id })).invites; } catch {}
+  for (const iv of list) {
+    const li = document.createElement('li'); li.className = 'iv-item';
+    const t = document.createElement('div');
+    const code = document.createElement('code'); code.textContent = `${location.origin}/invite/${iv.code}`; t.appendChild(code);
+    const meta = document.createElement('small');
+    meta.textContent = `${iv.expiresAt ? `expires ${fmtRelative(iv.expiresAt)}` : 'never expires'} · ${iv.maxUses ? `${iv.uses} of ${iv.maxUses} used` : `${iv.uses} used`} · by ${nameOf(iv.creatorId)}`;
+    t.appendChild(meta); li.appendChild(t);
+    const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'btn small'; copy.textContent = 'Copy';
+    copy.addEventListener('click', () => copyText(code.textContent));
+    li.appendChild(copy);
+    if (iv.creatorId === S.me.id || can(s, 'server')) {
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small'; del.textContent = 'Remove';
+      del.addEventListener('click', async () => { await act(() => live.req('invite.delete', { code: iv.code })); renderInvites(); });
+      li.appendChild(del);
+    }
+    ol.appendChild(li);
+  }
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Link copied. Send it to a friend.', 2600); }
+  catch { await confirmBox('Invite link', 'Copy this and send it to a friend:', 'Done', text); }
+}
+$('#ivCopyPermanent').addEventListener('click', () => copyText($('#ivPermanent').value));
+$('#ivCreate').addEventListener('click', async () => {
+  const r = await act(() => live.req('invite.create', { serverId: curServer().id, hours: Number($('#ivHours').value), maxUses: Number($('#ivUses').value) }));
+  if (r) { await renderInvites(); copyText(`${location.origin}/invite/${r.code}`); }
+});
+$('#ivReset').addEventListener('click', async () => {
+  if (await confirmBox('Make a new permanent link?', 'The old permanent link stops working. Links that run out keep working.', 'Make new link')) {
+    await act(() => live.req('invite.reset', { serverId: curServer().id }));
+    setTimeout(() => { const s = curServer(); if (s) $('#ivPermanent').value = inviteLink(s); }, 300);
+  }
+});
+$('#copyInvite').addEventListener('click', openInvites);
+$('#mInvite').addEventListener('click', () => { closeMenu(); openInvites(); });
 $('#serverBtn').addEventListener('click', () => { const m = $('#serverMenu'); m.hidden = !m.hidden; $('#serverBtn').setAttribute('aria-expanded', String(!m.hidden)); });
 function closeMenu() { $('#serverMenu').hidden = true; $('#serverBtn').setAttribute('aria-expanded', 'false'); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.server-head')) closeMenu(); });

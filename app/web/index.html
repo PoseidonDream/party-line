@@ -216,7 +216,7 @@
     <div class="search-panel" id="searchPanel" role="dialog" aria-label="Search messages" hidden>
       <form class="search-form" id="searchForm">
         <label class="sr" for="searchInput">Search messages</label>
-        <input type="search" id="searchInput" class="input" maxlength="100" placeholder="Search messages" autocomplete="off">
+        <input type="search" id="searchInput" class="input" maxlength="200" placeholder="Search · try from:Bora has:file in:#general" autocomplete="off">
         <button type="submit" class="btn">Search</button>
         <button type="button" class="btn icon-btn" id="searchClose" aria-label="Close search"><svg class="ic"><use href="#i-x"/></svg></button>
       </form>
@@ -461,6 +461,28 @@
   <div class="set-body">
     <p class="hint">Only approve if you're sure it's really them, for example ask them in person or by phone. Approving sets the new password they chose (you never see it) and signs them out everywhere else.</p>
     <ol class="reset-list" id="resetList"></ol>
+  </div>
+</dialog>
+
+<dialog id="inviteDlg" aria-labelledby="ivTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="ivTitle">Invite friends</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body">
+    <div class="field">
+      <div class="flabel">Permanent link</div>
+      <div class="row"><input class="input" id="ivPermanent" readonly><button type="button" class="btn" id="ivCopyPermanent">Copy</button></div>
+      <button type="button" class="link-btn danger" id="ivReset" hidden>Make a new permanent link (the old one stops working)</button>
+    </div>
+    <div class="field">
+      <div class="flabel">Or a link that runs out</div>
+      <div class="row iv-opts">
+        <select id="ivHours" aria-label="Expires after"><option value="1">Expires in 1 hour</option><option value="24" selected>Expires in 1 day</option><option value="168">Expires in 7 days</option><option value="0">Never expires</option></select>
+        <select id="ivUses" aria-label="How many people can use it"><option value="1">1 use</option><option value="5">5 uses</option><option value="10">10 uses</option><option value="0" selected>No limit</option></select>
+        <button type="button" class="btn primary" id="ivCreate">Create and copy</button>
+      </div>
+    </div>
+    <ol class="iv-list" id="ivList"></ol>
   </div>
 </dialog>
 

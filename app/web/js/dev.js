@@ -58,6 +58,7 @@ function build() {
       <button type="button" class="tab" role="tab" data-tab="everyone">Everyone</button>
       <button type="button" class="tab" role="tab" data-tab="voice">My voice</button>
       <button type="button" class="tab" role="tab" data-tab="log">Log</button>
+      <button type="button" class="tab" role="tab" data-tab="audit">Admin log</button>
       <button type="button" class="tab" role="tab" data-tab="people">Check a friend</button>
     </div>
     <div class="dev-body" id="devBody"></div>`;
@@ -82,11 +83,12 @@ async function loadStats() {
 }
 async function render() {
   dlg.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-  if (tab === 'overview' || tab === 'everyone' || (tab === 'log' && !stats)) await loadStats();
+  if (tab === 'overview' || tab === 'everyone' || tab === 'audit' || (tab === 'log' && !stats)) await loadStats();
   if (tab === 'overview') renderOverview();
   else if (tab === 'everyone') renderEveryone();
   else if (tab === 'voice') renderVoice();
   else if (tab === 'log') renderLog();
+  else if (tab === 'audit') renderAudit();
   else renderPeople();
 }
 const body = () => dlg.querySelector('#devBody');
@@ -268,6 +270,24 @@ function renderLog() {
   }
   if (!all.length) b.appendChild(el('p', 'hint', 'Nothing logged yet. Voice problems and errors from everyone’s app show up here as they happen.'));
   b.appendChild(ol);
+}
+
+/* ---------- Admin log: who deleted, kicked, muted or changed what ---------- */
+function renderAudit() {
+  const b = body(); b.textContent = '';
+  if (!stats || stats.error) { b.appendChild(el('p', 'error', stats ? stats.error : 'Loading…')); return; }
+  const list = stats.audit || [];
+  if (!list.length) { b.appendChild(el('p', 'hint', 'Nothing yet. When someone deletes another person’s message, removes or mutes someone, or changes channels and roles, it shows up here.')); return; }
+  const tbl = el('table', 'dev-table');
+  tbl.innerHTML = '<thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th><th>Server</th></tr></thead>';
+  const tb = el('tbody');
+  for (const a of list) {
+    const tr = el('tr');
+    tr.append(el('td', null, `${new Date(a.at).toLocaleDateString([], { day: 'numeric', month: 'short' })} ${fmtTime(a.at)}`), el('td', null, a.actor || '?'),
+      el('td', null, a.action), el('td', 'dev-text', a.details || ''), el('td', null, a.server || ''));
+    tb.appendChild(tr);
+  }
+  tbl.appendChild(tb); b.appendChild(tbl);
 }
 
 /* ---------- Check a friend ---------- */

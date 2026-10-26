@@ -56,6 +56,9 @@ const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
   sharing: v.sharing, camera: !!v.camera, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
 const fail = (msg) => { throw new M.UserError(msg); };
+/* Admin action log (developer panel). */
+const log = (user, serverId, action, details) => M.audit(user.id, serverId, action, details);
+const nm = (id) => (M.getUser(id) || { name: '?' }).name;
 
 export const voiceChannelOf = (userId) => (voice.get(userId) || {}).channelId || null;
 export const voiceCount = () => voice.size;
@@ -189,6 +192,7 @@ const handlers = {
     let ok = m.user_id === user.id || !!user.is_admin;
     if (!ok && m.channel_id) ok = M.can(user, M.getServer(M.getChannel(m.channel_id).server_id), 'messages');
     if (!ok) fail('You can only delete your own messages.');
+    if (m.user_id !== user.id) log(user, m.channel_id ? M.getChannel(m.channel_id).server_id : null, 'Deleted a message', `by ${nm(m.user_id)}${m.channel_id ? ` in #${M.getChannel(m.channel_id).name}` : ''}: “${String(m.body || '(file)').slice(0, 80)}”`);
     M.deleteMessage(m.id);
     broadcastAbout(m, { t: 'msg.del', id: m.id, channelId: m.channel_id, dmId: m.dm_id });
     return {};
@@ -225,6 +229,8 @@ const handlers = {
     if (!/^[cd]:\d+$/.test(target)) return {};
     M.markRead(user.id, target, Number(d.id) || 0);
     toUser(user.id, { t: 'read', target, id: Number(d.id) || 0 }, c);
+    // Read receipts: the other person in a private chat sees "Seen".
+    if (target.startsWith('d:')) { const dm = M.getDm(Number(target.slice(2))); if (dm && (dm.user_a === user.id || dm.user_b === user.id)) toUser(dm.user_a === user.id ? dm.user_b : dm.user_a, { t: 'seen', dmId: dm.id, userId: user.id, id: Number(d.id) || 0 }); }
     return {};
   },
 
@@ -236,9 +242,10 @@ const handlers = {
   },
   'server.join'(c, user, d) {
     const code = String(d.invite || '').trim().replace(/^.*\/invite\//, '');
-    const s = M.serverByInvite(code);
+    const found = M.serverForInvite(code), s = found && found.server;
     if (!s || (s.kind || 'server') !== 'server') fail('That invite doesn’t work. Ask for a new one.');
     if (!M.isMember(user.id, s.id)) {
+      if (found.invite) M.useInvite(found.invite.code);
       M.joinServer(user.id, s.id);
       toServer(s.id, { t: 'member', serverId: s.id, userId: user.id, user: userView(user.id) });
     }
@@ -260,6 +267,7 @@ const handlers = {
     if (!s || !(M.can(user, s, 'server') || (s.kind === 'group' && M.isMember(user.id, s.id)))) fail('You need the Manage server permission to rename it.');
     const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     if (!name) fail('Give the server a name.');
+    log(user, s.id, 'Renamed the server', `“${s.name}” → “${name}”`);
     M.renameServer(s.id, name);
     toServer(s.id, { t: 'server.renamed', id: s.id, name });
     return {};
@@ -297,6 +305,7 @@ const handlers = {
     const s = M.getServer(Number(d.id));
     if (!s || !M.canManage(user, s)) fail('Only the server’s owner can delete it.');
     if (s.is_default) fail('The main server can’t be deleted.');
+    log(user, null, 'Deleted a server', s.name);
     const ids = M.memberIds(s.id);
     for (const [uid, v] of voice) if (v.serverId === s.id) leaveVoice(uid, 'deleted');
     M.deleteServer(s.id);
@@ -315,6 +324,7 @@ const handlers = {
     if (!ch) return {};
     if (!M.can(user, M.getServer(ch.server_id), 'channels')) fail('You need the Manage channels permission to delete channels.');
     for (const [uid, v] of voice) if (v.channelId === ch.id) leaveVoice(uid, 'deleted');
+    log(user, ch.server_id, 'Deleted a channel', `${ch.kind === 'text' ? '#' : '🔊 '}${ch.name}`);
     M.deleteChannel(ch.id);
     toServer(ch.server_id, { t: 'chan.del', id: ch.id, serverId: ch.server_id });
     return {};
@@ -323,6 +333,7 @@ const handlers = {
   'chan.edit'(c, user, d) {
     const ch = M.getChannel(Number(d.id));
     if (!ch || !M.can(user, M.getServer(ch.server_id), 'channels')) fail('You need the Manage channels permission.');
+    log(user, ch.server_id, 'Edited a channel', `${ch.kind === 'text' ? '#' : '🔊 '}${ch.name}${d.name && d.name !== ch.name ? ` → ${d.name}` : ''}${d.topic !== undefined ? ' (topic)' : ''}`);
     M.editChannel(ch.id, d);
     refreshServer(ch.server_id);
     return {};
@@ -338,6 +349,7 @@ const handlers = {
     const s = M.getServer(Number(d.serverId));
     if (!s || !M.can(user, s, 'channels')) fail('You need the Manage channels permission.');
     const id = M.createCategory(s.id, d.name);
+    log(user, s.id, 'Created a category', d.name);
     refreshServer(s.id);
     return { id };
   },
@@ -351,6 +363,7 @@ const handlers = {
   'cat.delete'(c, user, d) {
     const cat = M.getCategory(Number(d.id));
     if (!cat || !M.can(user, M.getServer(cat.server_id), 'channels')) fail('You need the Manage channels permission.');
+    log(user, cat.server_id, 'Deleted a category', cat.name);
     M.deleteCategory(cat.id);
     refreshServer(cat.server_id);
     return {};
@@ -361,12 +374,14 @@ const handlers = {
     const s = M.getServer(Number(d.serverId));
     if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission.');
     const id = M.createRole(s.id, d);
+    log(user, s.id, 'Created a role', d.name);
     refreshServer(s.id);
     return { id };
   },
   'role.edit'(c, user, d) {
     const r = M.getRole(Number(d.id));
     if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    log(user, r.server_id, 'Changed a role', `${r.name}${d.perms ? ` (can: ${d.perms.join(', ') || 'nothing'})` : ''}`);
     M.editRole(r.id, d);
     refreshServer(r.server_id);
     return {};
@@ -374,6 +389,7 @@ const handlers = {
   'role.delete'(c, user, d) {
     const r = M.getRole(Number(d.id));
     if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    log(user, r.server_id, 'Deleted a role', r.name);
     M.deleteRole(r.id);
     refreshServer(r.server_id);
     return {};
@@ -382,6 +398,7 @@ const handlers = {
     const r = M.getRole(Number(d.roleId));
     if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
     M.assignRole(r.server_id, Number(d.userId), r.id, !!d.on);
+    log(user, r.server_id, d.on ? 'Gave a role' : 'Took a role away', `${r.name} ${d.on ? 'to' : 'from'} ${nm(Number(d.userId))}`);
     refreshServer(r.server_id);
     return {};
   },
@@ -454,6 +471,7 @@ const handlers = {
     const snd = M.getSound(Number(d.id));
     if (!snd) return {};
     if (snd.user_id !== user.id && !M.can(user, M.getServer(snd.server_id), 'messages')) fail('Only whoever added the sound (or a moderator) can remove it.');
+    if (snd.user_id !== user.id) log(user, snd.server_id, 'Removed a sound', `${snd.name} (by ${nm(snd.user_id)})`);
     M.deleteSound(snd.id);
     toServer(snd.server_id, { t: 'sounds', serverId: snd.server_id, sounds: M.soundsOf(snd.server_id) });
     return {};
@@ -494,6 +512,7 @@ const handlers = {
     const e = M.getEvent(Number(d.id));
     if (!e) return {};
     if (e.creator_id !== user.id && !M.can(user, M.getServer(e.server_id), 'messages')) fail('Only whoever made the event (or a moderator) can cancel it.');
+    if (e.creator_id !== user.id) log(user, e.server_id, 'Cancelled an event', `${e.title} (by ${nm(e.creator_id)})`);
     M.deleteEvent(e.id);
     shareEvents(e.server_id);
     if (e.announce_channel_id && e.starts_at > Date.now()) botHost.post({ channelId: e.announce_channel_id }, `🚫 **${e.title}** was cancelled by **${user.name}**.`);
@@ -527,6 +546,7 @@ const handlers = {
     const v = voice.get(Number(d.userId));
     if (!v) return {};
     if (!M.can(user, M.getServer(v.serverId), 'voice')) fail('You need the Moderate voice permission.');
+    log(user, v.serverId, 'Disconnected from voice', nm(Number(d.userId)));
     leaveVoice(Number(d.userId), 'admin');
     return {};
   },
@@ -535,6 +555,7 @@ const handlers = {
     if (!v) return {};
     if (!M.can(user, M.getServer(v.serverId), 'voice')) fail('You need the Moderate voice permission.');
     v.serverMuted = !!d.on;
+    log(user, v.serverId, d.on ? 'Muted for everyone' : 'Unmuted', nm(Number(d.userId)));
     toServer(v.serverId, { t: 'voice', state: voiceView(Number(d.userId), v) });
     return {};
   },
@@ -542,6 +563,7 @@ const handlers = {
     const s = M.getServer(Number(d.serverId));
     if (!s || !M.can(user, s, 'kick')) fail('You need the Remove members permission.');
     if (Number(d.userId) === user.id) fail('That’s you.');
+    log(user, s.id, 'Removed from the server', nm(Number(d.userId)));
     removeFromServer(Number(d.userId), s.id, 'kicked');
     return {};
   },
@@ -552,6 +574,7 @@ const handlers = {
     if (!target) fail('That person doesn’t exist.');
     if (target.id === user.id) fail('Change your own password in Settings.');
     const temp = M.resetPassword(target.id);
+    log(user, null, 'Made a temporary password', target.name);
     for (const tc of [...(byUser.get(target.id) || [])]) tc.ws.close(4001, 'auth');   // signed out on every device
     return { password: temp, name: target.name };
   },
@@ -566,9 +589,36 @@ const handlers = {
     return {};
   },
   /* Which app and version this connection is ("Windows app 1.1.0", "Android app build 12", "Chrome on Windows"). */
+  /* ---- invite links ---- */
+  'invite.create'(c, user, d) {
+    const s = M.getServer(Number(d.serverId));
+    if (!s || s.kind && s.kind !== 'server' || !M.isMember(user.id, s.id)) fail('You’re not in that server.');
+    return { code: M.createInvite(s.id, user.id, d.hours, d.maxUses) };
+  },
+  'invite.list'(c, user, d) {
+    const s = M.getServer(Number(d.serverId));
+    if (!s || !M.isMember(user.id, s.id)) fail('You’re not in that server.');
+    return { invites: M.invitesOf(s.id) };
+  },
+  'invite.delete'(c, user, d) {
+    const inv = M.getInvite(d.code);
+    if (!inv) return {};
+    if (inv.creator_id !== user.id && !M.can(user, M.getServer(inv.server_id), 'server')) fail('Only whoever made the link (or an admin) can remove it.');
+    M.deleteInvite(inv.code);
+    return {};
+  },
+  'invite.reset'(c, user, d) {
+    const s = M.getServer(Number(d.serverId));
+    if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission.');
+    M.resetServerInvite(s.id);
+    log(user, s.id, 'Made a new permanent invite link', 'the old one stopped working');
+    refreshServer(s.id);
+    return {};
+  },
   'reset.decide'(c, user, d) {
     if (!user.is_admin) fail('Admins only.');
     const r = M.decideReset(Number(d.id), user.id, !!d.approve);
+    log(user, null, d.approve ? 'Approved a password reset' : 'Denied a password reset', nm(r.user_id));
     for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reset.done', id: r.id, approved: !!d.approve, by: user.id });
     // Approved: everywhere they were signed in with the old password is signed out.
     if (d.approve) for (const x of [...(byUser.get(r.user_id) || [])]) x.ws.close(4001, 'auth');
@@ -598,6 +648,7 @@ const handlers = {
       people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size, apps: [...set].map((x) => x.client || 'unknown app') })),
       directory: M.userDirectory().map((u) => Object.assign(u, { online: online(u.id), openApps: (byUser.get(u.id) || new Set()).size, apps: [...(byUser.get(u.id) || [])].map((x) => x.client || 'unknown app') })),
       log: devLog.slice(-300),
+      audit: M.auditLog(300),
     };
   },
   'dev.ask'(c, user, d) {

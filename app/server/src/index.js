@@ -110,7 +110,7 @@ app.get('/api/channels/:id/messages', auth, wrap((req) => {
 }));
 app.get('/api/dms/:userId/messages', auth, wrap((req) => {
   const d = M.dmWith(req.user.id, Number(req.params.userId), false);
-  return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [] };
+  return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [], seenId: d ? M.seenBy(d.id, Number(req.params.userId)) : 0 };
 }));
 
 /* Pinned messages in a channel (channelId) or a private chat (userId). */

@@ -184,6 +184,23 @@ CREATE TABLE IF NOT EXISTS notify_prefs (
   level TEXT NOT NULL,
   PRIMARY KEY (user_id, target)
 );
+CREATE TABLE IF NOT EXISTS audit (
+  id INTEGER PRIMARY KEY,
+  at INTEGER NOT NULL,
+  actor_id INTEGER,
+  server_id INTEGER,
+  action TEXT NOT NULL,
+  details TEXT
+);
+CREATE TABLE IF NOT EXISTS invites (
+  code TEXT PRIMARY KEY,
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  expires_at INTEGER,
+  max_uses INTEGER,
+  uses INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS link_previews (
   url TEXT PRIMARY KEY,
   data TEXT,
