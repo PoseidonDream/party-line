@@ -1040,3 +1040,13 @@ body.in-call .watch-btn { display: inline-flex; }
 .emoji-grid.stickers .emoji-item img { width: 48px; height: 48px; }
 .emoji-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .emoji-item .btn { width: auto; padding: 4px; }
+
+/* Settings: devices and 2-step sign-in */
+.dev-sessions { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 6px; }
+.dev-sessions li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.dev-sessions li > div { flex: 1; display: grid; min-width: 0; }
+.dev-sessions small { color: var(--dim); }
+.dev-sessions .btn, #sessionsEndOthers { width: auto; }
+.pill { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: var(--bg); color: var(--dim); }
+.pill.on { background: color-mix(in srgb, var(--ok) 25%, var(--panel)); color: var(--fg); }
+.qr { display: block; width: 180px; height: 180px; margin: 6px 0; background: #fff; border-radius: 8px; padding: 6px; }

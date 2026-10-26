@@ -109,6 +109,8 @@ for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom
 if (!columns('channels').includes('topic')) db.exec('ALTER TABLE channels ADD COLUMN topic TEXT; ALTER TABLE channels ADD COLUMN category_id INTEGER;');
 if (!columns('servers').includes('kind')) db.exec("ALTER TABLE servers ADD COLUMN kind TEXT NOT NULL DEFAULT 'server'; ALTER TABLE servers ADD COLUMN pair_key TEXT;");
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS servers_pair ON servers(pair_key) WHERE pair_key IS NOT NULL');
+if (!columns('sessions').includes('device')) db.exec('ALTER TABLE sessions ADD COLUMN device TEXT');
+if (!columns('users').includes('totp_secret')) db.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT; ALTER TABLE users ADD COLUMN totp_pending TEXT;');
 if (!columns('users').includes('is_bot')) db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (

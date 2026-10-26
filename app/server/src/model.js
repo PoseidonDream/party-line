@@ -42,7 +42,7 @@ const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-
 export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
   custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null });
 /* What only you see about yourself. */
-export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen });
+export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
@@ -61,14 +61,66 @@ export function register(name, pass, groupPass) {
   if (def) joinServer(id, def.id);
   return { user: getUser(id), token: newSession(id) };
 }
-export function login(name, pass) {
+export function login(name, pass, code, device) {
   const u = userByName(name);
   if (!u || !checkPass(pass, u.pass_hash)) fail('Wrong name or password.');
-  return { user: u, token: newSession(u.id) };
+  if (u.totp_secret) {
+    if (!code) return { needCode: true };
+    if (!totpOk(u.totp_secret, code)) fail('That code is wrong or too old. Check the time on your phone and try the newest code.');
+  }
+  return { user: u, token: newSession(u.id, device) };
 }
-function newSession(userId) {
+
+/* ---------- 2-step sign-in: a 6-digit code from an authenticator app (Google Authenticator, Authy, ...) ---------- */
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const b32encode = (buf) => { let bits = '', out = ''; for (const b of buf) bits += b.toString(2).padStart(8, '0'); for (let i = 0; i + 5 <= bits.length; i += 5) out += B32[parseInt(bits.slice(i, i + 5), 2)]; return out; };
+const b32decode = (s) => { let bits = ''; for (const ch of s.replace(/=+$/, '')) bits += B32.indexOf(ch).toString(2).padStart(5, '0'); const out = []; for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2)); return Buffer.from(out); };
+function totpAt(secret, step) {
+  const msg = Buffer.alloc(8); msg.writeBigUInt64BE(BigInt(step));
+  const h = crypto.createHmac('sha1', b32decode(secret)).update(msg).digest();
+  const o = h[h.length - 1] & 15;
+  return String(((h.readUInt32BE(o) & 0x7fffffff) % 1e6)).padStart(6, '0');
+}
+const usedCodes = new Map();   // "userSecret:step" -> time, so a code can't be used twice
+function totpOk(secret, code) {
+  code = String(code || '').replace(/\D/g, '');
+  if (code.length !== 6) return false;
+  const step = Math.floor(Date.now() / 30000);
+  for (const d of [0, -1, 1]) {
+    const key = `${secret}:${step + d}`;
+    if (!usedCodes.has(key) && crypto.timingSafeEqual(Buffer.from(totpAt(secret, step + d)), Buffer.from(code))) {
+      usedCodes.set(key, Date.now());
+      for (const [k, t] of usedCodes) if (Date.now() - t > 120_000) usedCodes.delete(k);
+      return true;
+    }
+  }
+  return false;
+}
+export function startTotp(userId) {
+  const secret = b32encode(crypto.randomBytes(20));
+  run('UPDATE users SET totp_pending = ? WHERE id = ?', secret, userId);
+  return { secret, uri: `otpauth://totp/Party%20Line:${encodeURIComponent(getUser(userId).name)}?secret=${secret}&issuer=Party%20Line` };
+}
+export function confirmTotp(userId, code) {
+  const u = getUser(userId);
+  if (!u.totp_pending) fail('Start again: press “Turn on” first.');
+  if (!totpOk(u.totp_pending, code)) fail('That code doesn’t match. Type the 6 digits your app shows right now.');
+  run('UPDATE users SET totp_secret = totp_pending, totp_pending = NULL WHERE id = ?', userId);
+}
+export function stopTotp(userId, pass) {
+  if (!checkPass(pass, getUser(userId).pass_hash)) fail('Your password is wrong.');
+  run('UPDATE users SET totp_secret = NULL, totp_pending = NULL WHERE id = ?', userId);
+}
+
+/* ---------- devices you're signed in on ---------- */
+export const sessionKey = (t) => sha(String(t || ''));
+export const sessionsOf = (userId) => all('SELECT token_hash, device, created_at, last_seen FROM sessions WHERE user_id = ? ORDER BY last_seen DESC', userId)
+  .map((s) => ({ id: s.token_hash.slice(0, 16), key: s.token_hash, device: s.device || 'Unknown device', createdAt: s.created_at, lastSeen: s.last_seen }));
+export function setSessionDevice(key, device) { run('UPDATE sessions SET device = ? WHERE token_hash = ?', String(device || '').slice(0, 60) || null, key); }
+export function endSessions(userId, keys) { for (const k of keys) run('DELETE FROM sessions WHERE user_id = ? AND token_hash = ?', userId, k); }
+function newSession(userId, device) {
   const t = token();
-  run('INSERT INTO sessions (token_hash, user_id, created_at, last_seen) VALUES (?, ?, ?, ?)', sha(t), userId, now(), now());
+  run('INSERT INTO sessions (token_hash, user_id, created_at, last_seen, device) VALUES (?, ?, ?, ?, ?)', sha(t), userId, now(), now(), device ? String(device).slice(0, 60) : null);
   return t;
 }
 export function userForToken(t) {
@@ -90,7 +142,7 @@ const WORDS = ['amber', 'brass', 'comet', 'falcon', 'harbor', 'lantern', 'meteor
 export function resetPassword(userId) {
   const pick = () => WORDS[crypto.randomInt(WORDS.length)];
   const temp = `${pick()}-${pick()}-${crypto.randomInt(100, 1000)}`;
-  run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(temp), userId);
+  run('UPDATE users SET pass_hash = ?, totp_secret = NULL, totp_pending = NULL WHERE id = ?', hashPass(temp), userId);
   run('DELETE FROM sessions WHERE user_id = ?', userId);
   return temp;
 }
@@ -115,7 +167,7 @@ export function decideReset(id, adminId, approve) {
   const r = one('SELECT * FROM reset_requests WHERE id = ?', id);
   if (!r || r.state !== 'pending' || r.created_at < now() - RESET_TTL) fail('That request is no longer waiting.');
   if (approve) {
-    run('UPDATE users SET pass_hash = ? WHERE id = ?', r.pass_hash, r.user_id);
+    run('UPDATE users SET pass_hash = ?, totp_secret = NULL, totp_pending = NULL WHERE id = ?', r.pass_hash, r.user_id);
     run('DELETE FROM sessions WHERE user_id = ?', r.user_id);
   }
   run('UPDATE reset_requests SET state = ?, decided_by = ?, decided_at = ? WHERE id = ?', approve ? 'approved' : 'denied', adminId, now(), id);

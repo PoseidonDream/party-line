@@ -61,7 +61,9 @@ app.post('/api/register', throttle, wrap((req) => {
   return { token: r.token, user: M.publicUser(r.user) };
 }));
 app.post('/api/login', throttle, wrap((req) => {
-  const r = M.login((req.body || {}).name, (req.body || {}).password);
+  const b = req.body || {};
+  const r = M.login(b.name, b.password, b.code, b.device);
+  if (r.needCode) return { needCode: true };
   return { token: r.token, user: M.publicUser(r.user) };
 }));
 /* Forgot password: ask an admin to confirm, then poll until they answer. */

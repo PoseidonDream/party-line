@@ -8,6 +8,7 @@ import { config } from './config.js';
 import * as Bot from './bot.js';
 import { previewFor, linksIn, imagePath } from './preview.js';
 import * as Push from './push.js';
+import QRCode from 'qrcode';
 
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
@@ -703,7 +704,31 @@ const handlers = {
     toUser(user.id, { t: 'notify', prefs });
     return {};
   },
-  'client.info'(c, user, d) { c.client = String(d.label || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60) || null; return {}; },
+  'client.info'(c, user, d) { c.client = String(d.label || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60) || null; if (c.client) M.setSessionDevice(c.session, c.client); return {}; },
+  /* Devices you're signed in on, and signing them out. */
+  'sessions.list'(c, user) {
+    const live = new Set([...(byUser.get(user.id) || [])].map((x) => x.session));
+    return { sessions: M.sessionsOf(user.id).map(({ key, ...s }) => Object.assign(s, { current: key === c.session, online: live.has(key) })) };
+  },
+  'sessions.end'(c, user, d) {
+    const mine = M.sessionsOf(user.id).filter((s) => s.key !== c.session);
+    const keys = (d.others ? mine : mine.filter((s) => s.id === String(d.id || ''))).map((s) => s.key);
+    M.endSessions(user.id, keys);
+    for (const x of [...(byUser.get(user.id) || [])]) if (keys.includes(x.session)) x.ws.close(4001, 'auth');
+    return { ended: keys.length };
+  },
+  'totp.start'(c, user) {
+    if (user.totp_secret) fail('2-step sign-in is already on.');
+    const r = M.startTotp(user.id);
+    return QRCode.toString(r.uri, { type: 'svg', margin: 1 }).then((svg) => ({ secret: r.secret, qr: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` }));
+  },
+  'totp.confirm'(c, user, d) {
+    M.confirmTotp(user.id, d.code);
+    // Other devices stay signed in; new sign-ins need the code.
+    hub.userChanged(M.getUser(user.id));
+    return {};
+  },
+  'totp.stop'(c, user, d) { M.stopTotp(user.id, d.password); hub.userChanged(M.getUser(user.id)); return {}; },
   'dev.stats'(c, user) {
     if (!user.is_admin) fail('Admins only.');
     const mem = process.memoryUsage();
@@ -786,7 +811,7 @@ export function attachHub(server) {
     const url = new URL(req.url, 'http://x');
     const user = M.userForToken(url.searchParams.get('token'));
     if (!user) { ws.close(4001, 'auth'); return; }
-    const c = { id: nextConn++, ws, userId: user.id, alive: true, idle: false, activity: null };
+    const c = { id: nextConn++, ws, userId: user.id, alive: true, idle: false, activity: null, session: M.sessionKey(url.searchParams.get('token')) };
     conns.set(c.id, c);
     const first = !online(user.id);
     M.touchUser(user.id);

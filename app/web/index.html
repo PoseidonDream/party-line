@@ -110,6 +110,11 @@
         </div>
         <p class="hint" id="authPassHint" hidden>At least 4 characters. You type it once on each device.</p>
       </div>
+      <div class="field" id="codeField" hidden>
+        <label class="flabel" for="authCode">6-digit code</label>
+        <input type="text" id="authCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+        <p class="hint">From your authenticator app (2-step sign-in is on for this account). Lost your phone? Use “Forgot your password?”: when an admin approves it, 2-step sign-in turns off.</p>
+      </div>
       <div class="field" id="groupField" hidden>
         <label class="flabel" for="authGroup">Group password</label>
         <input type="password" id="authGroup" class="input" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -669,6 +674,30 @@
         <label class="radio"><input type="radio" name="quality" value="motion"><span><b>Smooth</b><small>720p at 30 fps. Best for games and videos.</small></span></label>
         <label class="radio"><input type="radio" name="quality" value="detail"><span><b>Sharp</b><small>1080p at 15 fps. Best for code, slides and documents.</small></span></label>
       </fieldset>
+      <details class="pw-box" id="devicesBox">
+        <summary>Devices you’re signed in on</summary>
+        <ul class="dev-sessions" id="sessionList"></ul>
+        <button type="button" class="btn small" id="sessionsEndOthers" hidden>Sign out everywhere else</button>
+      </details>
+      <details class="pw-box" id="twoStepBox">
+        <summary>2-step sign-in <span class="pill" id="twoStepState">Off</span></summary>
+        <div class="pw-form">
+          <p class="hint">When it’s on, signing in on a new device also needs a 6-digit code from an app on your phone (Google Authenticator, Microsoft Authenticator, Authy…). Devices you’re already signed in on stay signed in.</p>
+          <div id="twoStepOff">
+            <button type="button" class="btn" id="twoStepStart">Turn on</button>
+            <div id="twoStepSetup" hidden>
+              <p class="hint">1. In your authenticator app, add an account and scan this code:</p>
+              <img id="twoStepQr" class="qr" alt="QR code for your authenticator app">
+              <p class="hint">Can’t scan? Type this key instead: <code id="twoStepSecret"></code></p>
+              <p class="hint">2. Type the 6 digits the app shows:</p>
+              <div class="row"><input type="text" id="twoStepCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"><button type="button" class="btn primary" id="twoStepConfirm">Turn on</button></div>
+            </div>
+          </div>
+          <div id="twoStepOn" hidden>
+            <div class="row"><input type="password" id="twoStepPass" class="input" placeholder="Your password, to turn it off" autocomplete="current-password"><button type="button" class="btn" id="twoStepStop">Turn off</button></div>
+          </div>
+        </div>
+      </details>
       <details class="pw-box">
         <summary>Change password</summary>
         <div class="pw-form">

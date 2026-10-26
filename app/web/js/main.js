@@ -132,6 +132,7 @@ function showAuth(mode) {
   $('#authForgot').hidden = mode !== 'login';
   $('#authBackToLogin').hidden = mode !== 'reset';
   $('#authBtn').textContent = { register: 'Create account', login: 'Sign in', reset: 'Ask an admin to reset it' }[mode];
+  $('#codeField').hidden = true; $('#authCode').value = '';
   $('#authError').hidden = true;
 }
 function showJoinScreen() {
@@ -191,8 +192,9 @@ $('#authForm').addEventListener('submit', async (e) => {
       showResetWait('Your request was sent. An admin gets a notification and confirms it’s really you. You can keep this open, or close it and come back later.');
       return;
     }
-    const body = { name: $('#authName').value, password: $('#authPass').value, groupPassword: $('#authGroup').value };
+    const body = { name: $('#authName').value, password: $('#authPass').value, groupPassword: $('#authGroup').value, code: $('#authCode').value, device: await appLabel() };
     const r = await api(authMode === 'register' ? '/api/register' : '/api/login', { body });
+    if (r.needCode) { $('#codeField').hidden = false; $('#authCode').focus(); return; }   // 2-step sign-in is on
     setToken(r.token); store.set('hadAccount', true);
     $('#authPass').value = ''; $('#authGroup').value = '';
     start();
@@ -2498,6 +2500,52 @@ $('#setNameSave').addEventListener('click', async () => {
   if (!name || name === S.me.name) return;
   try { await live.req('profile.rename', { name }); $('#setNameNote').textContent = 'Saved. Use this name to sign in from now on.'; }
   catch (ex) { $('#setNameNote').textContent = ex.message; }
+});
+/* Settings → Devices you're signed in on */
+const agoText = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+async function renderSessions() {
+  const ul = $('#sessionList');
+  let r; try { r = await live.req('sessions.list', {}); } catch { return; }
+  ul.textContent = '';
+  for (const x of r.sessions) {
+    const li = document.createElement('li');
+    const t = document.createElement('div');
+    const b = document.createElement('b'); b.textContent = x.device; t.appendChild(b);
+    const sm = document.createElement('small'); sm.textContent = x.current ? 'This device' : x.online ? 'Online now' : `Last used ${agoText(x.lastSeen)}`; t.appendChild(sm);
+    li.appendChild(t);
+    if (!x.current) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn small'; btn.textContent = 'Sign out';
+      btn.addEventListener('click', async () => { if (await act(() => live.req('sessions.end', { id: x.id }), `Signed out of ${x.device}.`)) renderSessions(); });
+      li.appendChild(btn);
+    }
+    ul.appendChild(li);
+  }
+  $('#sessionsEndOthers').hidden = r.sessions.length < 2;
+}
+$('#devicesBox').addEventListener('toggle', () => { if ($('#devicesBox').open) renderSessions(); });
+$('#sessionsEndOthers').addEventListener('click', async () => {
+  if (!await confirmBox('Sign out everywhere else?', 'Every other phone, computer and browser is signed out. This one stays signed in.', 'Sign out')) return;
+  if (await act(() => live.req('sessions.end', { others: true }), 'Signed out everywhere else.')) renderSessions();
+});
+/* Settings → 2-step sign-in */
+function syncTwoStep() {
+  const on = !!(S.me && S.me.twoStep);
+  $('#twoStepState').textContent = on ? 'On' : 'Off'; $('#twoStepState').classList.toggle('on', on);
+  $('#twoStepOff').hidden = on; $('#twoStepOn').hidden = !on;
+  if (!on) { $('#twoStepSetup').hidden = true; $('#twoStepStart').hidden = false; }
+}
+$('#twoStepBox').addEventListener('toggle', syncTwoStep);
+$('#twoStepStart').addEventListener('click', async () => {
+  const r = await act(() => live.req('totp.start', {}));
+  if (!r) return;
+  $('#twoStepQr').src = r.qr; $('#twoStepSecret').textContent = r.secret.replace(/(.{4})/g, '$1 ').trim();
+  $('#twoStepStart').hidden = true; $('#twoStepSetup').hidden = false; $('#twoStepCode').value = ''; $('#twoStepCode').focus();
+});
+$('#twoStepConfirm').addEventListener('click', async () => {
+  if (await act(() => live.req('totp.confirm', { code: $('#twoStepCode').value }), '2-step sign-in is on. New sign-ins will ask for a code.')) { S.me.twoStep = true; syncTwoStep(); }
+});
+$('#twoStepStop').addEventListener('click', async () => {
+  if (await act(() => live.req('totp.stop', { password: $('#twoStepPass').value }), '2-step sign-in is off.')) { S.me.twoStep = false; $('#twoStepPass').value = ''; syncTwoStep(); }
 });
 $('#pwSave').addEventListener('click', async () => {
   const note = $('#pwNote');
