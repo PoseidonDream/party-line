@@ -755,6 +755,17 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
   .music-frame { height: max(200px, calc((100vw - 34px) * 9 / 16)); }
 }
 
+/* Watch together: shared videos in the same card, a bit bigger, with full screen */
+.music-card.is-file { width: 480px; }
+.music-card.is-file .music-frame { height: 270px; }
+.music-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.music-frame:fullscreen { height: 100%; }
+@media (max-width: 860px) { .music-card.is-file { width: auto; } .music-card.is-file .music-frame { height: calc((100vw - 34px) * 9 / 16); } }
+.watch-btn { display: none; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
+.watch-btn .ic { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+.watch-btn:hover { border-color: var(--lamp, #f4a52a); }
+body.in-call .watch-btn { display: inline-flex; }
+
 /* Files other than photos and videos */
 .file-card .file-link { display: flex; align-items: center; gap: 12px; max-width: 420px; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); text-decoration: none; }
 .file-card .file-link:hover { border-color: var(--lamp, #f4a52a); }

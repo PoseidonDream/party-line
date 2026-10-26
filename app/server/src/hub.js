@@ -561,6 +561,13 @@ const handlers = {
   },
   'music.event'(c, user, d) { return Bot.musicEvent(user, d); },
   'music.control'(c, user, d) { return Bot.musicControl(user, String(d.action || '')); },
+  'music.watch'(c, user, d) {
+    const m = M.getMessage(Number(d.id));
+    if (!m || !canSee(user.id, m)) fail('That message is gone.');
+    const att = (m.attachments ? JSON.parse(m.attachments) : []).find((a) => a.url === d.url && /^video\//.test(a.type));
+    if (!att) fail('That video is gone.');
+    return Bot.watchFile(user, m.channel_id ? { channelId: m.channel_id } : { dmId: m.dm_id }, att);
+  },
   'voice.leave'(c, user) {
     const v = voice.get(user.id);
     if (v && v.connId === c.id) leaveVoice(user.id);

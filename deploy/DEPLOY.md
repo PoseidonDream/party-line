@@ -162,6 +162,7 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 Type these in any text channel or private chat. Type **/** to see the list.
 
 - **Listen together:** join a voice channel, then type `/play` and a YouTube link. Everyone in that voice channel hears it at the same moment, in a small YouTube player at the top right. `/pause`, `/resume`, `/skip`, `/stop` and `/queue` control it, and so do the player's buttons. The volume slider and the ✕ only affect you. The music stops when everyone leaves the channel.
+- **Watch together:** while you're in a voice channel, press **Watch together** under any video shared in the chat. It plays for everyone in that voice channel at the same moment, in the same player and queue as `/play` (with a full-screen button).
 - **Fun:** `/roll` (or `/roll 20`, `/roll 2d6`), `/coinflip`, `/poll Question | Choice | Choice` (everyone votes with reactions) and `/remind 10m take the pizza out`.
 - `/help` lists everything.
 

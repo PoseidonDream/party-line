@@ -959,7 +959,7 @@ function messageEl(msg, prev) {
     if (msg.editedAt) { const e = document.createElement('span'); e.className = 'msg-edited'; e.textContent = '(edited)'; body.appendChild(e); }
     li.appendChild(body);
   }
-  for (const a of msg.attachments || []) li.appendChild(mediaEl(a));
+  for (const a of msg.attachments || []) li.appendChild(mediaEl(a, msg.id));
   for (const e of msg.embeds || []) li.appendChild(embedEl(e));
   if (msg.reactions && msg.reactions.length) li.appendChild(reactionsEl(msg));
   const mine = msg.userId === S.me.id;
@@ -1052,7 +1052,7 @@ async function jumpTo(key, id) {
   el.classList.add('flash');
   setTimeout(() => el.classList.remove('flash'), 2200);
 }
-function mediaEl(a) {
+function mediaEl(a, msgId) {
   const wrap = document.createElement('div'); wrap.className = 'msg-media';
   const url = absUrl(a.url);
   if (!IMG_RE.test(a.type) && !VID_RE.test(a.type) && !AUD_RE.test(a.type)) {
@@ -1092,6 +1092,13 @@ function mediaEl(a) {
   } else {
     const v = document.createElement('video'); v.className = 'media-video'; v.controls = true; v.preload = 'metadata'; v.src = url; v.playsInline = true;
     wrap.appendChild(v);
+    if (msgId) {
+      // Watch together: plays for everyone in your voice channel, in step (shown while you're in voice).
+      const w = document.createElement('button'); w.type = 'button'; w.className = 'watch-btn'; w.innerHTML = iconSvg('play'); w.appendChild(document.createTextNode('Watch together'));
+      w.title = 'Play this for everyone in your voice channel, at the same moment';
+      w.addEventListener('click', () => { v.pause(); act(() => live.req('music.watch', { id: msgId, url: a.url })); });
+      wrap.appendChild(w);
+    }
   }
   const meta = document.createElement('div'); meta.className = 'media-meta';
   const n = document.createElement('span'); n.textContent = `${a.name} · ${fmtSize(a.size)}`; meta.appendChild(n);
@@ -1704,6 +1711,7 @@ function micStatus() {
   return { text: 'In voice' };
 }
 function renderUserArea() {
+  document.body.classList.toggle('in-call', !!V.channelId);   // shows Watch together on shared videos
   if (!S.me) return;
   paintAv($('#meAv'), S.me.id);
   const pref = S.me.status || 'online';
@@ -2732,6 +2740,7 @@ initMusic({
   nameOf,
   channelName: (id) => { const f = findChannel(id); return f ? f.channel.name : ''; },
   note: botNote,
+  absUrl,
   changed: () => { $('#musicBack').hidden = !(V.channelId && S.music.get(V.channelId)) || listening(); },
 });
 

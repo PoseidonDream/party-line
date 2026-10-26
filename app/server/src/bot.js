@@ -46,8 +46,8 @@ async function videoTitle(id) {
 /* What every device needs to play in sync. Times are the server's clock (ms). While playing, the position in
    seconds is (serverNow - startedAt) / 1000; while paused it's pausedAt. */
 const view = (st) => st && st.now ? {
-  now: { videoId: st.now.videoId, title: st.now.title, by: st.now.by, seq: st.now.seq, startedAt: st.now.startedAt, pausedAt: st.now.pausedAt },
-  queue: st.queue.map((x) => ({ videoId: x.videoId, title: x.title, by: x.by })),
+  now: { videoId: st.now.videoId, file: st.now.file || null, title: st.now.title, by: st.now.by, seq: st.now.seq, startedAt: st.now.startedAt, pausedAt: st.now.pausedAt },
+  queue: st.queue.map((x) => ({ videoId: x.videoId, file: x.file || null, title: x.title, by: x.by })),
 } : null;
 const share = (channelId) => { const st = music.get(channelId); if (st) host.music(st.serverId, channelId, view(st)); };
 export const musicStates = (serverIds) => [...music].filter(([, st]) => st.now && serverIds.has(st.serverId)).map(([channelId, st]) => ({ channelId, state: view(st) }));
@@ -76,13 +76,17 @@ async function play(ctx) {
   if (!id) fail('That doesn’t look like a YouTube link. Copy the link from YouTube’s Share button and paste it after /play.');
   const { title, blocked } = await videoTitle(id);
   if (blocked) fail('That video’s owner doesn’t allow playing it outside YouTube. Try another one.');
+  if (!host.voiceOf(ctx.user.id)) fail('You left voice before the video loaded.');
+  enqueue(ctx, v, { videoId: id, title, by: ctx.user.id });
+}
+function enqueue(ctx, v, item) {
+  const title = item.title;
   let st = music.get(v.channelId);
   if (!st) { st = { serverId: v.serverId, queue: [], now: null }; music.set(v.channelId, st); }
-  if (!host.voiceOf(ctx.user.id)) fail('You left voice before the video loaded.');
   st.where = ctx.where;
   st.channelName = v.channelName;
   if (st.queue.length >= 50) fail('The queue is full (50 videos). Skip some first.');
-  st.queue.push({ videoId: id, title, by: ctx.user.id });
+  st.queue.push(item);
   if (!st.now) {
     startNext(st);
     post(ctx.where, `🎵 Now playing **${title}** in 🔊 ${v.channelName}, added by ${who(ctx.user.id)}`);
@@ -124,6 +128,14 @@ function queue(ctx) {
   if (!st.queue.length) lines.push('Nothing else in the queue. Add more with /play.');
   return { ephemeral: lines.join('\n') };
 }
+/* Watch together: a video someone shared in the chat plays for everyone in your voice channel, in sync, in the
+   same player and queue as /play. Each device streams it straight from the server. */
+export function watchFile(user, where, att) {
+  const v = host.voiceOf(user.id);
+  if (!v) fail('Join a voice channel first. The video plays for everyone in your voice channel.');
+  enqueue({ user, where }, v, { videoId: null, file: { url: att.url, type: att.type }, title: `🎬 ${String(att.name || 'Video').slice(0, 110)}`, by: user.id });
+  return {};
+}
 /* A device finished the video (or YouTube refused to play it). The first report for the current video moves on. */
 export function musicEvent(user, d) {
   const v = host.voiceOf(user.id);
@@ -132,7 +144,7 @@ export function musicEvent(user, d) {
   const was = st.now;
   if (d.kind === 'error') {
     // 101/150: the owner blocks embedding. Other errors (bad id, removed video) are skipped too.
-    const why = d.code === 101 || d.code === 150 ? 'its owner doesn’t allow playing it outside YouTube' : 'YouTube couldn’t play it';
+    const why = was.file ? 'this video format doesn’t play in browsers (MP4 or WebM work best)' : d.code === 101 || d.code === 150 ? 'its owner doesn’t allow playing it outside YouTube' : 'YouTube couldn’t play it';
     post(st.where, `⚠️ Skipped **${was.title}**: ${why}.`);
   } else if (d.kind === 'ended' && position(was) < 5) return {};   // a device that thinks it ended right at the start is wrong
   const next = startNext(st);
@@ -213,6 +225,7 @@ const HELP = [
   '/play <YouTube link>: play it, or add it to the queue',
   '/pause, /resume, /skip, /stop',
   '/queue: what’s playing and what’s next',
+  '🎬 **Watch together**: press Watch together under a video someone shared in the chat',
   '🎲 **Fun**',
   '/roll: a 6-sided die. /roll 20 or /roll 2d6 for others',
   '/coinflip: heads or tails',

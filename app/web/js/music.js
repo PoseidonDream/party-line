@@ -1,9 +1,11 @@
 /* Listen together: when someone uses /play in a voice channel you're in, this plays the same YouTube video
-   at the same moment for everyone there, in YouTube's own player (a small window at the bottom right).
+   at the same moment for everyone there, in YouTube's own player (a small window at the top right).
+   Watch together: a video someone shared in the chat plays the same way, in a plain <video> player that
+   streams the file from our server.
    The server keeps the queue and the clock; each device checks every 2 s that it's still in step. */
 import { $, iconSvg, settings, saveSettings } from './util.js';
 
-let ctx = null;          // { req(type, data), nameOf(id), channelName(id), note(text), changed() }
+let ctx = null;          // { req(type, data), nameOf(id), channelName(id), note(text), changed(), absUrl(url) }
 let state = null;        // the server's music state for my voice channel: { now, queue }
 let channelId = null;    // my voice channel
 let offset = 0;          // serverClock - Date.now()
@@ -20,6 +22,10 @@ export function initMusic(c) {
   $('#musicStop').addEventListener('click', () => control('stop'));
   $('#musicHide').addEventListener('click', () => { leftSeq = state && state.now ? state.now.seq : null; teardown(); render(); ctx.changed(); });
   $('#musicStart').addEventListener('click', () => { if (player && playerReady) { player.playVideo(); $('#musicStart').hidden = true; } });
+  $('#musicFull').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else ($('#musicFrame').requestFullscreen ? $('#musicFrame').requestFullscreen() : Promise.reject()).catch(() => { const v = $('#musicFrame video'); if (v && v.webkitEnterFullscreen) v.webkitEnterFullscreen(); });
+  });
   const vol = $('#musicVol');
   vol.value = settings.musicVolume ?? 60;
   vol.addEventListener('input', () => { settings.musicVolume = Number(vol.value); saveSettings(); if (player && playerReady) player.setVolume(settings.musicVolume); });
@@ -48,6 +54,7 @@ function render() {
   document.body.classList.toggle('music-on', show);
   if (!state) return;
   const n = state.now;
+  card.classList.toggle('is-file', !!n.file);
   $('#musicTitle').textContent = n.title;
   $('#musicBy').textContent = `Added by ${ctx.nameOf(n.by)} · 🔊 ${ctx.channelName(channelId)}`;
   const paused = n.startedAt == null;
@@ -55,7 +62,7 @@ function render() {
   $('#musicPause').title = paused ? 'Resume for everyone' : 'Pause for everyone';
   $('#musicPause').setAttribute('aria-label', $('#musicPause').title);
   const next = state.queue[0];
-  $('#musicNext').textContent = next ? `Next: ${next.title}${state.queue.length > 1 ? ` (+${state.queue.length - 1} more)` : ''}` : 'Nothing queued next. Add more with /play';
+  $('#musicNext').textContent = next ? `Next: ${next.title}${state.queue.length > 1 ? ` (+${state.queue.length - 1} more)` : ''}` : 'Nothing queued next. Add more with /play, or Watch together on a video in the chat';
 }
 
 function loadApi() {
@@ -70,22 +77,53 @@ function loadApi() {
   });
   return api;
 }
+function onPlayerState(code) {
+  if (code === 0 && state && reported !== state.now.seq) { reported = state.now.seq; ctx.req('music.event', { kind: 'ended', channelId, seq: state.now.seq }).catch(() => {}); }
+  if (code === 1) $('#musicStart').hidden = true;
+}
+function onPlayerError(code) {
+  if (state && reported !== state.now.seq) { reported = state.now.seq; ctx.req('music.event', { kind: 'error', code, channelId, seq: state.now.seq }).catch(() => {}); }
+}
+/* A shared video file, behind the same few methods as YouTube's player so sync() treats both alike. */
+function filePlayer(n) {
+  const v = document.createElement('video');
+  v.id = 'musicPlayer'; v.playsInline = true; v.preload = 'auto'; v.setAttribute('playsinline', '');
+  document.getElementById('musicPlayer').replaceWith(v);
+  let waiting = false;
+  const p = {
+    kind: 'file', el: v,
+    getCurrentTime: () => v.currentTime,
+    getPlayerState: () => (v.ended ? 0 : v.paused ? 2 : waiting ? 3 : 1),
+    playVideo() { v.play().catch(() => {}); },
+    pauseVideo() { v.pause(); },
+    seekTo(t) { if (v.readyState) v.currentTime = t; },
+    setVolume(x) { v.volume = Math.max(0, Math.min(1, x / 100)); },
+    loadVideoById({ file }) { playerReady = false; v.src = ctx.absUrl(file.url); },
+    destroy() { v.removeAttribute('src'); v.load(); v.remove(); },
+  };
+  v.addEventListener('loadedmetadata', () => { if (player !== p) return; playerReady = true; p.setVolume(settings.musicVolume ?? 60); sync(); });
+  v.addEventListener('waiting', () => { waiting = true; });
+  v.addEventListener('playing', () => { waiting = false; onPlayerState(1); });
+  v.addEventListener('ended', () => onPlayerState(0));
+  v.addEventListener('error', () => { if (v.getAttribute('src')) onPlayerError(v.error ? v.error.code : 0); });
+  v.src = ctx.absUrl(n.file.url);
+  return p;
+}
 function ensurePlayer() {
+  if (state && state.now.file) {
+    if (!player) { playerReady = false; loadedSeq = state.now.seq; player = filePlayer(state.now); }
+    return Promise.resolve();
+  }
   return loadApi().then((YT) => {
-    if (player || !state) return;
+    if (player || !state || state.now.file) return;
     playerReady = false; loadedSeq = state.now.seq;
     player = new YT.Player('musicPlayer', {
       width: '100%', height: '100%', videoId: state.now.videoId,
       playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, modestbranding: 1, start: Math.floor(expected() || 0) },
       events: {
         onReady: (e) => { if (!player || e.target !== player) return; playerReady = true; player.setVolume(settings.musicVolume ?? 60); sync(); },   // ignore a player closed while loading
-        onStateChange: (e) => {
-          if (e.data === 0 && state && reported !== state.now.seq) { reported = state.now.seq; ctx.req('music.event', { kind: 'ended', channelId, seq: state.now.seq }).catch(() => {}); }
-          if (e.data === 1) $('#musicStart').hidden = true;
-        },
-        onError: (e) => {
-          if (state && reported !== state.now.seq) { reported = state.now.seq; ctx.req('music.event', { kind: 'error', code: e.data, channelId, seq: state.now.seq }).catch(() => {}); }
-        },
+        onStateChange: (e) => onPlayerState(e.data),
+        onError: (e) => onPlayerError(e.data),
       },
     });
   }).catch(() => { $('#musicNext').textContent = 'YouTube couldn’t load on this device.'; });
@@ -106,7 +144,10 @@ function expected() {
 function sync() {
   if (!player || !playerReady || !state || leftSeq != null) return;
   const n = state.now;
-  if (loadedSeq !== n.seq) { loadedSeq = n.seq; player.loadVideoById({ videoId: n.videoId, startSeconds: Math.max(0, expected()) }); return; }
+  if (loadedSeq !== n.seq) {
+    if ((player.kind === 'file') !== !!n.file) { teardown(); ensurePlayer().then(sync); if (!timer) timer = setInterval(sync, 2000); return; }   // YouTube <-> file: a different player
+    loadedSeq = n.seq; player.loadVideoById({ videoId: n.videoId, file: n.file, startSeconds: Math.max(0, expected()) }); return;
+  }
   const want = expected(), have = player.getCurrentTime() || 0, ps = player.getPlayerState();
   if (n.startedAt == null || want < 0) {
     if (ps === 1 || ps === 3) player.pauseVideo();
