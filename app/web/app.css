@@ -942,3 +942,11 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .reset-who small { color: var(--dim); }
 .reset-note { margin: 4px 0 0; font-style: italic; overflow-wrap: anywhere; }
 .reset-item .row-btns .btn { width: auto; }
+/* Rich text */
+.inline-code { padding: 1px 5px; border-radius: 5px; background: var(--panel-2); font: 0.9em/1.4 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
+.code-block { margin: 4px 0; padding: 10px 12px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); overflow-x: auto; white-space: pre; font: 13.5px/1.5 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); max-width: 100%; }
+.msg-body blockquote, .bot-note-text blockquote { margin: 2px 0; padding: 0 0 0 10px; border-left: 4px solid var(--line); color: var(--fg); }
+.spoiler { border-radius: 4px; padding: 0 2px; background: var(--fg); color: transparent; cursor: pointer; transition: background .15s, color .15s; }
+.spoiler * { visibility: hidden; }
+.spoiler.shown { background: var(--panel-2); color: inherit; cursor: auto; }
+.spoiler.shown * { visibility: visible; }

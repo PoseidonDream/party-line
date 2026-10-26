@@ -803,7 +803,19 @@ function syncPhoneCall() {
 
 /* ================= messages ================= */
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
-const TOKEN_RE = new RegExp(`${URL_RE.source}|<@(\\d+)>|\\*\\*([^*\\n]{1,200})\\*\\*|<t:(\\d{9,11})(?::(R))?>`, 'g');
+/* Inline styles. When two could start at the same place, the earlier one in this list wins. */
+const INLINE_RE = new RegExp([
+  '`([^`\\n]{1,500})`',                                        // 1 `code`
+  URL_RE.source,                                                 //   a link
+  '<@(\\d+)>',                                                 // 2 @mention
+  '<t:(\\d{9,11})(?::(R))?>',                                  // 3, 4 a time in your own time zone
+  '\\|\\|([^|\\n](?:[^\\n]*?[^|\\n])?)\\|\\|',     // 5 ||spoiler||
+  '\\*\\*([^*\\n](?:[^\\n]*?[^*\\n])?)\\*\\*',     // 6 **bold**
+  '__([^_\\n](?:[^\\n]*?[^_\\n])?)__',                    // 7 __underline__
+  '~~([^~\\n](?:[^\\n]*?[^~\\n])?)~~',                    // 8 ~~strike~~
+  '(?<![\\w*])\\*([^*\\s](?:[^*\\n]*?[^*\\s])?)\\*(?![\\w*])', // 9 *italic*
+  '(?<![\\w_])_([^_\\s](?:[^_\\n]*?[^_\\s])?)_(?![\\w_])',         // 10 _italic_
+].join('|'), 'g');
 /* <t:unix> shows a moment in each person's own time zone; <t:unix:R> as "in 15 minutes". */
 const fmtWhen = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 function fmtRelative(ms) {
@@ -811,25 +823,59 @@ function fmtRelative(ms) {
   const [n, u] = a < 3600_000 ? [Math.round(d / 60_000), 'minute'] : a < 86_400_000 ? [Math.round(d / 3600_000), 'hour'] : [Math.round(d / 86_400_000), 'day'];
   return rtf.format(n, u);
 }
-/* Message text with clickable links, @mentions and **bold**. Mentions are stored as <@userId>. */
+/* Message text: ```code blocks```, > quotes, then inline styles (see INLINE_RE), links and @mentions.
+   Mentions are stored as <@userId>. */
 function richText(el, text) {
+  String(text).split(/```(?:[\w+-]*\n)?([\s\S]*?)```/).forEach((part, i) => {
+    if (i % 2) {
+      const pre = document.createElement('pre'); pre.className = 'code-block';
+      const code = document.createElement('code'); code.textContent = part.replace(/\n$/, ''); pre.appendChild(code);
+      el.appendChild(pre);
+      return;
+    }
+    // Runs of lines starting with "> " become a quote.
+    const lines = part.split('\n'), segs = [];
+    for (const line of lines) {
+      const q = /^>\s?/.test(line) && line.trim() !== '>' ? true : /^>$/.test(line.trim());
+      const last = segs[segs.length - 1];
+      if (last && last.q === q) last.lines.push(q ? line.replace(/^>\s?/, '') : line);
+      else segs.push({ q, lines: [q ? line.replace(/^>\s?/, '') : line] });
+    }
+    segs.forEach((g) => {
+      if (g.q) { const bq = document.createElement('blockquote'); inlineText(bq, g.lines.join('\n')); el.appendChild(bq); return; }
+      const t = g.lines.join('\n');
+      if (t) inlineText(el, t);
+    });
+  });
+}
+function inlineText(el, text) {
   let last = 0;
-  for (const m of text.matchAll(TOKEN_RE)) {
+  const add = (tag, cls, inner) => { const x = document.createElement(tag); if (cls) x.className = cls; inlineText(x, inner); el.appendChild(x); return x; };
+  for (const m of text.matchAll(INLINE_RE)) {
     if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
-    if (m[1]) {
-      const id = Number(m[1]);
+    if (m[1] !== undefined) { const c = document.createElement('code'); c.className = 'inline-code'; c.textContent = m[1]; el.appendChild(c); }
+    else if (m[2]) {
+      const id = Number(m[2]);
       const b = document.createElement('button'); b.type = 'button'; b.className = 'mention' + (id === S.me.id ? ' me' : '');
       b.textContent = `@${nameOf(id)}`;
       b.addEventListener('click', (e) => openUserPop(id, e.currentTarget));
       el.appendChild(b);
-    } else if (m[2]) {
-      const b = document.createElement('b'); richText(b, m[2]); el.appendChild(b);
     } else if (m[3]) {
       const ms = Number(m[3]) * 1000, t = document.createElement('time'); t.className = 'time-tag';
       t.dateTime = new Date(ms).toISOString(); t.title = new Date(ms).toLocaleString();
       t.textContent = m[4] === 'R' ? fmtRelative(ms) : fmtWhen(ms);
       el.appendChild(t);
-    } else {
+    } else if (m[5]) {
+      const sp = add('span', 'spoiler', m[5]);
+      sp.title = 'Spoiler: click to show'; sp.tabIndex = 0; sp.setAttribute('role', 'button');
+      const show = (e) => { e.stopPropagation(); sp.classList.add('shown'); sp.removeAttribute('title'); };
+      sp.addEventListener('click', show); sp.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') show(e); });
+    }
+    else if (m[6]) add('b', null, m[6]);
+    else if (m[7]) add('u', null, m[7]);
+    else if (m[8]) add('s', null, m[8]);
+    else if (m[9] || m[10]) add('em', null, m[9] || m[10]);
+    else {
       const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
       el.appendChild(a);
     }
@@ -847,6 +893,7 @@ function encodeMentions(text) {
   return text;
 }
 const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '')
+  .replace(/\|\|[^\n]*?\|\|/g, '[spoiler]').replace(/```[\w+-]*\n?|~~|__|`/g, '')
   .replace(/<t:(\d{9,11})(?::R)?>/g, (x, t) => fmtWhen(Number(t) * 1000));
 const mentionsMe = (msg) => !!msg.body && msg.body.includes(`<@${S.me.id}>`);
 let lastRendered = { author: null, at: 0 };
