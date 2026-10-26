@@ -10,7 +10,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), sounds: new Map(), soundFlash: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], sounds: new Map(), soundFlash: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -106,9 +106,13 @@ function showAuth(mode) {
   $('#tabLogin').setAttribute('aria-selected', String(mode === 'login'));
   $('#tabRegister').setAttribute('aria-selected', String(mode === 'register'));
   $('#groupField').hidden = mode !== 'register' || !info.needsGroupPassword;
-  $('#authPassHint').hidden = mode !== 'register';
-  $('#authPass').autocomplete = mode === 'register' ? 'new-password' : 'current-password';
-  $('#authBtn').textContent = mode === 'register' ? 'Create account' : 'Sign in';
+  $('#authPassHint').hidden = mode === 'login';
+  $('#authPass').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  $('#authPassLabel').textContent = mode === 'reset' ? 'New password' : 'Password';
+  $('#resetNoteField').hidden = mode !== 'reset';
+  $('#authForgot').hidden = mode !== 'login';
+  $('#authBackToLogin').hidden = mode !== 'reset';
+  $('#authBtn').textContent = { register: 'Create account', login: 'Sign in', reset: 'Ask an admin to reset it' }[mode];
   $('#authError').hidden = true;
 }
 function showJoinScreen() {
@@ -116,9 +120,40 @@ function showJoinScreen() {
   if (S.pendingInvite) { $('#joinInvite').hidden = false; $('#joinInvite').textContent = 'You were invited to a server. Sign in or create an account to join.'; }
   api('/api/info').then((i) => { info = i; showAuth(authMode); }).catch(() => {});
   showAuth(store.get('hadAccount', false) ? 'login' : 'register');
-  setTimeout(() => $('#authName').focus(), 50);
+  if (store.get('resetReq', null)) showResetWait(); else setTimeout(() => $('#authName').focus(), 50);
 }
 $('#tabLogin').addEventListener('click', () => showAuth('login'));
+$('#authForgot').addEventListener('click', () => { showAuth('reset'); $('#authPass').value = ''; $('#authPass').focus(); });
+$('#authBackToLogin').addEventListener('click', () => showAuth('login'));
+/* Forgot password: wait for an admin to approve, checking every 3 s. */
+let resetPoll = null;
+function showResetWait(text) {
+  $('#authForm').hidden = true; $('#resetWait').hidden = false;
+  $('#resetWaitTitle').textContent = 'Waiting for an admin';
+  if (text) $('#resetWaitText').textContent = text;
+  clearInterval(resetPoll);
+  const check = async () => {
+    const req = store.get('resetReq', null);
+    if (!req) return;
+    let r;
+    try { r = await api(`/api/reset-request/${req.id}`, { body: { secret: req.secret } }); } catch (ex) { if (/doesn’t exist/.test(ex.message)) endResetWait(); return; }
+    if (r.state === 'approved') {
+      endResetWait();
+      setToken(r.token); store.set('hadAccount', true);
+      toast('An admin approved it. You’re signed in with your new password.', 5000);
+      start();
+    } else if (r.state !== 'pending') {
+      endResetWait();
+      showAuth('login');
+      const err = $('#authError');
+      err.textContent = r.state === 'denied' ? 'The admin turned the request down. Talk to them directly.' : 'That request expired or was replaced. Ask again if you still need it.';
+      err.hidden = false;
+    }
+  };
+  check(); resetPoll = setInterval(check, 3000);
+}
+function endResetWait() { clearInterval(resetPoll); store.del('resetReq'); $('#resetWait').hidden = true; $('#authForm').hidden = false; }
+$('#resetCancel').addEventListener('click', () => { endResetWait(); showAuth('login'); });
 $('#tabRegister').addEventListener('click', () => showAuth('register'));
 $('#authShow').addEventListener('click', () => {
   const i = $('#authPass'), show = i.type === 'password';
@@ -130,6 +165,13 @@ $('#authForm').addEventListener('submit', async (e) => {
   const btn = $('#authBtn'), err = $('#authError');
   err.hidden = true; btn.disabled = true;
   try {
+    if (authMode === 'reset') {
+      const r = await api('/api/reset-request', { body: { name: $('#authName').value, newPassword: $('#authPass').value, note: $('#resetNote').value, device: await appLabel() } });
+      store.set('resetReq', { id: r.id, secret: r.secret });
+      $('#authPass').value = ''; $('#resetNote').value = '';
+      showResetWait('Your request was sent. An admin gets a notification and confirms it’s really you. You can keep this open, or close it and come back later.');
+      return;
+    }
     const body = { name: $('#authName').value, password: $('#authPass').value, groupPassword: $('#authGroup').value };
     const r = await api(authMode === 'register' ? '/api/register' : '/api/login', { body });
     setToken(r.token); store.set('hadAccount', true);
@@ -175,6 +217,8 @@ live.on('ready', (d) => {
   for (const e of d.events || []) { if (!S.events.has(e.serverId)) S.events.set(e.serverId, []); S.events.get(e.serverId).push(e); }
   S.commands = d.commands || [];
   S.serverNow = d.serverNow;
+  S.resets = d.resets || [];
+  renderResetBar();
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
   S.ready = true;
@@ -291,6 +335,15 @@ live.on('sound', (d) => {
   setTimeout(() => { S.soundFlash.delete(d.userId); if (S.view.kind === 'voice') renderVoiceView(); }, 2500);
 });
 live.on('events', (d) => { S.events.set(d.serverId, d.events); renderHeader(); if ($('#eventsDlg').open) renderEvents(); });
+live.on('reset.request', (d) => {
+  S.resets = S.resets.filter((x) => x.userId !== d.request.userId).concat(d.request);
+  renderResetBar();
+  if ($('#resetDlg').open) renderResets();
+  if (!quiet()) chime('msg', V.deafened);
+  toast(`🔑 ${d.request.name} wants to reset their password.`, 6000, { label: 'Review', fn: openResets });
+  notify('🔑 Password reset request', `${d.request.name} wants to reset their password.`, openResets);
+});
+live.on('reset.done', (d) => { S.resets = S.resets.filter((x) => x.id !== d.id); renderResetBar(); if ($('#resetDlg').open) renderResets(); });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
 live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
 live.on('dm', (d) => {
@@ -2066,6 +2119,36 @@ $('#fbForm').addEventListener('submit', async (e) => {
   } catch (ex) { $('#fbError').textContent = ex.message; $('#fbError').hidden = false; }
   $('#fbSend').disabled = false;
 });
+
+/* ================= password reset requests (admins) ================= */
+function renderResetBar() {
+  const n = (S.resets || []).length;
+  $('#resetBar').hidden = !n;
+  $('#resetBarText').textContent = n === 1 ? `🔑 ${S.resets[0].name} wants to reset their password.` : `🔑 ${n} people want to reset their password.`;
+}
+function renderResets() {
+  const ol = $('#resetList'); ol.textContent = '';
+  if (!S.resets.length) { ol.innerHTML = '<li class="hint">No requests waiting.</li>'; return; }
+  for (const r of S.resets) {
+    const li = document.createElement('li'); li.className = 'reset-item';
+    const who = document.createElement('div'); who.className = 'reset-who';
+    who.appendChild(avEl(r.userId));
+    const t = document.createElement('div');
+    const n = document.createElement('b'); n.textContent = r.name; t.appendChild(n);
+    const meta = document.createElement('small'); meta.textContent = `${fmtWhen(r.at)}${r.device ? ` · from ${r.device}` : ''}`; t.appendChild(meta);
+    if (r.note) { const q = document.createElement('p'); q.className = 'reset-note'; q.textContent = `“${r.note}”`; t.appendChild(q); }
+    who.appendChild(t); li.appendChild(who);
+    const btns = document.createElement('div'); btns.className = 'row-btns';
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'btn small'; no.textContent = 'Deny';
+    no.addEventListener('click', () => act(() => live.req('reset.decide', { id: r.id, approve: false }), 'Request turned down.'));
+    const yes = document.createElement('button'); yes.type = 'button'; yes.className = 'btn small primary'; yes.textContent = 'Approve';
+    yes.addEventListener('click', async () => { if (await confirmBox(`Approve ${r.name}’s new password?`, 'Only if you’re sure it’s really them. They’ll be signed in with the password they picked.', 'Approve')) act(() => live.req('reset.decide', { id: r.id, approve: true }), `${r.name} can sign in with their new password now.`); });
+    btns.append(no, yes); li.appendChild(btns);
+    ol.appendChild(li);
+  }
+}
+function openResets() { renderResets(); $('#resetDlg').showModal(); }
+$('#resetReview').addEventListener('click', openResets);
 
 /* ================= group chats, calls and ringing ================= */
 let groupMode = 'create';

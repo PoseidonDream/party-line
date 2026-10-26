@@ -164,4 +164,4 @@ Signed in as the admin (Poseidon), click the **Home** button (top left) → **De
 
 - **The address doesn't open:** check that DuckDNS shows your server's IP, then wait a few minutes. HTTPS certificates are set up automatically the first time someone visits.
 - **"Couldn't connect voice with…":** check that the firewall ports are open. `setup.sh` opens them, but some providers also have their own firewall in the dashboard. Open TCP 80 and 443, UDP 443, TCP and UDP 3478, and UDP 49160–49200.
-- **Someone forgot their password:** as admin, click their name or picture → **Reset password**. You get a temporary password to send them, and they can change it in Settings → Change password.
+- **Someone forgot their password:** they press **Forgot your password?** on the sign-in screen, pick a new password, and ask. You get a notification (🔑) with **Approve** and **Deny**: approve only if you're sure it's them, and they're signed in right away. (You can also click their name → **Reset password** to make a temporary password yourself.)

@@ -101,7 +101,7 @@
         <input type="text" id="authName" class="input" maxlength="24" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="e.g. Deniz">
       </label>
       <div class="field">
-        <label class="flabel" for="authPass">Password</label>
+        <label class="flabel" for="authPass" id="authPassLabel">Password</label>
         <div class="row">
           <input type="password" id="authPass" class="input" autocomplete="current-password">
           <button type="button" class="btn icon-btn" id="authShow" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="ic"><use href="#i-eye"/></svg></button>
@@ -113,10 +113,22 @@
         <input type="password" id="authGroup" class="input" autocomplete="off" autocapitalize="off" spellcheck="false">
         <p class="hint">The password your friend group shares. Ask whoever invited you.</p>
       </div>
+      <div class="field" id="resetNoteField" hidden>
+        <label class="flabel" for="resetNote">Note for the admin (optional)</label>
+        <input type="text" id="resetNote" class="input" maxlength="200" placeholder="e.g. it's me, I got a new phone">
+        <p class="hint">An admin gets your request and confirms it's really you. No email needed.</p>
+      </div>
       <p class="error" id="authError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="authBtn">Sign in</button>
-      <p class="hint" id="authForgot">Forgot your password? Ask an admin to reset it. They'll give you a temporary one, which you can change in Settings.</p>
+      <button type="button" class="link-btn auth-forgot" id="authForgot">Forgot your password?</button>
+      <button type="button" class="link-btn auth-forgot" id="authBackToLogin" hidden>Back to sign in</button>
     </form>
+    <div class="reset-wait" id="resetWait" hidden>
+      <span class="spinner" aria-hidden="true"></span>
+      <h2 id="resetWaitTitle">Waiting for an admin</h2>
+      <p id="resetWaitText">Your request to reset the password was sent. An admin gets a notification and confirms it's really you. You can keep this open, or close it and come back later.</p>
+      <div class="row-btns"><button type="button" class="btn" id="resetCancel">Cancel request</button></div>
+    </div>
     <p class="fineprint">Messages and pictures are kept on your group's Party Line server. Voice and screen shares go straight between you and your friends. Use headphones to avoid echo.</p>
   </section>
 </main>
@@ -207,6 +219,7 @@
       <p class="hint" id="searchNote"></p>
       <ol class="search-results" id="searchResults"></ol>
     </div>
+    <div class="update-bar reset-bar" id="resetBar" role="status" hidden><span id="resetBarText"></span><button type="button" class="btn small primary" id="resetReview">Review</button></div>
     <div class="update-bar" id="updateBar" role="status" hidden><span>A new version of the Party Line app is ready.</span><a class="btn small primary" id="updateGo" target="_blank" rel="noopener">Update</a><button type="button" class="btn small" id="updateLater">Later</button></div>
     <div class="offline-bar" id="offlineBar" role="status" hidden><span class="spinner" aria-hidden="true"></span><span>Lost connection to the server. Reconnecting…</span></div>
     <section class="micpanel" id="micPanel" aria-labelledby="mpTitle" hidden>
@@ -434,6 +447,16 @@
     <p class="hint" id="grEmpty" hidden>Add some friends first. Group chats are for friends and people from your servers.</p>
     <div class="row-btns"><button type="submit" class="btn primary" id="grSubmit">Create group</button></div>
   </form>
+</dialog>
+
+<dialog id="resetDlg" aria-labelledby="rsTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="rsTitle">Password reset requests</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body">
+    <p class="hint">Only approve if you're sure it's really them, for example ask them in person or by phone. Approving sets the new password they chose (you never see it) and signs them out everywhere else.</p>
+    <ol class="reset-list" id="resetList"></ol>
+  </div>
 </dialog>
 
 <dialog id="chanDlg" aria-labelledby="chTitle">

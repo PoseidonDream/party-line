@@ -61,6 +61,14 @@ app.post('/api/login', throttle, wrap((req) => {
   const r = M.login((req.body || {}).name, (req.body || {}).password);
   return { token: r.token, user: M.publicUser(r.user) };
 }));
+/* Forgot password: ask an admin to confirm, then poll until they answer. */
+app.post('/api/reset-request', throttle, wrap((req) => {
+  const b = req.body || {};
+  const r = M.createResetRequest(b.name, b.newPassword, b.note, b.device);
+  hub.resetRequested(r.request);
+  return { id: r.id, secret: r.secret };
+}));
+app.post('/api/reset-request/:id', wrap((req) => M.resetStatus(Number(req.params.id), (req.body || {}).secret)));
 app.post('/api/logout', wrap((req) => { M.logout(bearer(req)); return { ok: true }; }));
 app.post('/api/password', auth, wrap((req) => { M.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword); return { ok: true }; }));
 

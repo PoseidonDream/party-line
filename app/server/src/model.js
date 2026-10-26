@@ -91,6 +91,45 @@ export function resetPassword(userId) {
   run('DELETE FROM sessions WHERE user_id = ?', userId);
   return temp;
 }
+/* Forgot password: the person picks a new password and asks; an admin confirms it's really them. The new
+   password is stored only as a hash, so the admin never sees it. The requester's device holds a secret for
+   the request and is signed in once it's approved. Requests expire after 24 hours. */
+const RESET_TTL = 24 * 3600_000;
+export function createResetRequest(name, newPass, note, device) {
+  const u = userByName(name);
+  if (!u || u.is_bot) fail('There’s no account with that name. Check the spelling.');
+  if (String(newPass || '').length < 4) fail('Pick a new password with at least 4 characters.');
+  run("UPDATE reset_requests SET state = 'replaced' WHERE user_id = ? AND state = 'pending'", u.id);
+  const secret = token();
+  const id = Number(run('INSERT INTO reset_requests (user_id, secret_hash, pass_hash, note, device, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    u.id, sha(secret), hashPass(newPass), String(note || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200) || null,
+    String(device || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 60) || null, now()).lastInsertRowid);
+  return { id, secret, request: resetView(one('SELECT * FROM reset_requests WHERE id = ?', id)) };
+}
+const resetView = (r) => { const u = getUser(r.user_id); return { id: r.id, userId: r.user_id, name: u ? u.name : '?', note: r.note, device: r.device, at: r.created_at }; };
+export const pendingResets = () => all("SELECT * FROM reset_requests WHERE state = 'pending' AND created_at > ? ORDER BY id", now() - RESET_TTL).map(resetView);
+export function decideReset(id, adminId, approve) {
+  const r = one('SELECT * FROM reset_requests WHERE id = ?', id);
+  if (!r || r.state !== 'pending' || r.created_at < now() - RESET_TTL) fail('That request is no longer waiting.');
+  if (approve) {
+    run('UPDATE users SET pass_hash = ? WHERE id = ?', r.pass_hash, r.user_id);
+    run('DELETE FROM sessions WHERE user_id = ?', r.user_id);
+  }
+  run('UPDATE reset_requests SET state = ?, decided_by = ?, decided_at = ? WHERE id = ?', approve ? 'approved' : 'denied', adminId, now(), id);
+  return r;
+}
+/* What the requester's device sees while waiting. Approved: signs it in, once. */
+export function resetStatus(id, secret) {
+  const r = one('SELECT * FROM reset_requests WHERE id = ?', id);
+  if (!r || typeof secret !== 'string' || sha(secret) !== r.secret_hash) fail('That request doesn’t exist.');
+  if (r.state === 'pending' && r.created_at < now() - RESET_TTL) return { state: 'expired' };
+  if (r.state === 'approved' && !r.consumed) {
+    run('UPDATE reset_requests SET consumed = 1 WHERE id = ?', id);
+    const u = getUser(r.user_id);
+    return { state: 'approved', token: newSession(u.id), user: publicUser(u) };
+  }
+  return { state: r.state === 'approved' ? 'used' : r.state };
+}
 export function rename(userId, name) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');

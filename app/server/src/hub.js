@@ -60,6 +60,8 @@ const fail = (msg) => { throw new M.UserError(msg); };
 export const voiceChannelOf = (userId) => (voice.get(userId) || {}).channelId || null;
 export const voiceCount = () => voice.size;
 export const hub = {
+  /* A forgot-password request: tell every admin who's online (others see it when they open the app). */
+  resetRequested(request) { for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reset.request', request }); },
   userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); toUser(u.id, { t: 'me', me: Object.assign(M.publicUser(u), { status: u.status || 'online' }) }); announce(u.id); },
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
@@ -123,6 +125,7 @@ function readyFor(user) {
     sounds: [...mine].flatMap((id) => M.soundsOf(id)),
     commands: Bot.COMMAND_LIST,
     serverNow: Date.now(),
+    resets: user.is_admin ? M.pendingResets() : [],
   };
 }
 
@@ -562,6 +565,14 @@ const handlers = {
     return {};
   },
   /* Which app and version this connection is ("Windows app 1.1.0", "Android app build 12", "Chrome on Windows"). */
+  'reset.decide'(c, user, d) {
+    if (!user.is_admin) fail('Admins only.');
+    const r = M.decideReset(Number(d.id), user.id, !!d.approve);
+    for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reset.done', id: r.id, approved: !!d.approve, by: user.id });
+    // Approved: everywhere they were signed in with the old password is signed out.
+    if (d.approve) for (const x of [...(byUser.get(r.user_id) || [])]) x.ws.close(4001, 'auth');
+    return {};
+  },
   'client.info'(c, user, d) { c.client = String(d.label || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60) || null; return {}; },
   'dev.stats'(c, user) {
     if (!user.is_admin) fail('Admins only.');

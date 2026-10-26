@@ -165,6 +165,19 @@ CREATE TABLE IF NOT EXISTS sounds (
   upload_id TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reset_requests (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  secret_hash TEXT NOT NULL,
+  pass_hash TEXT NOT NULL,
+  note TEXT,
+  device TEXT,
+  state TEXT NOT NULL DEFAULT 'pending',
+  consumed INTEGER NOT NULL DEFAULT 0,
+  decided_by INTEGER,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER
+);
 CREATE TABLE IF NOT EXISTS link_previews (
   url TEXT PRIMARY KEY,
   data TEXT,
