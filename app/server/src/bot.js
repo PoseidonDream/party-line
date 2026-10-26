@@ -3,9 +3,11 @@
      Each device plays it in YouTube's own player; the server only keeps the shared queue and the clock,
      so nothing is downloaded or re-streamed. /pause, /resume, /skip, /stop, /queue.
    - Fun: /roll, /coinflip, /poll, /remind, /help.
+   - /ask: answers a question with Claude (see ask.js).
    Problems with a command (no voice channel, a bad link) are answered privately to whoever typed it. */
 import * as M from './model.js';
 import { one, all, run } from './db.js';
+import { ask as askClaude, checkAsk } from './ask.js';
 
 let host = null;   // { post, broadcastReactions, voiceOf, usersIn, music } from hub.js
 let bot = null;
@@ -197,6 +199,14 @@ function fireReminders() {
     try { post(r.channel_id ? { channelId: r.channel_id } : { dmId: r.dm_id }, `⏰ ${at(r.user_id)} reminder: ${r.body}`); } catch {}
   }
 }
+/* The question shows up right away for everyone, and the answer arrives as a reply to it. */
+async function ask(ctx) {
+  const q = checkAsk(ctx.user, ctx.args);
+  const asked = post(ctx.where, `❓ ${who(ctx.user.id)} asked: ${q.slice(0, 1500)}`);
+  askClaude(ctx.user, ctx.where, q)
+    .then((answer) => host.post(ctx.where, answer, asked.id))
+    .catch((e) => host.post(ctx.where, `😕 ${e instanceof M.UserError ? e.message : 'Party Bot couldn’t answer just now.'}`, asked.id));
+}
 const HELP = [
   '**Party Bot commands**',
   '🎵 **Listen together** (join a voice channel first; everyone in it hears the same thing at the same moment)',
@@ -208,10 +218,12 @@ const HELP = [
   '/coinflip: heads or tails',
   '/poll Question | Choice 1 | Choice 2: everyone votes with reactions',
   '/remind 10m take the pizza out: a reminder in this chat (s, m, h or d)',
+  '🤖 **Ask**',
+  '/ask anything: Party Bot answers (it reads the last few messages here for context)',
 ].join('\n');
 
 export const COMMANDS = {
-  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind,
+  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask,
   help: () => ({ ephemeral: HELP }),
 };
 /* For the command hints in the message box. */
@@ -221,7 +233,7 @@ export const COMMAND_LIST = [
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],
   ['poll', 'Question | Choice | Choice', 'Start a poll with reaction votes'],
-  ['remind', '10m what', 'Get a reminder in this chat'], ['help', '', 'All bot commands'],
+  ['remind', '10m what', 'Get a reminder in this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['help', '', 'All bot commands'],
 ];
 
 export const isCommand = (body) => { const m = /^\/([a-z]+)(?:\s|$)/i.exec(String(body || '').trim()); return !!(m && Object.hasOwn(COMMANDS, m[1].toLowerCase())); };

@@ -167,6 +167,16 @@ Type these in any text channel or private chat. Type **/** to see the list.
 
 Each device plays the video in YouTube's own player, so it follows YouTube's rules. A few videos can't be played outside YouTube, and the bot skips those.
 
+### /ask: Party Bot answers questions (optional, costs a little)
+
+Type `/ask` and any question, like `/ask what time is it in Tokyo?` or `/ask what did Bora mean?`. Party Bot answers in the chat using Claude (Anthropic's AI) and reads the last few messages so it knows what you're talking about. It's off until you add a key:
+
+1. Sign up at console.anthropic.com, add a little credit (Billing; $5 lasts a long time for a friend group), then **API Keys → Create Key** and copy it.
+2. On the server: `nano /opt/party-line/deploy/.env` and add the line `ANTHROPIC_API_KEY=sk-ant-...`
+3. Run `cd /opt/party-line/deploy && docker compose up -d`.
+
+It uses Claude Opus 5.5 at low effort, which answers well. To make it much cheaper, add `ASK_MODEL=claude-haiku-5-5` (about 40 times cheaper per question, a bit less clever). Limits keep the bill small: 10 questions per person per hour and 200 a day for everyone together (change with `ASK_DAILY_LIMIT=100`). Set a monthly spending limit in the Anthropic console too, for peace of mind.
+
 ## Developer panel (for you)
 
 Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:

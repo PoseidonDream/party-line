@@ -17,6 +17,9 @@ services:
       LIVEKIT_URL: ${LIVEKIT_URL:-}
       LIVEKIT_KEY: ${LIVEKIT_KEY:-}
       LIVEKIT_SECRET: ${LIVEKIT_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASK_MODEL: ${ASK_MODEL:-}
+      ASK_DAILY_LIMIT: ${ASK_DAILY_LIMIT:-}
     volumes:
       - partyline-data:/data
 
