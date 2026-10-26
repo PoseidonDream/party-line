@@ -390,7 +390,12 @@ function attachmentsFrom(userId, list) {
   for (const a of list.slice(0, 10)) {
     const id = String(a && a.id || '');
     const up = one('SELECT * FROM uploads WHERE id = ? AND user_id = ?', id, userId);
-    if (up) out.push({ id: up.id, url: `/uploads/${up.id}`, name: up.name, type: up.type, size: up.size });
+    if (!up) continue;
+    const item = { id: up.id, url: `/uploads/${up.id}`, name: up.name, type: up.type, size: up.size };
+    // A small preview made by the sender's device, shown in the chat to save mobile data.
+    const th = a.thumb && one("SELECT * FROM uploads WHERE id = ? AND user_id = ? AND type LIKE 'image/%'", String(a.thumb), userId);
+    if (th && up.type.startsWith('image/')) { item.thumb = th.id; item.thumbUrl = `/uploads/${th.id}`; }
+    out.push(item);
   }
   return out;
 }
@@ -672,7 +677,7 @@ export const canSeeUser = (me, other) => me === other || !!one(`SELECT 1 AS x FR
    and uploads that were never sent. Kept for an hour first, so a message being written isn't affected. */
 export function unusedUploads(olderThan = 60 * 60_000) {
   const used = new Set();
-  for (const r of all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) for (const a of JSON.parse(r.attachments)) used.add(a.id);
+  for (const r of all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) for (const a of JSON.parse(r.attachments)) { used.add(a.id); if (a.thumb) used.add(a.thumb); }
   for (const r of all('SELECT avatar FROM users WHERE avatar IS NOT NULL')) used.add(String(r.avatar).replace('/uploads/', ''));
   for (const r of all('SELECT upload_id FROM sounds')) used.add(r.upload_id);
   return all('SELECT id FROM uploads WHERE created_at < ?', now() - olderThan).map((r) => r.id).filter((id) => !used.has(id));

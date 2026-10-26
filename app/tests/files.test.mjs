@@ -38,6 +38,23 @@ export default async function (ok) {
     await b.waitForSelector('.msg-media audio.media-audio');
     ok('audio files get a player in the chat', true);
 
+    // A big photo gets a small preview in the chat; clicking opens the full one.
+    const png = await a.evaluate(() => {
+      const c = document.createElement('canvas'); c.width = 1600; c.height = 1200; const g = c.getContext('2d');
+      const d = g.createImageData(1600, 1200); for (let i = 0; i < d.data.length; i++) d.data[i] = (i % 4 === 3) ? 255 : Math.random() * 255;
+      g.putImageData(d, 0, 0); return c.toDataURL('image/png').split(',')[1];
+    });
+    await send([{ name: 'holiday.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') }]);
+    await b.waitForSelector('.msg-media img.media-img[alt="holiday.png"]');
+    await b.waitForFunction(() => { const i = document.querySelector('img.media-img[alt="holiday.png"]'); return i.complete && i.naturalWidth > 0; });
+    const dims = await b.evaluate(() => { const i = document.querySelector('img.media-img[alt="holiday.png"]'); return [i.naturalWidth, i.src]; });
+    ok(`big photos show a small preview in the chat (${dims[0]} px wide)`, dims[0] <= 640);
+    await b.click('.msg-media img.media-img[alt="holiday.png"]');
+    await b.waitForSelector('#lightbox:not([hidden]) img');
+    await b.waitForFunction(() => { const i = document.querySelector('#lightbox img'); return i && i.complete && i.naturalWidth > 0; });
+    ok('clicking opens the full photo', await b.evaluate(() => document.querySelector('#lightbox img').naturalWidth) === 1600);
+    await b.keyboard.press('Escape');
+
     const big = Buffer.alloc(26 * 1048576);
     await a.setInputFiles('#fileInput', [{ name: 'huge.zip', mimeType: 'application/zip', buffer: big }]);
     await a.waitForSelector('.toast:has-text("too big")');

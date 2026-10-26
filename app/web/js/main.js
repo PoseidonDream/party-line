@@ -1081,7 +1081,7 @@ function mediaEl(a) {
     wrap.appendChild(au);
   } else if (a.type.startsWith('image/')) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'media-btn'; b.setAttribute('aria-label', `Open ${a.name}`);
-    const img = document.createElement('img'); img.className = 'media-img'; img.loading = 'lazy'; img.src = url; img.alt = a.name;
+    const img = document.createElement('img'); img.className = 'media-img'; img.loading = 'lazy'; img.src = a.thumbUrl ? absUrl(a.thumbUrl) : url; img.alt = a.name;
     img.addEventListener('load', () => { const box = $('#messages'); if (box.scrollHeight - box.scrollTop - box.clientHeight < img.height + 120) box.scrollTop = box.scrollHeight; });
     b.appendChild(img);
     b.addEventListener('click', () => openLightbox(url, a.name));
@@ -1364,8 +1364,12 @@ $('#chatForm').addEventListener('submit', async (e) => {
     await sendChain;
     const ids = [];
     for (const a of S.attach) {
-      if (!a.id) { const r = await upload('/api/upload', a.file, (p) => setAttachProgress(a, p)); a.id = r.id; }
-      ids.push({ id: a.id });
+      if (!a.id) {
+        const small = await thumbnailOf(a.file);
+        if (small) { try { a.thumb = (await upload('/api/upload', small)).id; } catch {} }
+        const r = await upload('/api/upload', a.file, (p) => setAttachProgress(a, p)); a.id = r.id;
+      }
+      ids.push({ id: a.id, thumb: a.thumb || null });
     }
     await send(ids);
     chatInput.value = ''; autosize();
@@ -1432,6 +1436,21 @@ function addFiles(files) {
     S.attach.push({ file: f, url: URL.createObjectURL(f), progress: 0 });
   }
   renderTray();
+}
+/* Lighter on mobile data: big photos get a small preview (at most 640 px across) made right here; the chat
+   shows the preview and the full photo opens on click. Animated GIFs and small photos are left as they are. */
+async function thumbnailOf(file) {
+  if (!/^image\/(png|jpeg|webp|avif|bmp)$/.test(file.type) || file.size < 150 * 1024 || typeof createImageBitmap !== 'function') return null;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 640 / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 400 * 1024) { bmp.close(); return null; }
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); bmp.close();
+    const blob = await new Promise((r) => c.toBlob(r, 'image/webp', 0.8));
+    if (!blob || blob.size >= file.size) return null;
+    return new File([blob], `small-${file.name.replace(/\.\w+$/, '')}.webp`, { type: 'image/webp' });
+  } catch { return null; }
 }
 function clearAttach() { for (const a of S.attach) URL.revokeObjectURL(a.url); S.attach = []; renderTray(); }
 function setAttachProgress(a, p) { a.progress = p; const bar = document.querySelector(`.att[data-u="${CSS.escape(a.url)}"] .bar i`); if (bar) bar.style.width = `${Math.round(p * 100)}%`; }
