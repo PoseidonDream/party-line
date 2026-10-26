@@ -182,6 +182,23 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS game_ideas (
+  id INTEGER PRIMARY KEY,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+  dm_id INTEGER REFERENCES dms(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  url TEXT,
+  note TEXT,
+  user_id INTEGER,
+  created_at INTEGER NOT NULL,
+  played_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS game_ideas_where ON game_ideas (channel_id, dm_id);
+CREATE TABLE IF NOT EXISTS game_votes (
+  game_id INTEGER NOT NULL REFERENCES game_ideas(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (game_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS emoji (
   id INTEGER PRIMARY KEY,
   server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,

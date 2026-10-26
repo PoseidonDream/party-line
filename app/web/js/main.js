@@ -11,7 +11,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -429,7 +429,7 @@ function setView(v) {
   noteUnread(v);
   S.view = v;
   if (v.kind === 'dm' && (!openDms.has(v.userId) || closedDms.has(v.userId))) { openDms.add(v.userId); closedDms.delete(v.userId); saveDmList(); }
-  cancelReply(); closeMentionPop(); closeSearch();
+  cancelReply(); closeMentionPop(); closeSearch(); $('#gamesPanel').hidden = true;
   if (v.serverId) S.lastChan[v.serverId] = { kind: v.kind, channelId: v.channelId };
   store.set('lastChan', S.lastChan);
   store.set('lastView', v);
@@ -754,6 +754,9 @@ function renderHeader() {
   const v = S.view, icon = $('#viewIcon');
   $('#copyInvite').hidden = !v.serverId;
   $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
+  $('#gamesBtn').hidden = $('#pinsBtn').hidden;
+  if (!$('#gamesBtn').hidden) loadGames();
+  else $('#gamesPanel').hidden = true;
   $('#notifBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
   if (!$('#notifBtn').hidden) {
     const lv = levelFor(v.kind === 'dm' ? `d:${v.userId}` : `c:${v.channelId}`);
@@ -2506,6 +2509,67 @@ $('#emojiForm').addEventListener('submit', async (e) => {
   const r = await act(async () => { const up = await upload('/api/upload', emojiFile); return live.req('emoji.add', { serverId: srv.id, uploadId: up.id, name: $('#emojiName').value, kind }); }, kind === 'emoji' ? 'Emoji added.' : 'Sticker added.');
   if (r) { emojiFile = null; $('#emojiPreview').hidden = true; $('#emojiName').value = ''; }
 });
+
+/* ================= games to play: each chat's list of game ideas ================= */
+const gameTarget = () => (S.view.kind === 'text' ? { channelId: S.view.channelId } : S.view.kind === 'dm' ? { userId: S.view.userId } : null);
+let gamesLoading = null;
+function loadGames(force) {
+  const key = msgKey(), target = gameTarget();
+  if (!key || !target || (S.games.has(key) && !force) || gamesLoading === key) { paintGamesCount(); return; }
+  gamesLoading = key;
+  live.req('games.list', target).then((r) => { S.games.set(key, r.games); if (msgKey() === key) { paintGamesCount(); if (!$('#gamesPanel').hidden) renderGames(); } })
+    .catch(() => {}).finally(() => { if (gamesLoading === key) gamesLoading = null; });
+}
+function paintGamesCount() {
+  const list = S.games.get(msgKey()) || [], open = list.filter((g) => !g.playedAt).length;
+  $('#gamesCount').hidden = !open; $('#gamesCount').textContent = open;
+}
+live.on('games', (d) => {
+  const key = d.channelId ? `c:${d.channelId}` : dmKeyById(d.dmId);
+  if (!key) return;
+  S.games.set(key, d.games);
+  if (msgKey() === key) { paintGamesCount(); if (!$('#gamesPanel').hidden) renderGames(); }
+});
+function renderGames() {
+  const ul = $('#gamesList'); ul.textContent = '';
+  const list = S.games.get(msgKey()) || [];
+  $('#gamesPick').disabled = !list.some((g) => !g.playedAt);
+  if (!list.length) { const li = document.createElement('li'); li.className = 'hint games-empty'; li.textContent = 'No games yet. Add the ones you want to try together, so you remember them on game night.'; ul.appendChild(li); return; }
+  const srv = curServer(), mod = S.view.kind === 'text' && can(srv, 'messages');
+  for (const g of list) {
+    const li = document.createElement('li'); li.className = 'game' + (g.playedAt ? ' played' : '');
+    const vote = document.createElement('button'); vote.type = 'button'; vote.className = 'game-vote' + (g.votes.includes(S.me.id) ? ' mine' : '');
+    vote.innerHTML = `<span aria-hidden="true">👍</span><b>${g.votes.length}</b>`;
+    vote.title = g.votes.length ? `Want to play: ${g.votes.map(nameOf).join(', ')}` : 'I want to play this';
+    vote.setAttribute('aria-pressed', String(g.votes.includes(S.me.id))); vote.setAttribute('aria-label', `${g.votes.includes(S.me.id) ? 'Remove your vote for' : 'Vote for'} ${g.name}`);
+    vote.addEventListener('click', () => act(() => live.req('games.vote', { id: g.id, on: !g.votes.includes(S.me.id) })));
+    const main = document.createElement('div'); main.className = 'game-main';
+    const name = document.createElement(g.url ? 'a' : 'b'); name.className = 'game-name'; name.textContent = g.name;
+    if (g.url) { name.href = g.url; name.target = '_blank'; name.rel = 'noopener noreferrer'; name.title = new URL(g.url).hostname; }
+    const meta = document.createElement('small'); meta.textContent = [g.note, `added by ${nameOf(g.by)}`, g.playedAt ? `played ${fmtDay(g.playedAt).replace(/^(Today|Yesterday)$/, (w) => w.toLowerCase())}` : null].filter(Boolean).join(' · ');
+    main.append(name, meta);
+    const played = document.createElement('button'); played.type = 'button'; played.className = 'btn small game-played' + (g.playedAt ? ' on' : '');
+    played.textContent = g.playedAt ? '✓ Played' : 'Played?'; played.title = g.playedAt ? 'Move it back to the list' : 'Tick it off: you’ve played it';
+    played.addEventListener('click', () => act(() => live.req('games.played', { id: g.id, on: !g.playedAt })));
+    li.append(vote, main, played);
+    if (g.by === S.me.id || mod) {
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small icon-btn game-del'; del.innerHTML = iconSvg('trash'); del.title = `Remove ${g.name}`; del.setAttribute('aria-label', del.title);
+      del.addEventListener('click', () => act(() => live.req('games.delete', { id: g.id })));
+      li.appendChild(del);
+    }
+    ul.appendChild(li);
+  }
+}
+function openGames() { closeSearch(); renderGames(); $('#gamesPanel').hidden = false; loadGames(true); setTimeout(() => $('#gameName').focus(), 30); }
+$('#gamesBtn').addEventListener('click', () => ($('#gamesPanel').hidden ? openGames() : ($('#gamesPanel').hidden = true)));
+$('#gamesClose').addEventListener('click', () => { $('#gamesPanel').hidden = true; });
+$('#gamesPanel').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); $('#gamesPanel').hidden = true; } });
+$('#gamesForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const r = await act(() => live.req('games.add', Object.assign({ name: $('#gameName').value, url: $('#gameUrl').value, note: $('#gameNote').value }, gameTarget())));
+  if (r) { $('#gameName').value = ''; $('#gameUrl').value = ''; $('#gameNote').value = ''; loadGames(true); $('#gameName').focus(); }
+});
+$('#gamesPick').addEventListener('click', () => act(() => live.req('games.pick', gameTarget())));
 
 /* "New in Party Line" (see news.js) */
 function showNews() {

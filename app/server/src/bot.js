@@ -217,6 +217,20 @@ function fireReminders() {
     try { post(r.channel_id ? { channelId: r.channel_id } : { dmId: r.dm_id }, `⏰ ${at(r.user_id)} reminder: ${r.body}`); } catch {}
   }
 }
+/* /game Name: add a game to this chat's list of games to play (the 🎮 button). /games: what's on it. */
+function game(ctx) {
+  if (!ctx.args) return games(ctx);
+  const [name, url] = ctx.args.split(/\s+(?=https?:\/\/)/);
+  M.addGame(ctx.user.id, ctx.where, { name, url });
+  host.games(ctx.where);
+  return { ephemeral: `🎮 Added **${name.trim().slice(0, 80)}** to this chat’s game list. See it all with the 🎮 button at the top.` };
+}
+function games(ctx) {
+  const list = M.gamesOf(ctx.where);
+  const open = list.filter((g) => !g.playedAt), done = list.length - open.length;
+  if (!list.length) return { ephemeral: 'No games on this chat’s list yet. Add one with /game and its name, or the 🎮 button at the top.' };
+  return { ephemeral: [`🎮 **Games to play here** (${open.length}${done ? `, plus ${done} played` : ''})`, ...open.slice(0, 15).map((g, i) => `${i + 1}. ${g.name}${g.votes.length ? ` · 👍 ${g.votes.length}` : ''}${g.note ? ` · ${g.note}` : ''}`)].join('\n') };
+}
 /* The question shows up right away for everyone, and the answer arrives as a reply to it. */
 async function ask(ctx) {
   const q = checkAsk(ctx.user, ctx.args);
@@ -295,12 +309,14 @@ const HELP = [
   '/coinflip: heads or tails',
   '/poll Question | Choice 1 | Choice 2: everyone votes with reactions',
   '/remind 10m take the pizza out: a reminder in this chat (s, m, h or d)',
+  '🎮 **Games**',
+  '/game Name: add a game to this chat’s list for later (or use the 🎮 button). /games: the list',
   '🤖 **Ask**',
   '/ask anything: Party Bot answers (it reads the last few messages here for context)',
 ].join('\n');
 
 export const COMMANDS = {
-  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask,
+  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games,
   help: () => ({ ephemeral: HELP }),
 };
 /* For the command hints in the message box. */
@@ -310,7 +326,7 @@ export const COMMAND_LIST = [
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],
   ['poll', 'Question | Choice | Choice', 'Start a poll with reaction votes'],
-  ['remind', '10m what', 'Get a reminder in this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['help', '', 'All bot commands'],
+  ['remind', '10m what', 'Get a reminder in this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['help', '', 'All bot commands'],
 ];
 
 export const isCommand = (body) => { const m = /^\/([a-z]+)(?:\s|$)/i.exec(String(body || '').trim()); return !!(m && Object.hasOwn(COMMANDS, m[1].toLowerCase())); };

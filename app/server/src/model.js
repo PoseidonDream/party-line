@@ -624,6 +624,40 @@ export function addSound(userId, serverId, d) {
   run('INSERT INTO sounds (server_id, user_id, name, emoji, upload_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', serverId, userId, name, emoji, up.id, now());
 }
 export const deleteSound = (id) => run('DELETE FROM sounds WHERE id = ?', id);
+/* Game ideas: each chat (a channel or a private chat) keeps a list of games to try later. Friends vote 👍,
+   tick off what they've played, and Party Bot can pick one. where: { channelId } or { dmId }. */
+const gameCol = (where) => (where.channelId ? ['channel_id', where.channelId] : ['dm_id', where.dmId]);
+export function gamesOf(where) {
+  const [col, id] = gameCol(where);
+  const votes = new Map();
+  for (const v of all(`SELECT v.game_id, v.user_id FROM game_votes v JOIN game_ideas g ON g.id = v.game_id WHERE g.${col} = ?`, id)) (votes.get(v.game_id) || votes.set(v.game_id, []).get(v.game_id)).push(v.user_id);
+  return all(`SELECT * FROM game_ideas WHERE ${col} = ? ORDER BY played_at IS NOT NULL, id`, id).map((g) => ({
+    id: g.id, name: g.name, url: g.url, note: g.note, by: g.user_id, at: g.created_at, playedAt: g.played_at, votes: votes.get(g.id) || [],
+  })).sort((a, b) => (!!a.playedAt - !!b.playedAt) || (b.votes.length - a.votes.length) || (a.id - b.id));
+}
+export const getGame = (id) => one('SELECT * FROM game_ideas WHERE id = ?', id);
+export function addGame(userId, where, d) {
+  const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!name) fail('Type the game’s name.');
+  let url = String(d.url || '').trim();
+  if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (url) { try { const u = new URL(url); if (!/^https?:$/.test(u.protocol) || !u.hostname.includes('.')) throw 0; url = u.href.slice(0, 300); } catch { fail('That link doesn’t look right. Paste the game’s store page, or leave it empty.'); } }
+  const note = String(d.note || '').replace(/\s+/g, ' ').trim().slice(0, 140) || null;
+  const [col, id] = gameCol(where);
+  if (one(`SELECT COUNT(*) AS n FROM game_ideas WHERE ${col} = ?`, id).n >= 200) fail('This list is full (200 games). Remove some old ones first.');
+  const dup = one(`SELECT id FROM game_ideas WHERE ${col} = ? AND lower(name) = lower(?)`, id, name);
+  if (dup) fail(`${name} is already on the list. Vote for it instead!`);
+  const gid = Number(run(`INSERT INTO game_ideas (${col}, name, url, note, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`, id, name, url || null, note, userId, now()).lastInsertRowid);
+  run('INSERT INTO game_votes (game_id, user_id) VALUES (?, ?)', gid, userId);   // you'd play what you suggest
+  return gid;
+}
+export function voteGame(userId, gameId, on) {
+  if (on) run('INSERT OR IGNORE INTO game_votes (game_id, user_id) VALUES (?, ?)', gameId, userId);
+  else run('DELETE FROM game_votes WHERE game_id = ? AND user_id = ?', gameId, userId);
+}
+export const setGamePlayed = (gameId, played) => run('UPDATE game_ideas SET played_at = ? WHERE id = ?', played ? now() : null, gameId);
+export const deleteGame = (gameId) => run('DELETE FROM game_ideas WHERE id = ?', gameId);
+
 /* The AFK channel: people quiet in voice for a while are moved there (by their own app). null turns it off. */
 export function setAfkChannel(serverId, channelId) {
   const ch = channelId ? getChannel(Number(channelId)) : null;

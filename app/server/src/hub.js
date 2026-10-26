@@ -108,6 +108,7 @@ export const hub = {
 
 /* What Party Bot (bot.js) may do: post messages, react, and see who's in voice. */
 const botHost = {
+  games: (where) => shareGames(where),
   post(where, body, replyTo) {
     const b = Bot.botUser();
     try {
@@ -302,6 +303,35 @@ const handlers = {
       if (!M.memberIds(s.id).length) M.deleteServer(s.id);
       else { const t = M.getChannel(groupText(s.id)); if (t) botHost.post({ channelId: t.id }, `👋 **${user.name}** left the group.`); }
     }
+    return {};
+  },
+  /* Game ideas for a chat (see M.gamesOf). Targets: { channelId } or { userId } for a private chat. */
+  'games.list'(c, user, d) { const w = gameWhere(user, d, false); return { games: w ? M.gamesOf(w) : [] }; },
+  'games.add'(c, user, d) {
+    const w = gameWhere(user, d, true);
+    M.addGame(user.id, w, d);
+    shareGames(w);
+    return {};
+  },
+  'games.vote'(c, user, d) { const { g, w } = gameFor(user, d.id); M.voteGame(user.id, g.id, !!d.on); shareGames(w); return {}; },
+  'games.played'(c, user, d) { const { g, w } = gameFor(user, d.id); M.setGamePlayed(g.id, !!d.on); shareGames(w); return {}; },
+  'games.delete'(c, user, d) {
+    const { g, w } = gameFor(user, d.id);
+    const mod = g.channel_id && M.can(user, M.getServer(M.getChannel(g.channel_id).server_id), 'messages');
+    if (g.user_id !== user.id && !mod) fail('Only whoever suggested it (or a moderator) can remove it.');
+    M.deleteGame(g.id);
+    shareGames(w);
+    return {};
+  },
+  /* 🎲: Party Bot picks one of the games nobody has ticked off yet; more votes, better odds. */
+  'games.pick'(c, user, d) {
+    const w = gameWhere(user, d, false);
+    const open = w ? M.gamesOf(w).filter((g) => !g.playedAt) : [];
+    if (!open.length) fail('Add some games first (or untick one you’ve played).');
+    const tickets = open.flatMap((g) => Array(1 + g.votes.length).fill(g));
+    const g = tickets[Math.floor(Math.random() * tickets.length)];
+    const why = g.votes.length > 1 ? ` (${g.votes.length} votes)` : '';
+    botHost.post(w, `🎲 ${user.name} asked me to pick a game… **${g.name}**!${why}${g.url ? ` ${g.url}` : ''}`);
     return {};
   },
   'server.afk'(c, user, d) {
@@ -815,6 +845,30 @@ function canSee(userId, m) {
   if (m.channel_id) { const ch = M.getChannel(m.channel_id); return !!ch && M.isMember(userId, ch.server_id); }
   const dm = M.getDm(m.dm_id);
   return !!dm && (dm.user_a === userId || dm.user_b === userId);
+}
+function gameWhere(user, d, create) {
+  if (d.channelId) {
+    const ch = M.getChannel(Number(d.channelId));
+    if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t see that chat.');
+    return { channelId: ch.id };
+  }
+  const other = M.getUser(Number(d.userId));
+  if (!other || other.id === user.id) fail('You can’t see that chat.');
+  const dm = M.dmWith(user.id, other.id, false);
+  if (dm) return { dmId: dm.id };
+  if (!create) return null;
+  if (M.friendState(user.id, other.id) !== 'friends' && !M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s))) fail(`Add ${other.name} as a friend first.`);
+  return { dmId: M.dmWith(user.id, other.id, true).id };
+}
+function gameFor(user, id) {
+  const g = M.getGame(Number(id));
+  if (!g || !canSee(user.id, g)) fail('That game isn’t on the list any more.');
+  return { g, w: g.channel_id ? { channelId: g.channel_id } : { dmId: g.dm_id } };
+}
+function shareGames(w) {
+  const msg = { t: 'games', channelId: w.channelId || null, dmId: w.dmId || null, games: M.gamesOf(w) };
+  if (w.channelId) toServer(M.getChannel(w.channelId).server_id, msg);
+  else { const dm = M.getDm(w.dmId); toUsers([dm.user_a, dm.user_b], msg); }
 }
 function broadcastAbout(m, msg) {
   if (m.channel_id) toServer(M.getChannel(m.channel_id).server_id, msg);
