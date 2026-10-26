@@ -937,9 +937,18 @@ body.in-call .watch-btn { display: inline-flex; }
 #dmList li:hover .dm-close, .dm-close:focus-visible { opacity: 1; }
 .dm-close:hover { color: var(--fg); }
 @media (hover: none) { .dm-close { opacity: .7; } }
-.update-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px clamp(16px, 2.5vw, 28px); background: color-mix(in srgb, var(--ok) 18%, var(--panel)); border-bottom: 1px solid var(--line); font-weight: 600; }
-.update-bar span { flex: 1; min-width: 180px; }
-.update-bar .btn { width: auto; }
+/* New app version: a card in the corner, in Party Line's own style */
+.update-card { position: fixed; z-index: 60; right: 24px; bottom: 104px; width: 340px; max-width: calc(100vw - 32px); display: grid; grid-template-columns: 44px 1fr; gap: 10px 12px; align-items: center;
+  padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); animation: update-in .35s cubic-bezier(.2, .9, .3, 1.2); }
+.update-card[hidden] { display: none; }
+.update-icon { width: 44px; height: 44px; border-radius: 12px; }
+.update-text { display: grid; gap: 3px; min-width: 0; }
+.update-text small { color: var(--dim); }
+.update-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; }
+.update-actions .btn { width: auto; }
+@keyframes update-in { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .update-card { animation: none; } }
+@media (max-width: 860px) { .update-card { left: 16px; right: 16px; width: auto; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } }
 /* Forgot password */
 .auth-forgot { justify-self: center; margin-top: 4px; font-size: 14px; }
 .reset-wait { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 12px 4px; }

@@ -246,15 +246,32 @@ app.whenReady().then(() => {
   // The page asks again after it (re)loads.
   ipcMain.on('activity:get', (e) => e.sender.send('activity', games ? games.now() : null));
   buildTray();
-  try {
-    const { autoUpdater } = require('electron-updater');
-    autoUpdater.on('update-downloaded', async () => {
-      const r = await dialog.showMessageBox(win, { type: 'info', buttons: ['Restart now', 'Later'], defaultId: 0, message: 'A new version of Party Line is ready.', detail: 'Restart to update. It only takes a few seconds.' });
-      if (r.response === 0) { quitting = true; autoUpdater.quitAndInstall(); }
-    });
-    if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {});
-  } catch {}
+  setupUpdates();
 });
+/* Updates download by themselves; the Party Line page shows a "Restart now" card in its own style. Pages that
+   can't (the setup and offline pages) get a plain dialog instead. */
+function setupUpdates() {
+  let updater, ready = null, asked = false;
+  try { ({ autoUpdater: updater } = require('electron-updater')); } catch { return; }
+  ipcMain.on('update:get', (e) => { if (ready) { asked = true; e.sender.send('update-ready', ready); } });
+  ipcMain.on('update:install', () => { quitting = true; updater.quitAndInstall(); });
+  updater.on('update-downloaded', (info) => {
+    ready = info.version;
+    // The Party Line page shows its own card; the setup and offline pages can't, so they get the dialog.
+    if (win && !win.isDestroyed()) win.webContents.executeJavaScript('!!(window.partyLineDesktop && window.partyLineDesktop.onUpdate && document.getElementById("updateBar"))').then((can) => {
+      if (can) { asked = true; win.webContents.send('update-ready', ready); } else fallback();
+    }).catch(fallback);
+  });
+  async function fallback() {
+    if (asked) return;
+    const r = await dialog.showMessageBox(win, { type: 'info', buttons: ['Restart now', 'Later'], defaultId: 0, message: `Party Line ${ready} is ready.`, detail: 'Restart to update. It only takes a few seconds.' });
+    if (r.response === 0) { quitting = true; updater.quitAndInstall(); }
+  }
+  if (app.isPackaged) {
+    updater.checkForUpdates().catch(() => {});
+    setInterval(() => updater.checkForUpdates().catch(() => {}), 4 * 3600_000);   // left running for days in the tray
+  }
+}
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('before-quit', () => { quitting = true; if (hook) { try { hook.uIOhook.stop(); } catch {} } });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

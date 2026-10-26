@@ -225,7 +225,6 @@
     </div>
     <button type="button" class="new-bar" id="newBar" hidden></button>
     <div class="update-bar reset-bar" id="resetBar" role="status" hidden><span id="resetBarText"></span><button type="button" class="btn small primary" id="resetReview">Review</button></div>
-    <div class="update-bar" id="updateBar" role="status" hidden><span>A new version of the Party Line app is ready.</span><a class="btn small primary" id="updateGo" target="_blank" rel="noopener">Update</a><button type="button" class="btn small" id="updateLater">Later</button></div>
     <div class="offline-bar" id="offlineBar" role="status" hidden><span class="spinner" aria-hidden="true"></span><span>Lost connection to the server. Reconnecting…</span></div>
     <section class="micpanel" id="micPanel" aria-labelledby="mpTitle" hidden>
       <div class="mp-icon" aria-hidden="true"><svg class="ic"><use id="mpIconUse" href="#i-mic-off"/></svg></div>
@@ -364,6 +363,11 @@
     </div>
   </footer>
 
+  <aside class="update-card" id="updateBar" role="status" aria-labelledby="updateTitle" hidden>
+    <img class="update-icon" src="/icon.svg" alt="">
+    <div class="update-text"><b id="updateTitle">A new version of Party Line is ready</b><small id="updateNote">It only takes a few seconds.</small></div>
+    <div class="update-actions"><a class="btn small primary" id="updateGo" target="_blank" rel="noopener">Update</a><button type="button" class="btn small ghost" id="updateLater">Later</button></div>
+  </aside>
   <aside class="music-card" id="musicCard" hidden aria-label="Music playing in your voice channel">
     <div class="music-frame" id="musicFrame"><div id="musicPlayer"></div><button type="button" class="btn primary music-start" id="musicStart" hidden><svg class="ic"><use href="#i-play"/></svg>Click to hear the music</button></div>
     <div class="music-info"><b id="musicTitle"></b><small id="musicBy"></small><small class="music-next" id="musicNext"></small></div>

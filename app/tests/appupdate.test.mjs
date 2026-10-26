@@ -1,6 +1,7 @@
-/* The Android app's update banner: shown when GitHub's newest release has a newer build than the app,
-   not shown when the app is up to date, and "Later" hides it for that build. */
-import { startServer, launchBrowser } from './lib.mjs';
+/* The "new version" card. Android: shown when GitHub's newest release has a newer build than the app, not
+   when it's up to date, and "Later" hides it for that build. Desktop: shown when the app has downloaded an
+   update, and "Restart now" asks the app to restart. */
+import { startServer, launchBrowser, RESULTS } from './lib.mjs';
 
 async function open(browser, url, myBuild, latestBuild) {
   const ctx = await browser.newContext({ viewport: { width: 400, height: 800 } });
@@ -30,7 +31,24 @@ export default async function (ok) {
     const fresh = await open(browser, srv.url, 9, 9);
     await fresh.waitForTimeout(6500);
     ok('an up-to-date app shows nothing', await fresh.isHidden('#updateBar'));
-    const errs = [...old.errors, ...fresh.errors];
+
+    // Desktop app (a stand-in for its bridge): the update is ready to install.
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    await ctx.addInitScript(() => {
+      window.partyLineDesktop = { version: '1.2.0', setBadge() {}, focus() {}, onPtt() {}, onActivity() {}, setTheme() {}, onHotkey() {}, setOverlay() {},
+        onUpdate(cb) { window.__fireUpdate = cb; }, installUpdate() { window.__installed = true; } };
+    });
+    const d = await ctx.newPage(); d.errors = []; d.on('pageerror', (e) => d.errors.push(e.message));
+    await d.goto(srv.url);
+    await d.click('#tabRegister'); await d.fill('#authName', 'DesktopUser'); await d.fill('#authPass', 'pass1234'); await d.fill('#authGroup', 'test');
+    await d.click('#authBtn'); await d.waitForSelector('#room:not([hidden])');
+    await d.evaluate(() => window.__fireUpdate('1.3.0'));
+    await d.waitForSelector('#updateBar:not([hidden])');
+    ok('the desktop app shows “Party Line 1.3.0 is ready” in Party Line’s own style', (await d.textContent('#updateTitle')) === 'Party Line 1.3.0 is ready' && (await d.textContent('#updateGo')) === 'Restart now');
+    await d.waitForTimeout(500); await d.screenshot({ path: `${RESULTS}/update-card-desktop.png` });
+    await d.click('#updateGo');
+    ok('“Restart now” restarts the app to install it', await d.evaluate(() => window.__installed === true));
+    const errs = [...old.errors, ...fresh.errors, ...d.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }
 }

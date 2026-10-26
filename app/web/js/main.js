@@ -810,11 +810,24 @@ async function checkAppUpdate() {
     const apk = (rel.assets || []).find((x) => x.name === 'Party-Line-android.apk');
     const build = apk && Number((/build (\d+)/.exec(apk.label || '') || [])[1]);
     if (!build || build <= mine || store.get('skipBuild', 0) === build) return;
-    $('#updateGo').href = apk.browser_download_url;
-    $('#updateLater').onclick = () => { store.set('skipBuild', build); $('#updateBar').hidden = true; };
-    $('#updateBar').hidden = false;
+    showUpdateCard('A new version of Party Line is ready', 'Tap Update, then open the download to install it over this one.', 'Update', apk.browser_download_url, null, () => store.set('skipBuild', build));
   } catch {}
 }
+/* The "new version" card, for the Android app (a download) and the desktop app (already downloaded: restart). */
+function showUpdateCard(title, note, goLabel, href, onGo, onLater) {
+  $('#updateTitle').textContent = title; $('#updateNote').textContent = note;
+  const go = $('#updateGo');
+  go.setAttribute('role', href ? 'link' : 'button');
+  go.textContent = goLabel;
+  if (href) go.href = href; else go.removeAttribute('href');
+  go.onclick = onGo ? (e) => { e.preventDefault(); onGo(); } : null;
+  $('#updateLater').onclick = () => { if (onLater) onLater(); $('#updateBar').hidden = true; };
+  $('#updateBar').hidden = false;
+}
+if (desktop && desktop.onUpdate) desktop.onUpdate((version) => {
+  showUpdateCard(`Party Line ${version} is ready`, V.channelId ? 'Restart to update. You’ll be back in voice in a few seconds.' : 'Restart to update. It only takes a few seconds, or it updates next time you open Party Line.',
+    'Restart now', null, () => desktop.installUpdate());
+});
 setTimeout(checkAppUpdate, 5000);
 setInterval(checkAppUpdate, 6 * 3600_000);
 let phoneInCall = null;
