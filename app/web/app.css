@@ -1,28 +1,32 @@
 /* Layout: a switchboard. The join screen is a jack field with lamps lighting up; the room is a grid of
    participant "lines" whose lamps glow while someone talks, a chat strip on the right, a control dock along the bottom. */
 :root {
-  --bg: #11151d;
-  --panel: #181d27;
-  --panel-2: #222937;
-  --field: #0d1118;
-  --line: #2d3545;
-  --fg: #ece6d9;
-  --dim: #98a1b1;
-  --lamp: #f4a62a;
-  --lamp-ink: #f6b04a;
-  --lamp-glow: rgba(244, 166, 42, .42);
-  --on-lamp: #1b1305;
-  --danger: #e2574c;
-  --danger-soft: rgba(226, 87, 76, .16);
+  /* Black, with near-black panels, hairline borders and an amber glow for whatever is live or selected. */
+  --bg: #000000;
+  --panel: #0b0b0f;
+  --panel-2: #15161c;
+  --field: #050507;
+  --line: #1d1f27;
+  --line-soft: rgba(255, 255, 255, .055);
+  --fg: #eeeef3;
+  --dim: #8a8e9c;
+  --lamp: #ffad1f;
+  --lamp-ink: #ffbd4a;
+  --lamp-glow: rgba(255, 173, 31, .42);
+  --lamp-tint: rgba(255, 173, 31, .11);
+  --on-lamp: #1a1203;
+  --danger: #ff5a4e;
+  --danger-soft: rgba(255, 90, 78, .14);
   --on-danger: #fff7f5;
-  --ok: #4cbb86; --on-ok: #08140e;
-  --jack: #0a0d13;
-  --stage-bg: #07090d;
-  --scrim: rgba(5, 7, 11, .62);
-  --shadow: 0 18px 50px rgba(0, 0, 0, .45);
-  --lb-bg: rgba(6, 8, 12, .94); --lb-fg: #f3eee4; --lb-line: rgba(243, 238, 228, .3);
-  --av-s: 42%; --av-l: 34%; --av-fg: #f3eee4;
-  --name-s: 72%; --name-l: 70%;
+  --ok: #3ddc97; --on-ok: #04140c;
+  --jack: #000000;
+  --stage-bg: #000000;
+  --scrim: rgba(0, 0, 0, .72);
+  --shadow: 0 24px 64px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .04);
+  --glass: rgba(11, 11, 15, .78);
+  --lb-bg: rgba(0, 0, 0, .95); --lb-fg: #f3f3f6; --lb-line: rgba(243, 243, 246, .3);
+  --av-s: 40%; --av-l: 30%; --av-fg: #f3f3f6;
+  --name-s: 80%; --name-l: 70%;
   --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -35,6 +39,7 @@
     --on-lamp: #1b1305; --danger: #c43d33; --danger-soft: rgba(196, 61, 51, .12); --on-danger: #fff7f5; --ok: #1f8a5b; --on-ok: #f4fff9;
     --jack: #c3c9d4; --stage-bg: #10131a; --scrim: rgba(20, 24, 32, .45); --shadow: 0 18px 50px rgba(20, 26, 40, .2);
     --av-s: 55%; --av-l: 80%; --av-fg: #151a23; --name-s: 62%; --name-l: 36%;
+    --line-soft: rgba(0, 0, 0, .06); --lamp-tint: rgba(240, 160, 32, .14); --glass: rgba(247, 248, 250, .82);
     color-scheme: light;
   }
 }
@@ -44,6 +49,7 @@
   --on-lamp: #1b1305; --danger: #c43d33; --danger-soft: rgba(196, 61, 51, .12); --on-danger: #fff7f5; --ok: #1f8a5b; --on-ok: #f4fff9;
   --jack: #c3c9d4; --stage-bg: #10131a; --scrim: rgba(20, 24, 32, .45); --shadow: 0 18px 50px rgba(20, 26, 40, .2);
   --av-s: 55%; --av-l: 80%; --av-fg: #151a23; --name-s: 62%; --name-l: 36%;
+  --line-soft: rgba(0, 0, 0, .06); --lamp-tint: rgba(240, 160, 32, .14); --glass: rgba(247, 248, 250, .82);
   color-scheme: light;
 }
 
@@ -1057,3 +1063,73 @@ body.in-call .watch-btn { display: inline-flex; }
 .live-peek[hidden] { display: none; }
 .live-peek img { display: block; width: 100%; border-radius: 8px; background: #000; }
 .live-peek small { display: block; padding: 6px 4px 2px; color: var(--dim); }
+
+/* ================= the black, simple look =================
+   One black surface with hairline dividers instead of stacked grey boxes; cards and popups float on it as
+   near-black glass; amber glows only on what's live or selected. */
+.side, .rail, .user-area { background: var(--bg); }
+.rail { border-right-color: var(--line-soft); }
+.side, .user-area { border-color: var(--line-soft); }
+.main-head, .server-head, .tabs { border-bottom-color: var(--line-soft); }
+.rail-btn { border-radius: 15px; transition: border-radius .15s, box-shadow .2s, transform .15s; }
+.rail-btn:hover { transform: translateY(-1px); }
+.rail-btn[aria-current="true"] { box-shadow: 0 0 0 2px var(--lamp), 0 0 18px var(--lamp-glow); }
+.rail-btn.rail-home { background: var(--panel-2); }
+.rail-add { border-radius: 15px; border-color: var(--line); background: transparent; }
+.rail-item::before { background: var(--lamp); box-shadow: 0 0 10px var(--lamp-glow); }
+.rail-sep { height: 1px; background: var(--line); }
+
+.chan { font-size: 15px; transition: background .12s, color .12s; }
+.chan:hover { background: var(--line-soft); }
+.chan[aria-current="true"] { background: linear-gradient(90deg, var(--lamp-tint), transparent 90%); color: var(--fg); }
+.chan[aria-current="true"] .glyph, .chan[aria-current="true"] > .ic { color: var(--lamp-ink); }
+.chan.in-voice .ic { color: var(--ok); filter: drop-shadow(0 0 6px rgba(61, 220, 151, .5)); }
+.chan-live { box-shadow: 0 0 10px rgba(255, 90, 78, .55); }
+
+.btn { background: var(--panel); border-color: var(--line); transition: border-color .12s, box-shadow .15s, background .12s; }
+.btn:hover { border-color: color-mix(in srgb, var(--lamp) 45%, var(--line)); }
+.btn.primary { box-shadow: 0 0 0 1px rgba(255, 255, 255, .06) inset, 0 8px 28px var(--lamp-glow); }
+.btn.primary:hover { filter: brightness(1.08); box-shadow: 0 0 0 1px rgba(255, 255, 255, .08) inset, 0 10px 34px var(--lamp-glow); }
+.input, select, .field input[type="text"], textarea.input { background: var(--field); border-color: var(--line); transition: border-color .12s, box-shadow .15s; }
+.input:focus, select:focus, textarea.input:focus { outline: none; border-color: color-mix(in srgb, var(--lamp) 60%, var(--line)); box-shadow: 0 0 0 3px var(--lamp-tint); }
+.ub:hover { background: var(--line-soft); }
+.ub.on { box-shadow: 0 0 16px var(--lamp-glow); }
+
+/* header: icons only, labels as tooltips */
+.head-actions { gap: 4px; }
+.head-actions .btn.small:not(.primary) { width: 36px; height: 36px; padding: 0; border-color: transparent; background: transparent; color: var(--dim); position: relative; }
+.head-actions .btn.small:not(.primary):hover { color: var(--fg); background: var(--line-soft); border-color: var(--line-soft); }
+.head-actions .btn.small:not(.primary) .hide-sm { display: none; }
+.head-actions .btn.small:not(.primary) .count-pill { position: absolute; top: 1px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
+.head-actions .btn.small.on, .head-actions #notifBtn.on { color: var(--lamp-ink); }
+.view-title { font-weight: 700; letter-spacing: .01em; }
+.view-sub { border-left-color: var(--line); }
+
+/* messages and the message box */
+.msg { border-radius: 10px; }
+.composer-box { background: var(--panel); border-color: var(--line); border-radius: 16px; transition: border-color .15s, box-shadow .2s; }
+.composer-box:focus-within { border-color: color-mix(in srgb, var(--lamp) 50%, var(--line)); box-shadow: 0 0 0 3px var(--lamp-tint), 0 10px 40px rgba(0, 0, 0, .6); }
+.mention { box-shadow: 0 0 0 1px color-mix(in srgb, var(--lamp) 35%, transparent); }
+
+/* voice tiles */
+.tile { background: radial-gradient(120% 90% at 50% 0%, var(--panel-2), var(--panel) 70%); border-color: var(--line); }
+.tile.speaking { border-color: var(--lamp); box-shadow: 0 0 0 1px var(--lamp), 0 0 34px var(--lamp-glow); }
+
+/* popups float as glass */
+dialog, .menu, .popover, .emoji-pop, .pick-pop, .mention-pop, .update-card, .music-card, .live-peek, .bot-note, .toast {
+  background: var(--glass); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); border-color: var(--line);
+}
+dialog::backdrop { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.join-card { background: var(--glass); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-color: var(--line); }
+.wordmark .lit { text-shadow: 0 0 28px var(--lamp-glow); }
+.jack.lit::after { box-shadow: 0 0 16px 4px var(--lamp-glow); }
+
+/* thin, quiet scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--dim); }
+::-webkit-scrollbar-track { background: transparent; }
+@media (prefers-reduced-motion: reduce) { .rail-btn:hover { transform: none; } }
+/* phones: only the header buttons you need most (Invite and Feedback are in the server menu) */
+@media (max-width: 560px) { .head-actions #copyInvite, .head-actions #feedbackBtn { display: none; } }

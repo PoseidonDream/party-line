@@ -29,7 +29,7 @@ function applyTheme() {
   const root = document.documentElement;
   if (settings.theme === 'system') delete root.dataset.theme; else root.dataset.theme = settings.theme;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = isDark() ? '#11151d' : '#e8ebf0';
+  if (meta) meta.content = isDark() ? '#000000' : '#e8ebf0';
   $('#themeToggle').querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
   for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
   if (desktop && desktop.setTheme) desktop.setTheme(settings.theme);

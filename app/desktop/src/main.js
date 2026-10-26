@@ -26,7 +26,7 @@ const icon = () => nativeImage.createFromPath(path.join(__dirname, 'icon.png'));
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 820, minWidth: 900, minHeight: 600,
-    backgroundColor: '#11151d', title: 'Party Line', icon: icon(), autoHideMenuBar: true, show: false,
+    backgroundColor: '#000000', title: 'Party Line', icon: icon(), autoHideMenuBar: true, show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   // Started with the computer: wait quietly in the tray (if that's what they chose).
@@ -80,7 +80,7 @@ async function pickSource() {
   return new Promise((resolve) => {
     picker = new BrowserWindow({
       parent: win, modal: true, width: 760, height: 560, resizable: true, minimizable: false, maximizable: false,
-      title: 'Share your screen', backgroundColor: '#11151d', autoHideMenuBar: true, show: false,
+      title: 'Share your screen', backgroundColor: '#000000', autoHideMenuBar: true, show: false,
       webPreferences: { preload: path.join(__dirname, 'picker-preload.js'), contextIsolation: true, sandbox: true },
     });
     let done = false;
