@@ -161,6 +161,7 @@
           <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
           <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
           <button type="button" id="mNotify"><svg class="ic"><use href="#i-bell"/></svg>Notifications</button>
+          <button type="button" id="mEmoji"><svg class="ic"><use href="#i-smile"/></svg>Emoji &amp; stickers</button>
           <button type="button" id="mRoles"><svg class="ic"><use href="#i-shield"/></svg>Roles</button>
           <button type="button" id="mCategory" hidden><svg class="ic"><use href="#i-folder"/></svg>Create category</button>
           <button type="button" id="mFeedback"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
@@ -253,6 +254,14 @@
       <ol class="messages" id="messages"></ol>
       <div class="typing-line" id="typingLine" aria-live="polite"></div>
       <form class="composer" id="chatForm">
+        <div class="pick-pop" id="pickPop" role="dialog" aria-label="Emoji, stickers and GIFs" hidden>
+          <div class="tabs pick-tabs" role="tablist">
+            <button type="button" role="tab" data-pick="emoji" aria-selected="true">Emoji</button>
+            <button type="button" role="tab" data-pick="sticker" aria-selected="false">Stickers</button>
+            <button type="button" role="tab" data-pick="gif" aria-selected="false">GIFs</button>
+          </div>
+          <div class="pick-body" id="pickBody"></div>
+        </div>
         <ul class="mention-pop" id="mentionPop" role="listbox" aria-label="People to mention" hidden></ul>
         <div class="bot-note" id="botNote" hidden>
           <div class="bot-note-head"><span class="bot-note-av" aria-hidden="true">🤖</span><b>Party Bot</b><small>Only you can see this</small>
@@ -267,6 +276,7 @@
             <input type="file" id="fileInput" multiple hidden>
             <label for="chatInput" class="sr">Message</label>
             <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Message"></textarea>
+            <button type="button" class="ub" id="pickBtn" aria-label="Emoji, stickers and GIFs" title="Emoji, stickers and GIFs" aria-expanded="false" aria-controls="pickPop"><svg class="ic"><use href="#i-smile"/></svg></button>
             <button type="button" class="ub" id="recBtn" aria-label="Record a voice message" title="Record a voice message"><svg class="ic"><use href="#i-mic"/></svg></button>
             <button type="submit" class="ub" aria-label="Send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
           </div>
@@ -381,6 +391,43 @@
     </div>
   </aside>
 </main>
+
+<!-- ================= CUSTOM EMOJI & STICKERS ================= -->
+<dialog id="emojiDlg" aria-labelledby="emojiTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="emojiTitle">Emoji &amp; stickers</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body">
+    <p class="hint">Everyone in this server can use them anywhere in Party Line. Type <code>:name:</code> in a message, or pick them with the 🙂 button next to the message box.</p>
+    <form class="field" id="emojiForm">
+      <div class="flabel">Add one</div>
+      <div class="row iv-opts">
+        <select id="emojiKind" aria-label="Emoji or sticker"><option value="emoji">Emoji (small, in text)</option><option value="sticker">Sticker (big, on its own)</option></select>
+        <button type="button" class="btn" id="emojiPickFile">Choose picture</button>
+      </div>
+      <input type="file" id="emojiFile" accept="image/png,image/gif,image/webp,image/jpeg" hidden>
+      <div class="row iv-opts">
+        <img id="emojiPreview" class="emoji-preview" alt="" hidden>
+        <input type="text" id="emojiName" class="input" maxlength="32" placeholder="name, like bora_laugh" aria-label="Name">
+        <button type="submit" class="btn primary" id="emojiAdd">Add</button>
+      </div>
+    </form>
+    <div class="flabel" id="emojiCount">Emoji</div>
+    <div class="emoji-grid" id="emojiList"></div>
+    <div class="flabel" id="stickerCount">Stickers</div>
+    <div class="emoji-grid stickers" id="stickerList"></div>
+  </div>
+</dialog>
+
+<!-- ================= WHAT'S NEW ================= -->
+<dialog id="newsDlg" aria-labelledby="newsTitle">
+  <div class="dlg-body news-body">
+    <img class="news-icon" src="/icon.svg" alt="">
+    <h2 id="newsTitle">New in Party Line</h2>
+    <ul class="news-list" id="newsList"></ul>
+    <div class="row-btns"><button type="button" class="btn primary" id="newsOk" autofocus>Nice!</button></div>
+  </div>
+</dialog>
 
 <!-- ================= ADD SERVER ================= -->
 <dialog id="addServer" aria-labelledby="asTitle">
@@ -578,6 +625,8 @@
         <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
         <div class="flabel-sub">Banner color</div>
         <div class="swatches" id="setBanner" role="radiogroup" aria-label="Banner color"></div>
+        <label class="flabel" for="setBdayMonth">Birthday <small class="hint">(friends see 🎂 on the day, and Party Bot says happy birthday; no year)</small></label>
+        <div class="bday-row"><select id="setBdayMonth" class="input" aria-label="Birthday month"></select><select id="setBdayDay" class="input" aria-label="Birthday day"></select></div>
         <div class="row-btns"><button type="button" class="btn" id="setProfileSave">Save profile</button></div>
       </div>
       <div class="field">
@@ -684,6 +733,7 @@
   <p class="pop-custom" id="popCustom" hidden></p>
   <p class="pop-activity" id="popActivity" hidden></p>
   <div class="pop-bio" id="popBioBox" hidden><b>About me</b><p id="popBio"></p></div>
+  <div class="pop-bio" id="popBdayBox" hidden><b>Birthday</b><p id="popBday"></p></div>
   <div class="pop-roles" id="popRoles" hidden></div>
   <div class="level" id="popVolBox">
     <div class="level-head"><label for="volRange">Volume</label><output id="volOut" for="volRange">100%</output></div>

@@ -102,7 +102,8 @@ if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD
 if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
 if (!columns('messages').includes('pinned_at')) db.exec('ALTER TABLE messages ADD COLUMN pinned_at INTEGER; ALTER TABLE messages ADD COLUMN pinned_by INTEGER;');
 if (!columns('messages').includes('embeds')) db.exec('ALTER TABLE messages ADD COLUMN embeds TEXT');
-for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom_status', 'TEXT'], ['bio', 'TEXT'], ['banner', 'TEXT']]) {
+for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom_status', 'TEXT'], ['bio', 'TEXT'], ['banner', 'TEXT'],
+  ['birthday', 'TEXT'], ['news_seen', 'INTEGER NOT NULL DEFAULT 0']]) {
   if (!columns('users').includes(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
 }
 if (!columns('channels').includes('topic')) db.exec('ALTER TABLE channels ADD COLUMN topic TEXT; ALTER TABLE channels ADD COLUMN category_id INTEGER;');
@@ -177,6 +178,27 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   decided_by INTEGER,
   created_at INTEGER NOT NULL,
   decided_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS emoji (
+  id INTEGER PRIMARY KEY,
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  upload_id TEXT NOT NULL,
+  user_id INTEGER,
+  created_at INTEGER NOT NULL,
+  UNIQUE (server_id, kind, name)
+);
+CREATE TABLE IF NOT EXISTS fav_gifs (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  upload_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, upload_id)
+);
+CREATE TABLE IF NOT EXISTS birthday_posts (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  year INTEGER NOT NULL,
+  PRIMARY KEY (user_id, year)
 );
 CREATE TABLE IF NOT EXISTS push_subs (
   endpoint TEXT PRIMARY KEY,

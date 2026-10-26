@@ -61,6 +61,7 @@ const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
 const plainText = (body) => String(body || '')
   .replace(/<@(\d+)>/g, (_, id) => '@' + ((M.getUser(Number(id)) || {}).name || 'someone'))
   .replace(/<t:(\d+)(?::\w)?>/g, (_, t) => new Date(Number(t) * 1000).toUTCString().slice(0, 22))
+  .replace(/<:(\w+):\d+>/g, ':$1:').replace(/^<s:\d+>$/, '[sticker]').replace(/^<g:[\w-]+>$/, '[GIF]')
   .replace(/\|\|[\s\S]*?\|\|/g, '[spoiler]').replace(/```\w*\n?|[*_~`]{1,3}/g, '').replace(/^> /gm, '').replace(/\s+/g, ' ').trim();
 function pushIfAway(userId, payload) {
   if (online(userId)) return;
@@ -100,7 +101,7 @@ export const voiceCount = () => voice.size;
 export const hub = {
   /* A forgot-password request: tell every admin who's online (others see it when they open the app). */
   resetRequested(request) { for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reset.request', request }); },
-  userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); toUser(u.id, { t: 'me', me: Object.assign(M.publicUser(u), { status: u.status || 'online' }) }); announce(u.id); },
+  userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); toUser(u.id, { t: 'me', me: M.selfView(u) }); announce(u.id); },
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
 
@@ -130,7 +131,7 @@ Bot.initBot(botHost);
 const groupText = (serverId) => (M.serverView(serverId, 0).channels.find((x) => x.kind === 'text') || {}).id;
 function sendServerTo(userId, serverId) {
   toUser(userId, { t: 'server', server: M.serverView(serverId, userId), users: M.memberIds(serverId).map(userView),
-    voice: [...voice].filter(([, v]) => v.serverId === serverId).map(([id, v]) => voiceView(id, v)) });
+    voice: [...voice].filter(([, v]) => v.serverId === serverId).map(([id, v]) => voiceView(id, v)), emoji: M.emojiOf(serverId) });
 }
 /* Channels, categories or roles changed: everyone in the server gets its fresh view (unread counts are per person). */
 function refreshServer(serverId) {
@@ -152,7 +153,7 @@ function readyFor(user) {
   const mine = new Set(servers.map((s) => s.id));
   return {
     t: 'ready',
-    me: Object.assign(M.publicUser(user), { status: user.status || 'online' }),
+    me: M.selfView(user),
     users: M.visibleUsers(user.id).map((u) => Object.assign(u, presenceOf(u.id))),
     servers,
     friends: M.friendsOf(user.id),
@@ -161,6 +162,8 @@ function readyFor(user) {
     music: Bot.musicStates(mine),
     events: [...mine].flatMap((id) => M.eventsOf(id)),
     sounds: [...mine].flatMap((id) => M.soundsOf(id)),
+    emoji: [...mine].flatMap((id) => M.emojiOf(id)),
+    gifs: M.favGifs(user.id),
     commands: Bot.COMMAND_LIST,
     serverNow: Date.now(),
     resets: user.is_admin ? M.pendingResets() : [],
@@ -491,7 +494,9 @@ const handlers = {
   /* ---- status and profile ---- */
   'profile.set'(c, user, d) {
     const u = M.setProfile(user.id, d || {});
+    if (Object.keys(d || {}).every((k) => k === 'newsSeen')) return {};   // nothing others can see
     hub.userChanged(u);
+    if (d.birthday) Bot.birthdays();   // set to today: the wish comes right away
     return {};
   },
   'presence.idle'(c, user, d) { c.idle = !!d.idle; announce(user.id); return {}; },
@@ -506,6 +511,27 @@ const handlers = {
     if (!srv || !M.isMember(user.id, srv.id)) fail('You’re not in that server.');
     M.addSound(user.id, srv.id, d);
     toServer(srv.id, { t: 'sounds', serverId: srv.id, sounds: M.soundsOf(srv.id) });
+    return {};
+  },
+  'emoji.add'(c, user, d) {
+    const srv = M.getServer(Number(d.serverId));
+    if (!srv || !M.isMember(user.id, srv.id)) fail('You’re not in that server.');
+    M.addEmoji(user.id, srv.id, d);
+    toServer(srv.id, { t: 'emoji', serverId: srv.id, emoji: M.emojiOf(srv.id) });
+    return {};
+  },
+  'emoji.delete'(c, user, d) {
+    const e = M.getEmoji(Number(d.id));
+    if (!e) return {};
+    if (e.user_id !== user.id && !M.can(user, M.getServer(e.server_id), 'messages')) fail('Only whoever added it (or a moderator) can remove it.');
+    if (e.user_id !== user.id) log(user, e.server_id, `Removed ${e.kind === 'emoji' ? 'an emoji' : 'a sticker'}`, `:${e.name}: (by ${nm(e.user_id)})`);
+    M.deleteEmoji(e.id);
+    toServer(e.server_id, { t: 'emoji', serverId: e.server_id, emoji: M.emojiOf(e.server_id) });
+    return {};
+  },
+  'gif.fav'(c, user, d) {
+    const gifs = M.setFavGif(user.id, d.id, !!d.on);
+    toUser(user.id, { t: 'gifs', gifs });
     return {};
   },
   'sound.delete'(c, user, d) {

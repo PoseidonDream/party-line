@@ -1,5 +1,6 @@
 /* Party Line app: sign in, servers and channels, chat, friends and private chats, voice and screen sharing. */
 import { api, upload, live, store, setToken, hasToken, absUrl } from './net.js';
+import { latestNews, unseenNews } from './news.js';
 import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize } from './util.js';
 import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
@@ -10,7 +11,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [],
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -45,7 +46,17 @@ const nameOf = (id) => user(id).name;
 const addCrown = (el, id) => {
   if (user(id).admin || (S.me && id === S.me.id && S.me.admin)) el.insertAdjacentHTML('beforeend', `<span class="crown" title="Developer">${iconSvg('crown')}</span>`);
   if (user(id).bot) el.insertAdjacentHTML('beforeend', '<span class="bot-tag">BOT</span>');
+  if (isBirthday(id)) el.insertAdjacentHTML('beforeend', '<span class="bday" title="It’s their birthday today!">🎂</span>');
 };
+const todayMD = () => { const d = new Date(); return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function isBirthday(id) {
+  const b = id === (S.me && S.me.id) ? S.me.birthday : user(id).birthday;
+  if (!b) return false;
+  const t = todayMD();
+  return b === t || (b === '02-29' && t === '02-28' && new Date(new Date().getFullYear(), 1, 29).getMonth() !== 1);
+}
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const fmtBirthday = (b) => { const [m, d] = b.split('-').map(Number); return `${MONTHS[m - 1]} ${d}`; };
 const curServer = () => (S.view.serverId ? S.servers.get(S.view.serverId) : null);
 const canManage = (srv) => !!S.me && (S.me.admin || (srv && srv.ownerId === S.me.id));
 /* What my roles let me do in a server: channels, messages, voice, kick, server. */
@@ -228,6 +239,8 @@ live.on('ready', (d) => {
   S.serverNow = d.serverNow;
   S.resets = d.resets || [];
   S.notif = d.notify || {};
+  S.emoji = new Map((d.emoji || []).map((e) => [e.id, e]));
+  S.gifs = d.gifs || [];
   renderResetBar();
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
@@ -249,6 +262,7 @@ live.on('ready', (d) => {
   if (myActivity) live.req('presence.activity', { name: myActivity }).catch(() => {});
   if (S.pendingInvite) { const code = S.pendingInvite; S.pendingInvite = null; joinInvite(code); }
   if (S.pendingOpen) { const q = S.pendingOpen; S.pendingOpen = null; openFromPush(q); }
+  if (first) showNews();
   if (first) syncPush();
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
@@ -280,6 +294,7 @@ function presenceLine(id) {
 const quiet = () => !!(S.me && S.me.status === 'dnd');   // Do not disturb: no message sounds or popups
 const learnUsers = (list) => { for (const u of list || []) if (u) S.users.set(u.id, u); };
 live.on('server', (d) => {
+  if (d.emoji) setServerEmoji(d.server.id, d.emoji);
   learnUsers(d.users);
   S.servers.set(d.server.id, d.server);
   for (const v of d.voice || []) S.voice.set(v.userId, v);
@@ -854,6 +869,7 @@ const INLINE_RE = new RegExp([
   '~~([^~\\n](?:[^\\n]*?[^~\\n])?)~~',                    // 8 ~~strike~~
   '(?<![\\w*])\\*([^*\\s](?:[^*\\n]*?[^*\\s])?)\\*(?![\\w*])', // 9 *italic*
   '(?<![\\w_])_([^_\\s](?:[^_\\n]*?[^_\\s])?)_(?![\\w_])',         // 10 _italic_
+  '<:(\\w{2,32}):(\\d+)>',                                  // 11, 12 custom emoji
 ].join('|'), 'g');
 /* <t:unix> shows a moment in each person's own time zone; <t:unix:R> as "in 15 minutes". */
 const fmtWhen = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -914,6 +930,7 @@ function inlineText(el, text) {
     else if (m[7]) add('u', null, m[7]);
     else if (m[8]) add('s', null, m[8]);
     else if (m[9] || m[10]) add('em', null, m[9] || m[10]);
+    else if (m[11]) el.appendChild(customEmojiEl(m[11], Number(m[12])));
     else {
       const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
       el.appendChild(a);
@@ -931,7 +948,8 @@ function encodeMentions(text) {
   for (const u of people) text = text.replace(new RegExp(`(^|[^\\p{L}\\p{N}_])@${escapeRe(u.name)}(?![\\p{L}\\p{N}_])`, 'giu'), `$1<@${u.id}>`);
   return text;
 }
-const decodeMentions = (text) => String(text || '').replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '')
+const decodeMentions = (text) => String(text || '').replace(/^<s:\d+>$/, 'Sent a sticker').replace(/^<g:[\w-]+>$/, 'Sent a GIF').replace(/<:(\w+):\d+>/g, ':$1:')
+  .replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '')
   .replace(/\|\|[^\n]*?\|\|/g, '[spoiler]').replace(/```[\w+-]*\n?|~~|__|`/g, '')
   .replace(/<t:(\d{9,11})(?::R)?>/g, (x, t) => fmtWhen(Number(t) * 1000));
 const mentionsMe = (msg) => !!msg.body && msg.body.includes(`<@${S.me.id}>`);
@@ -966,8 +984,11 @@ function messageEl(msg, prev) {
   tm.textContent = `${fmtDay(msg.at)} ${fmtTime(msg.at)}`; tm.title = new Date(msg.at).toLocaleString();
   head.appendChild(tm);
   li.appendChild(head);
-  if (msg.body) {
+  const special = msg.body && /^<([sg]):([\w-]+)>$/.exec(msg.body);
+  if (special) li.appendChild(special[1] === 's' ? stickerEl(Number(special[2])) : gifEl(special[2]));
+  else if (msg.body) {
     const body = document.createElement('div'); body.className = 'msg-body';
+    if (/^(\s*(<:\w{2,32}:\d+>|\p{Extended_Pictographic}[\u200d\ufe0f\p{Extended_Pictographic}\p{Emoji_Modifier}]*))+\s*$/u.test(msg.body)) body.classList.add('jumbo');
     richText(body, msg.body);
     if (msg.editedAt) { const e = document.createElement('span'); e.className = 'msg-edited'; e.textContent = '(edited)'; body.appendChild(e); }
     li.appendChild(body);
@@ -1004,8 +1025,9 @@ function reactionsEl(msg) {
     b.className = 'reaction' + (r.users.includes(S.me.id) ? ' mine' : '');
     // Party Bot adds the first reaction to its polls so the buttons show; it doesn't count as a vote.
     const people = r.users.filter((id) => !user(id).bot);
-    b.textContent = `${r.emoji} ${people.length}`;
-    b.title = people.length ? `${people.map(nameOf).join(', ')} reacted with ${r.emoji}` : `React with ${r.emoji}`;
+    const label = emojiLabel(r.emoji);
+    emojiInto(b, r.emoji); b.appendChild(document.createTextNode(` ${people.length}`));
+    b.title = people.length ? `${people.map(nameOf).join(', ')} reacted with ${label}` : `React with ${label}`;
     b.setAttribute('aria-pressed', String(r.users.includes(S.me.id)));
     b.addEventListener('click', () => toggleReaction(msg, r.emoji));
     row.appendChild(b);
@@ -1025,8 +1047,10 @@ function openEmojiPop(msg, anchor) {
   if (!pop.hidden && emojiFor === msg.id) { closeEmojiPop(); return; }
   emojiFor = msg.id;
   pop.textContent = '';
-  for (const e of QUICK_EMOJI) {
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = e; b.setAttribute('aria-label', `React with ${e}`);
+  const srvId = msg.channelId ? ((findChannel(msg.channelId) || {}).server || {}).id : null;
+  const custom = [...S.emoji.values()].filter((e) => e.kind === 'emoji').sort((a, b) => (b.serverId === srvId) - (a.serverId === srvId)).slice(0, 24).map((e) => `<:${e.name}:${e.id}>`);
+  for (const e of [...QUICK_EMOJI, ...custom]) {
+    const b = document.createElement('button'); b.type = 'button'; emojiInto(b, e); b.setAttribute('aria-label', `React with ${emojiLabel(e)}`);
     b.addEventListener('click', () => { toggleReaction(msg, e); closeEmojiPop(); });
     pop.appendChild(b);
   }
@@ -1102,6 +1126,7 @@ function mediaEl(a, msgId) {
     b.appendChild(img);
     b.addEventListener('click', () => openLightbox(url, a.name));
     wrap.appendChild(b);
+    if (msgId && a.id) wrap.appendChild(saveGifBtn(a.id));
   } else {
     const v = document.createElement('video'); v.className = 'media-video'; v.controls = true; v.preload = 'metadata'; v.src = url; v.playsInline = true;
     wrap.appendChild(v);
@@ -1240,7 +1265,7 @@ function editMessage(li, msg) {
     if (e.key === 'Escape') { e.preventDefault(); done(); }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      const t = encodeMentions(ta.value.trim());
+      const t = encodeEmoji(encodeMentions(ta.value.trim()));
       if (!t || t === msg.body) { done(); return; }
       await act(() => live.req('msg.edit', { id: msg.id, body: t }));
       done();
@@ -1366,7 +1391,7 @@ let sendChain = Promise.resolve();
 $('#chatForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (S.sending) return;
-  const raw = chatInput.value, body = encodeMentions(raw.trim());
+  const raw = chatInput.value, body = encodeEmoji(encodeMentions(raw.trim()));
   if (!body && !S.attach.length) return;
   const target = composeTarget();
   if (!target) return;
@@ -1908,6 +1933,7 @@ function fillUserPop(id) {
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
   $('#popActivity').hidden = !(u.online && u.activity); $('#popActivity').textContent = u.activity ? `🎮 Playing ${u.activity}` : '';
   $('#popBioBox').hidden = !u.bio; $('#popBio').textContent = u.bio || '';
+  $('#popBdayBox').hidden = !u.birthday; $('#popBday').textContent = u.birthday ? `${fmtBirthday(u.birthday)}${isBirthday(u.id) ? ' · today! 🎉' : ''}` : '';
   const srv = S.popServer && S.servers.get(S.popServer), roles = rolesOf(srv, id), box = $('#popRoles');
   box.textContent = ''; box.hidden = !roles.length;
   for (const r of roles) { const chip = document.createElement('span'); chip.className = 'role-chip'; chip.style.setProperty('--rc', r.color || 'var(--dim)'); chip.textContent = r.name; box.appendChild(chip); }
@@ -2208,11 +2234,24 @@ function renderSwatches() {
     box.appendChild(b);
   }
 }
-$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner }), 'Profile saved.'));
+function fillBirthday(b) {
+  const [m, d] = b ? b.split('-').map(Number) : [0, 0];
+  const ms = $('#setBdayMonth'), ds = $('#setBdayDay');
+  ms.innerHTML = '<option value="">Month</option>' + MONTHS.map((n, i) => `<option value="${i + 1}">${n}</option>`).join('');
+  ms.value = m ? String(m) : '';
+  const days = () => { const keep = ds.value || (d ? String(d) : ''); const n = ms.value ? new Date(2024, Number(ms.value), 0).getDate() : 31;
+    ds.innerHTML = '<option value="">Day</option>' + Array.from({ length: n }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+    ds.value = Number(keep) <= n ? keep : ''; };
+  ds.value = ''; days(); ds.value = d ? String(d) : '';
+  ms.onchange = days;
+}
+const birthdayValue = () => ($('#setBdayMonth').value && $('#setBdayDay').value ? `${$('#setBdayMonth').value.padStart(2, '0')}-${$('#setBdayDay').value.padStart(2, '0')}` : '');
+$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, birthday: birthdayValue() }), 'Profile saved.'));
 function openSettings() {
   syncSettingsForm();
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
   $('#setBio').value = S.me.bio || ''; profileBanner = S.me.banner || ''; renderSwatches();
+  fillBirthday(S.me.birthday);
   $('#pwNote').hidden = true; $('#pwOld').value = ''; $('#pwNew').value = '';
   $('#devOpen').hidden = !S.me.admin;
   $('#appInfo').textContent = desktop ? `Party Line desktop app ${desktop.version || ''} · Server: ${location.host}` : `Server: ${location.host}`;
@@ -2239,6 +2278,173 @@ $('#setNotify').addEventListener('change', async (e) => {
   }
   settings.notify = e.target.checked; saveSettings();
 });
+/* ================= custom emoji, stickers and saved GIFs ================= */
+function setServerEmoji(serverId, list) {
+  for (const [id, e] of S.emoji) if (e.serverId === serverId) S.emoji.delete(id);
+  for (const e of list) S.emoji.set(e.id, e);
+}
+live.on('emoji', (d) => { setServerEmoji(d.serverId, d.emoji); rerenderMessagesSoft(); if ($('#emojiDlg').open) renderEmojiDlg(); if (!$('#pickPop').hidden) renderPick(); });
+live.on('gifs', (d) => { S.gifs = d.gifs; if (!$('#pickPop').hidden) renderPick(); });
+function customEmojiEl(name, id) {
+  const e = S.emoji.get(id);
+  if (!e) return document.createTextNode(`:${name}:`);   // from a server you're not in any more, or deleted
+  const img = document.createElement('img'); img.className = 'c-emoji'; img.src = absUrl(e.url); img.alt = `:${name}:`; img.title = `:${name}:`; img.loading = 'lazy';
+  return img;
+}
+const emojiLabel = (e) => { const m = /^<:(\w+):\d+>$/.exec(e); return m ? `:${m[1]}:` : e; };
+function emojiInto(el, e) { const m = /^<:(\w+):(\d+)>$/.exec(e); if (m) el.appendChild(customEmojiEl(m[1], Number(m[2]))); else el.appendChild(document.createTextNode(e)); }
+/* ":bora_laugh:" -> "<:bora_laugh:7>". This server's emoji first, then any you can use. Not inside `code`. */
+function encodeEmoji(text) {
+  if (!text.includes(':') || !S.emoji.size) return text;
+  const srv = curServer(), mine = [...S.emoji.values()].filter((e) => e.kind === 'emoji');
+  return text.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((part, i) => (i % 2 ? part : part.replace(/(^|[^<\w]):(\w{2,32}):(?!\d+>)/g, (x, pre, name) => {
+    const e = mine.find((x2) => x2.name === name.toLowerCase() && srv && x2.serverId === srv.id) || mine.find((x2) => x2.name === name.toLowerCase());
+    return e ? `${pre}<:${e.name}:${e.id}>` : x;
+  }))).join('');
+}
+function stickerEl(id) {
+  const e = S.emoji.get(id), wrap = document.createElement('div'); wrap.className = 'msg-sticker';
+  if (!e) { wrap.textContent = '(a sticker that was removed)'; wrap.classList.add('gone'); return wrap; }
+  const img = document.createElement('img'); img.src = absUrl(e.url); img.alt = `Sticker :${e.name}:`; img.title = `:${e.name}:`; img.loading = 'lazy';
+  wrap.appendChild(img); return wrap;
+}
+function gifEl(uploadId) {
+  const wrap = document.createElement('div'); wrap.className = 'msg-gif msg-media';
+  const img = document.createElement('img'); img.className = 'media-img'; img.src = absUrl(`/uploads/${uploadId}`); img.alt = 'GIF'; img.loading = 'lazy';
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'media-btn'; b.setAttribute('aria-label', 'Open GIF'); b.appendChild(img);
+  b.addEventListener('click', () => openLightbox(absUrl(`/uploads/${uploadId}`), 'GIF'));
+  wrap.append(b, saveGifBtn(uploadId));
+  return wrap;
+}
+/* ☆ under pictures: save to your GIFs to send again later. */
+function saveGifBtn(uploadId) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'save-gif';
+  const paint = () => { const on = S.gifs.some((g) => g.id === uploadId); b.textContent = on ? '★ Saved' : '☆ Save to my GIFs'; b.classList.toggle('on', on); b.title = on ? 'Remove from your GIFs' : 'Save to your GIFs to send again later'; };
+  paint();
+  b.addEventListener('click', async (e) => { e.stopPropagation(); const on = !S.gifs.some((g) => g.id === uploadId); await act(() => live.req('gif.fav', { id: uploadId, on })); paint(); });
+  return b;
+}
+
+/* The 🙂 picker next to the message box: emoji (yours and the servers'), stickers and saved GIFs. */
+let pickTab = 'emoji';
+const PICK_EMOJI = ['😀', '😂', '🤣', '😊', '😍', '😘', '😎', '🤔', '😴', '😭', '😡', '🥳', '😱', '🙄', '😬', '🤯', '👍', '👎', '👏', '🙏', '💪', '👀', '🔥', '💯', '❤️', '💔', '🎉', '✨', '🎮', '🎧', '🍕', '🍺', '☕', '💀', '🤡', '👻', '✅', '❌'];
+function renderPick() {
+  const body = $('#pickBody'); body.textContent = '';
+  document.querySelectorAll('[data-pick]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.pick === pickTab)));
+  const srv = curServer();
+  const sorted = (kind) => [...S.emoji.values()].filter((e) => e.kind === kind).sort((a, b) => ((b.serverId === (srv && srv.id)) - (a.serverId === (srv && srv.id))) || a.name.localeCompare(b.name));
+  const grid = (cls) => { const g = document.createElement('div'); g.className = 'pick-grid ' + cls; body.appendChild(g); return g; };
+  const note = (text) => { const p = document.createElement('p'); p.className = 'hint pick-note'; p.textContent = text; body.appendChild(p); };
+  if (pickTab === 'emoji') {
+    const custom = sorted('emoji');
+    if (custom.length) {
+      const g = grid('custom');
+      for (const e of custom) {
+        const b = document.createElement('button'); b.type = 'button'; b.title = `:${e.name}:`; b.appendChild(customEmojiEl(e.name, e.id));
+        b.addEventListener('click', () => insertText(`:${e.name}: `)); g.appendChild(b);
+      }
+    }
+    const g = grid('std');
+    for (const e of PICK_EMOJI) { const b = document.createElement('button'); b.type = 'button'; b.textContent = e; b.addEventListener('click', () => insertText(e)); g.appendChild(b); }
+    if (!custom.length) note('Add your own emoji from the server menu → Emoji & stickers.');
+  } else if (pickTab === 'sticker') {
+    const list = sorted('sticker');
+    if (!list.length) { note('No stickers yet. Add some from the server menu → Emoji & stickers.'); return; }
+    const g = grid('big');
+    for (const e of list) {
+      const b = document.createElement('button'); b.type = 'button'; b.title = `:${e.name}:`;
+      const img = document.createElement('img'); img.src = absUrl(e.url); img.alt = e.name; img.loading = 'lazy'; b.appendChild(img);
+      b.addEventListener('click', () => sendSpecial(`<s:${e.id}>`)); g.appendChild(b);
+    }
+  } else {
+    if (!S.gifs.length) { note('Your saved GIFs show up here. Press “☆ Save to my GIFs” under any GIF or picture in the chat.'); return; }
+    const g = grid('big gifs');
+    for (const x of S.gifs) {
+      const b = document.createElement('button'); b.type = 'button'; b.title = 'Send this GIF';
+      const img = document.createElement('img'); img.src = absUrl(x.url); img.alt = 'GIF'; img.loading = 'lazy'; b.appendChild(img);
+      b.addEventListener('click', () => sendSpecial(`<g:${x.id}>`)); g.appendChild(b);
+    }
+  }
+}
+function insertText(t) {
+  const ta = chatInput, a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
+  ta.value = ta.value.slice(0, a) + t + ta.value.slice(b);
+  ta.selectionStart = ta.selectionEnd = a + t.length; ta.focus(); autosize();
+}
+function sendSpecial(body) {
+  const target = composeTarget();
+  closePick();
+  if (!target) return;
+  sendChain = sendChain.then(() => live.req('msg.send', Object.assign({ body, attachments: [], replyTo: S.replyTo ? S.replyTo.id : null }, target)).then(() => cancelReply()).catch((e) => toast(e.message, 4000)));
+}
+function openPick() { renderPick(); $('#pickPop').hidden = false; $('#pickBtn').setAttribute('aria-expanded', 'true'); }
+function closePick() { $('#pickPop').hidden = true; $('#pickBtn').setAttribute('aria-expanded', 'false'); }
+$('#pickBtn').addEventListener('click', () => ($('#pickPop').hidden ? openPick() : closePick()));
+document.querySelectorAll('[data-pick]').forEach((t) => t.addEventListener('click', () => { pickTab = t.dataset.pick; renderPick(); }));
+document.addEventListener('pointerdown', (e) => { if (!$('#pickPop').hidden && !e.target.closest('#pickPop, #pickBtn')) closePick(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#pickPop').hidden) closePick(); });
+
+/* Server menu → Emoji & stickers */
+let emojiFile = null;
+function renderEmojiDlg() {
+  const srv = curServer(); if (!srv) return;
+  const mod = can(srv, 'messages');
+  for (const kind of ['emoji', 'sticker']) {
+    const list = [...S.emoji.values()].filter((e) => e.serverId === srv.id && e.kind === kind).sort((a, b) => a.name.localeCompare(b.name));
+    $(kind === 'emoji' ? '#emojiCount' : '#stickerCount').textContent = `${kind === 'emoji' ? 'Emoji' : 'Stickers'} (${list.length} of ${kind === 'emoji' ? 100 : 50})`;
+    const box = $(kind === 'emoji' ? '#emojiList' : '#stickerList'); box.textContent = '';
+    if (!list.length) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = 'None yet.'; box.appendChild(p); }
+    for (const e of list) {
+      const it = document.createElement('div'); it.className = 'emoji-item';
+      const img = document.createElement('img'); img.src = absUrl(e.url); img.alt = ''; img.loading = 'lazy';
+      const n = document.createElement('span'); n.textContent = `:${e.name}:`; n.title = `Added by ${nameOf(e.by)}`;
+      it.append(img, n);
+      if (mod || e.by === S.me.id) {
+        const x = document.createElement('button'); x.type = 'button'; x.className = 'btn icon-btn'; x.innerHTML = iconSvg('trash'); x.title = `Remove :${e.name}:`; x.setAttribute('aria-label', x.title);
+        x.addEventListener('click', async () => { if (await confirmBox(`Remove :${e.name}:?`, 'It disappears from old messages too.', 'Remove')) act(() => live.req('emoji.delete', { id: e.id })); });
+        it.appendChild(x);
+      }
+      box.appendChild(it);
+    }
+  }
+}
+function openEmojiDlg() { emojiFile = null; $('#emojiPreview').hidden = true; $('#emojiName').value = ''; renderEmojiDlg(); $('#emojiDlg').showModal(); }
+$('#mEmoji').addEventListener('click', () => { closeMenu(); openEmojiDlg(); });
+$('#emojiPickFile').addEventListener('click', () => $('#emojiFile').click());
+$('#emojiFile').addEventListener('change', () => {
+  const f = $('#emojiFile').files[0]; $('#emojiFile').value = '';
+  if (!f) return;
+  const max = $('#emojiKind').value === 'emoji' ? 524288 : 2097152;
+  if (f.size > max) { toast(`That picture is over ${max === 524288 ? '512 KB' : '2 MB'}.`, 4000); return; }
+  emojiFile = f;
+  const pv = $('#emojiPreview'); pv.src = URL.createObjectURL(f); pv.hidden = false;
+  if (!$('#emojiName').value) $('#emojiName').value = f.name.replace(/\.\w+$/, '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32);
+});
+$('#emojiForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!emojiFile) { toast('Choose a picture first.', 3000); return; }
+  const srv = curServer(), kind = $('#emojiKind').value;
+  const r = await act(async () => { const up = await upload('/api/upload', emojiFile); return live.req('emoji.add', { serverId: srv.id, uploadId: up.id, name: $('#emojiName').value, kind }); }, kind === 'emoji' ? 'Emoji added.' : 'Sticker added.');
+  if (r) { emojiFile = null; $('#emojiPreview').hidden = true; $('#emojiName').value = ''; }
+});
+
+/* "New in Party Line" (see news.js) */
+function showNews() {
+  const seen = Number(S.me.newsSeen) || 0;
+  if (seen >= latestNews()) return;
+  const items = unseenNews(seen);
+  live.req('profile.set', { newsSeen: latestNews() }).then(() => { S.me.newsSeen = latestNews(); }).catch(() => {});
+  if (!items.length || document.querySelector('dialog[open]')) return;
+  const ul = $('#newsList'); ul.textContent = '';
+  for (const [icon, title, text] of items) {
+    const li = document.createElement('li');
+    const i = document.createElement('span'); i.className = 'news-emoji'; i.textContent = icon;
+    const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = title; const p = document.createElement('p'); p.textContent = text;
+    t.append(b, p); li.append(i, t); ul.appendChild(li);
+  }
+  $('#newsDlg').showModal();
+}
+$('#newsOk').addEventListener('click', () => $('#newsDlg').close());
 /* Push notifications: the browser keeps a line open to its push service (Google, Mozilla, Apple, Microsoft),
    so private messages, mentions and calls arrive even when Party Line is closed. Works in Chrome, Edge,
    Firefox and Safari, and on iPhone once Party Line is added to the Home Screen. The desktop app and the

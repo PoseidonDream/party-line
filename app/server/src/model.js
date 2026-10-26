@@ -40,7 +40,9 @@ const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-
 
 /* ---------- users and sessions ---------- */
 export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
-  custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null });
+  custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null });
+/* What only you see about yourself. */
+export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
@@ -52,7 +54,8 @@ export function register(name, pass, groupPass) {
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   if (String(pass || '').length < 4) fail('Pick a password with at least 4 characters.');
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
-  const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)',
+  // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
+  const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen) VALUES (?, ?, ?, ?, ?, -1)',
     name, foldKey(name), hashPass(pass), isAdminName(name) ? 1 : 0, now()).lastInsertRowid);
   const def = one('SELECT id FROM servers WHERE is_default = 1');
   if (def) joinServer(id, def.id);
@@ -199,6 +202,14 @@ export function setProfile(userId, d) {
   if (d.status !== undefined) { if (!STATUSES.includes(d.status)) fail('Unknown status.'); run('UPDATE users SET status = ? WHERE id = ?', d.status, userId); }
   if (d.custom !== undefined) run('UPDATE users SET custom_status = ? WHERE id = ?', String(d.custom || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) || null, userId);
   if (d.bio !== undefined) run('UPDATE users SET bio = ? WHERE id = ?', String(d.bio || '').replace(/\r\n/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f]/g, '').trim().slice(0, 300) || null, userId);
+  if (d.birthday !== undefined) {
+    // Month and day only (no year), e.g. 03-14
+    const b = String(d.birthday || '');
+    const m = /^(\d{2})-(\d{2})$/.exec(b);
+    if (b && !(m && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= new Date(2024, +m[1], 0).getDate())) fail('Pick a month and day.');
+    run('UPDATE users SET birthday = ? WHERE id = ?', b || null, userId);
+  }
+  if (d.newsSeen !== undefined) run('UPDATE users SET news_seen = ? WHERE id = ?', Math.max(0, Math.min(1e6, Math.floor(Number(d.newsSeen) || 0))), userId);
   if (d.banner !== undefined) {
     const c = String(d.banner || '');
     if (c && !/^#[0-9a-f]{6}$/i.test(c)) fail('Pick a color from the list.');
@@ -433,6 +444,9 @@ export function postMessage(userId, where, body, attachments, replyTo) {
   body = cleanBody(body);
   const att = attachmentsFrom(userId, attachments);
   if (!body && !att.length) fail('Empty message.');
+  const g = /^<g:([\w-]+)>$/.exec(body), st = /^<s:(\d+)>$/.exec(body);
+  if (g) { const up = getUpload(g[1]); if (!up || !up.type.startsWith('image/')) fail('That GIF is gone.'); }
+  if (st && !getEmoji(Number(st[1]))) fail('That sticker is gone.');
   const parent = replyTo ? getMessage(Number(replyTo)) : null;
   const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
   const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -445,7 +459,8 @@ export const mentionedIds = (body) => [...new Set([...String(body || '').matchAl
 const EMOJI = /^(?=.*(?:\p{Extended_Pictographic}|\u20e3))[^\s]{1,16}$/u;   // \u20e3: keycap numbers like 1️⃣
 export function react(userId, messageId, emoji, on) {
   emoji = String(emoji || '');
-  if (!EMOJI.test(emoji)) fail('That’s not an emoji.');
+  const custom = /^<:\w{2,32}:(\d+)>$/.exec(emoji);
+  if (custom ? on && !getEmoji(Number(custom[1])) : !EMOJI.test(emoji)) fail('That’s not an emoji.');
   if (on) {
     const kinds = one('SELECT COUNT(DISTINCT emoji) AS n FROM reactions WHERE message_id = ?', messageId).n;
     if (kinds >= 20 && !one('SELECT 1 AS x FROM reactions WHERE message_id = ? AND emoji = ?', messageId, emoji)) fail('That message has enough reactions.');
@@ -556,6 +571,36 @@ export function addSound(userId, serverId, d) {
   run('INSERT INTO sounds (server_id, user_id, name, emoji, upload_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', serverId, userId, name, emoji, up.id, now());
 }
 export const deleteSound = (id) => run('DELETE FROM sounds WHERE id = ?', id);
+/* Custom emoji and stickers, per server. In messages, an emoji is written <:name:id>; a sticker message is
+   just <s:id>. Anyone in a server can use its emoji anywhere (in other servers and private chats too). */
+const emojiView = (e) => ({ id: e.id, serverId: e.server_id, kind: e.kind, name: e.name, url: `/uploads/${e.upload_id}`, by: e.user_id });
+export const emojiOf = (serverId) => all('SELECT * FROM emoji WHERE server_id = ? ORDER BY kind, name', serverId).map(emojiView);
+export const getEmoji = (id) => one('SELECT * FROM emoji WHERE id = ?', id);
+export function addEmoji(userId, serverId, d) {
+  const kind = d.kind === 'sticker' ? 'sticker' : 'emoji';
+  const name = String(d.name || '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32);
+  if (name.length < 2) fail('Give it a name of at least 2 letters (letters, numbers and _).');
+  const up = one('SELECT * FROM uploads WHERE id = ? AND user_id = ?', String(d.uploadId || ''), userId);
+  if (!up || !/^image\/(png|gif|webp|jpeg)$/.test(up.type)) fail('Pick a picture (PNG, GIF, WEBP or JPG).');
+  const max = kind === 'emoji' ? 524288 : 2097152;
+  if (up.size > max) fail(kind === 'emoji' ? 'Emoji can be up to 512 KB.' : 'Stickers can be up to 2 MB.');
+  const limit = kind === 'emoji' ? 100 : 50;
+  if (one('SELECT COUNT(*) AS n FROM emoji WHERE server_id = ? AND kind = ?', serverId, kind).n >= limit) fail(`This server already has ${limit} ${kind === 'emoji' ? 'emoji' : 'stickers'}. Remove one first.`);
+  if (one('SELECT 1 AS x FROM emoji WHERE server_id = ? AND kind = ? AND name = ?', serverId, kind, name)) fail(`There’s already one called :${name}:.`);
+  run('INSERT INTO emoji (server_id, kind, name, upload_id, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', serverId, kind, name, up.id, userId, now());
+}
+export const deleteEmoji = (id) => run('DELETE FROM emoji WHERE id = ?', id);
+/* Saved GIFs (and memes): any picture from the chat, kept for sending again with one click. */
+export const favGifs = (userId) => all('SELECT f.upload_id AS id FROM fav_gifs f JOIN uploads u ON u.id = f.upload_id WHERE f.user_id = ? ORDER BY f.created_at DESC', userId).map((r) => ({ id: r.id, url: `/uploads/${r.id}` }));
+export function setFavGif(userId, uploadId, on) {
+  const up = getUpload(String(uploadId || ''));
+  if (on) {
+    if (!up || !up.type.startsWith('image/')) fail('Only pictures and GIFs can be saved.');
+    if (one('SELECT COUNT(*) AS n FROM fav_gifs WHERE user_id = ?', userId).n >= 200) fail('You have 200 saved GIFs. Remove some first.');
+    run('INSERT OR IGNORE INTO fav_gifs (user_id, upload_id, created_at) VALUES (?, ?, ?)', userId, up.id, now());
+  } else run('DELETE FROM fav_gifs WHERE user_id = ? AND upload_id = ?', userId, String(uploadId || ''));
+  return favGifs(userId);
+}
 export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
 export function history(col, targetId, before, limit = 50) {
   const rows = before
@@ -680,6 +725,8 @@ export function unusedUploads(olderThan = 60 * 60_000) {
   for (const r of all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) for (const a of JSON.parse(r.attachments)) { used.add(a.id); if (a.thumb) used.add(a.thumb); }
   for (const r of all('SELECT avatar FROM users WHERE avatar IS NOT NULL')) used.add(String(r.avatar).replace('/uploads/', ''));
   for (const r of all('SELECT upload_id FROM sounds')) used.add(r.upload_id);
+  for (const r of all('SELECT upload_id FROM emoji UNION SELECT upload_id FROM fav_gifs')) used.add(r.upload_id);
+  for (const r of all("SELECT body FROM messages WHERE body LIKE '<g:%'")) { const m = /^<g:([\w-]+)>$/.exec(r.body); if (m) used.add(m[1]); }
   return all('SELECT id FROM uploads WHERE created_at < ?', now() - olderThan).map((r) => r.id).filter((id) => !used.has(id));
 }
 export const forgetUpload = (id) => run('DELETE FROM uploads WHERE id = ?', id);

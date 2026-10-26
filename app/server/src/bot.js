@@ -18,6 +18,7 @@ export function initBot(h) {
   host = h;
   bot = M.ensureBot();
   setInterval(fireReminders, 15_000).unref();
+  setInterval(birthdays, 10 * 60_000).unref(); setTimeout(birthdays, 20_000).unref();
   return bot;
 }
 export const botUser = () => bot;
@@ -218,6 +219,25 @@ async function ask(ctx) {
   askClaude(ctx.user, ctx.where, q)
     .then((answer) => host.post(ctx.where, answer, asked.id))
     .catch((e) => host.post(ctx.where, `😕 ${e instanceof M.UserError ? e.message : 'Party Bot couldn’t answer just now.'}`, asked.id));
+}
+/* Birthdays: from 9 in the morning (the server's time zone, TZ in deploy/.env; BIRTHDAY_HOUR changes the hour), Party Bot wishes a happy birthday
+   in every server the person is in, once a year. Feb 29 birthdays are celebrated on Feb 28 in other years. */
+export function birthdays() {
+  const d = new Date();
+  if (d.getHours() < (process.env.BIRTHDAY_HOUR ? Number(process.env.BIRTHDAY_HOUR) : 9)) return;
+  const today = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const leap = new Date(d.getFullYear(), 1, 29).getMonth() === 1;
+  const days = today === '02-28' && !leap ? ['02-28', '02-29'] : [today];
+  for (const u of all(`SELECT id FROM users WHERE is_bot = 0 AND birthday IN (${days.map(() => '?').join(',')})`, ...days)) {
+    if (one('SELECT 1 AS x FROM birthday_posts WHERE user_id = ? AND year = ?', u.id, d.getFullYear())) continue;
+    run('INSERT INTO birthday_posts (user_id, year) VALUES (?, ?)', u.id, d.getFullYear());
+    for (const sid of M.serverIdsOf(u.id)) {
+      const srv = M.getServer(sid);
+      if (!srv || srv.kind !== 'server') continue;
+      const ch = one("SELECT id FROM channels WHERE server_id = ? AND kind = 'text' ORDER BY (name = 'general') DESC, position, id LIMIT 1", sid);
+      if (ch) post({ channelId: ch.id }, `🎂 Happy birthday ${at(u.id)}! 🎉🥳 Have an amazing day!`);
+    }
+  }
 }
 const HELP = [
   '**Party Bot commands**',
