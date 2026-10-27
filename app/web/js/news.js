@@ -2,6 +2,10 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 8, items: [
+    ['😂', 'Meme soundboard', 'The soundboard now has meme sounds: Vine boom, Metal pipe, MLG airhorn, Dun dun dunnn, Crickets, Bonk, Record scratch and more.'],
+    ['✨', '9 new voice effects', 'Press ✨ in voice: Alien, Demon, Underwater, 8-bit, Wobbly, Ghost, Choir, Stadium and Glitchy.'],
+  ] },
   { id: 7, items: [
     ['🏠', 'Home dashboard', 'The Home button shows who’s in voice, who’s playing what, open groups and what’s coming up.'],
     ['🔥', 'Streaks & achievements', 'Chat or join voice every day for a 🔥 streak, and collect 15 achievements. Home → Leaderboard → Achievements.'],

@@ -22,7 +22,18 @@ export default async function (ok) {
 
     await a.click('#soundBtn');
     await a.waitForSelector('#soundPop:not([hidden]) .sound-btn:has-text("Airhorn")');
-    ok('the soundboard has built-in sounds', (await a.locator('#soundGrid .sound-btn').count()) === 6);
+    const names = await a.locator('#soundGrid .sound-name').allTextContents();
+    ok(`the soundboard has 16 meme sounds (${names.slice(0, 4).join(', ')}…)`, names.length === 16 && ['Vine boom', 'Metal pipe', 'Bonk', 'Crickets'].every((n) => names.includes(n)));
+    const levels = await a.evaluate(async () => {
+      const S = await import('/js/sounds.js'), bad = [];
+      for (const s of S.builtinSounds()) {
+        const d = (await S.renderBuiltin(s.id)).getChannelData(0);
+        let peak = 0; for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+        if (peak < 0.25 || peak > 0.99) bad.push(`${s.name} ${peak.toFixed(2)}`);
+      }
+      return bad;
+    });
+    ok(`every one is loud enough without distorting${levels.length ? ': ' + levels.join(', ') : ''}`, !levels.length);
     await a.click('#soundGrid .sound-btn:has-text("Airhorn")');
     await b.waitForSelector('#tiles .tile:has-text("Poseidon") .tile-sound:text-is("📯")');
     ok('playing one reaches everyone in the channel (shown on your tile)', true);
@@ -49,7 +60,7 @@ export default async function (ok) {
     await b.keyboard.press('Escape'); await b.mouse.click(700, 300);
     await b.click('#deafBtn');
     await a.waitForTimeout(1600);
-    await a.click('#soundGrid .sound-btn:has-text("Ding")').catch(async () => { await a.click('#soundBtn'); await a.click('#soundGrid .sound-btn:has-text("Ding")'); });
+    await a.click('#soundGrid .sound-btn:has-text("Bong")').catch(async () => { await a.click('#soundBtn'); await a.click('#soundGrid .sound-btn:has-text("Bong")'); });
     await a.waitForSelector('#tiles .tile:has-text("Poseidon") .tile-sound:text-is("🔔")');
     await b.waitForTimeout(800);
     ok('deafened people don’t hear the soundboard', await b.locator('#tiles .tile:has-text("Poseidon") .tile-sound').count() === 0);

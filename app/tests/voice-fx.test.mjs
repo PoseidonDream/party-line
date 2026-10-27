@@ -35,6 +35,15 @@ export default async function (ok) {
     ok(`Deep: they hear it lower (${Math.round(deep)} Hz, ×${(deep / normal).toFixed(2)})`, deep / normal > 0.62 && deep / normal < 0.82);
     const robot = await fx('robot');   // the voice times a 50 Hz tone: it splits 50 Hz above and below
     ok(`Robot: they hear it changed (${Math.round(robot)} Hz)`, Math.abs(robot - normal) > 25);
+    const demon = await fx('demon');
+    ok(`Demon: they hear it much lower (${Math.round(demon)} Hz, ×${(demon / normal).toFixed(2)})`, demon / normal > 0.5 && demon / normal < 0.7);
+    const quiet = [];
+    for (const name of ['alien', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch']) {
+      const hz = await fx(name);
+      const kept = await a.evaluate(async () => (await import('/js/util.js')).settings.voiceFx);
+      if (!(hz > 50) || kept !== name) quiet.push(`${name} (${Math.round(hz)} Hz, setting ${kept})`);
+    }
+    ok(`every new effect runs and the friend still hears you${quiet.length ? ': ' + quiet.join(', ') : ''}`, !quiet.length);
     const back = await fx('none');
     ok('Normal: back to your own voice', Math.abs(back / normal - 1) < 0.08);
     await a.click('#meBtn');

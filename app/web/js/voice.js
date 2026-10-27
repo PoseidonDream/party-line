@@ -54,7 +54,7 @@ function teardownFx() {
 const needsFx = () => settings.noiseMode === 'strong' || Math.abs(settings.inputVol - 1) > 0.004 || settings.voiceFx !== 'none';
 
 /* ================= voice effects (for fun: your friends hear you through them) ================= */
-export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio'];
+export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch'];
 let pitchReady = null;
 function loadPitch() {
   const c = audioCtx();
@@ -65,33 +65,104 @@ function loadPitch() {
 const softClip = (k) => { const n = 1024, curve = new Float32Array(n); for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; curve[i] = Math.tanh(k * x) / Math.tanh(k); } return curve; };
 /* Nodes for one effect: sound goes into `input` and comes out of `output`. */
 async function effectChain(c, kind) {
-  const gain = (v) => { const g = c.createGain(); g.gain.value = v; return g; };
-  const filter = (type, f, q = 0.7) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
-  if (kind === 'deep' || kind === 'chipmunk') {
-    await loadPitch();
-    const n = new AudioWorkletNode(c, 'pl-pitch', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { ratio: kind === 'deep' ? 0.72 : 1.6 } });
-    return { input: n, output: n, nodes: [n] };
-  }
+  const nodes = [];
+  const keep = (n) => { nodes.push(n); return n; };
+  const gain = (v) => { const g = keep(c.createGain()); g.gain.value = v; return g; };
+  const filter = (type, f, q = 0.7) => { const b = keep(c.createBiquadFilter()); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  const worklet = async (name, opts) => { await loadPitch(); return keep(new AudioWorkletNode(c, name, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: opts })); };
+  const pitch = (ratio) => worklet('pl-pitch', { ratio });
+  const shaper = (k) => { const w = keep(c.createWaveShaper()); w.curve = softClip(k); return w; };
+  // A delay whose length swings back and forth: the voice's pitch wobbles (vibrato), slow or fast.
+  const wobble = (rate, depth, base) => {
+    const d = keep(c.createDelay(0.1)), o = keep(c.createOscillator()), g = gain(depth);
+    d.delayTime.value = base; o.frequency.value = rate; o.connect(g); g.connect(d.delayTime); o.start();
+    return d;
+  };
+  // A room: an echo made of noise that dies away over `secs`.
+  const room = (secs, decay) => {
+    const cv = keep(c.createConvolver()), len = Math.floor(c.sampleRate * secs), b = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const x = b.getChannelData(ch); for (let i = 0; i < len; i++) x[i] = (Math.random() * 2 - 1) * (1 - i / len) ** decay; }
+    cv.buffer = b;
+    return cv;
+  };
+  const chain = (...ns) => { for (let i = 1; i < ns.length; i++) ns[i - 1].connect(ns[i]); return ns[ns.length - 1]; };
+  const done = (input, output) => ({ input, output, nodes });
+
+  if (kind === 'deep' || kind === 'chipmunk') { const n = await pitch(kind === 'deep' ? 0.72 : 1.6); return done(n, n); }
   if (kind === 'robot') {
     // A ring modulator (the voice times a 50 Hz tone) and a short metallic ring.
-    const ring = gain(0), osc = c.createOscillator(), comb = c.createDelay(0.05), fb = gain(0.55), out = gain(0.9);
+    const ring = gain(0), osc = keep(c.createOscillator()), comb = keep(c.createDelay(0.05)), fb = gain(0.55), out = gain(0.9);
     osc.frequency.value = 50; osc.connect(ring.gain); osc.start();
     comb.delayTime.value = 0.009;
     ring.connect(out); ring.connect(comb); comb.connect(fb); fb.connect(comb); comb.connect(out);
-    return { input: ring, output: out, nodes: [ring, osc, comb, fb, out] };
+    return done(ring, out);
   }
   if (kind === 'cave') {
-    const input = gain(1), d = c.createDelay(1), fb = gain(0.45), lp = filter('lowpass', 2200), wet = gain(0.55), out = gain(1);
+    const input = gain(1), d = keep(c.createDelay(1)), fb = gain(0.45), lp = filter('lowpass', 2200), wet = gain(0.55), out = gain(1);
     d.delayTime.value = 0.24;
     input.connect(out); input.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(wet); wet.connect(out);
-    return { input, output: out, nodes: [input, d, fb, lp, wet, out] };
+    return done(input, out);
   }
   if (kind === 'radio') {
-    const hp = filter('highpass', 450), lp = filter('lowpass', 3000), mid = filter('peaking', 1500, 1), shaper = c.createWaveShaper(), out = gain(0.7);
-    mid.gain.value = 6; shaper.curve = softClip(6);
-    hp.connect(lp); lp.connect(mid); mid.connect(shaper); shaper.connect(out);
-    return { input: hp, output: out, nodes: [hp, lp, mid, shaper, out] };
+    const hp = filter('highpass', 450), mid = filter('peaking', 1500, 1), out = gain(0.7);
+    mid.gain.value = 6;
+    chain(hp, filter('lowpass', 3000), mid, shaper(6), out);
+    return done(hp, out);
   }
+  if (kind === 'alien') {
+    // Higher, with a fast warble and a metallic swoosh.
+    const p = await pitch(1.3), w = wobble(8, 0.0012, 0.005), fb = gain(0.35), out = gain(0.9);
+    p.connect(w); w.connect(fb); fb.connect(w); w.connect(out);
+    return done(p, out);
+  }
+  if (kind === 'demon') {
+    // Much lower, doubled an octave further down, growly, in a big room.
+    const input = gain(1), low = await pitch(0.6), lower = await pitch(0.5), mix = gain(1), out = gain(0.85), wet = gain(0.3);
+    input.connect(low); input.connect(lower);
+    chain(low, gain(0.8), mix); chain(lower, gain(0.45), mix);
+    chain(mix, shaper(2.5), filter('lowpass', 3500), out);
+    chain(out, room(1.2, 3), wet);
+    const end = gain(1); out.connect(end); wet.connect(end);
+    return done(input, end);
+  }
+  if (kind === 'underwater') {
+    const lp = filter('lowpass', 550, 3), out = gain(1.6);
+    chain(lp, wobble(1.3, 0.003, 0.008), out);
+    return done(lp, out);
+  }
+  if (kind === 'arcade') {
+    const cr = await worklet('pl-crush', { rate: 5500, bits: 5 }), out = gain(1);
+    chain(cr, filter('lowpass', 6000), out);
+    return done(cr, out);
+  }
+  if (kind === 'wobbly') { const w = wobble(0.7, 0.018, 0.022); return done(w, w); }
+  if (kind === 'ghost') {
+    // A little higher, airy and shaky, mostly echo.
+    const hp = filter('highpass', 300), p = await pitch(1.1), w = wobble(5, 0.0008, 0.003), dry = gain(0.45), wet = gain(0.9), out = gain(1);
+    chain(hp, p, w);
+    w.connect(dry); dry.connect(out);
+    chain(w, room(3, 2), wet, out);
+    return done(hp, out);
+  }
+  if (kind === 'harmony') {
+    // Three of you singing together: your voice, a fifth below and a third above.
+    const input = gain(1), out = gain(0.75);
+    input.connect(out);
+    chain(input, await pitch(0.667), gain(0.55), out);
+    chain(input, await pitch(1.26), gain(0.45), out);
+    return done(input, out);
+  }
+  if (kind === 'stadium') {
+    // A stadium announcer: brighter, steadier, a slap back off the far stand and a huge room.
+    const hp = filter('highpass', 140), comp = keep(c.createDynamicsCompressor()), pres = filter('peaking', 3000, 1), slap = keep(c.createDelay(0.5)), out = gain(0.9);
+    comp.threshold.value = -26; comp.ratio.value = 4;
+    pres.gain.value = 4; slap.delayTime.value = 0.11;
+    chain(hp, comp, pres, out);
+    chain(pres, slap, gain(0.35), out);
+    chain(pres, room(2.2, 2.5), gain(0.5), out);
+    return done(hp, out);
+  }
+  if (kind === 'glitch') { const g = await worklet('pl-glitch', {}); return done(g, g); }
   return null;
 }
 export async function setVoiceFx(kind) {

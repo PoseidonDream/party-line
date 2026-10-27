@@ -22,7 +22,7 @@ export default async function (ok) {
     await b.reload();
     await b.waitForSelector('#newsDlg[open] .news-list li');
     const news = await b.textContent('#newsList');
-    ok('after an update, friends see what’s new (newest first)', news.includes('Home dashboard') && news.indexOf('Home dashboard') < news.indexOf('Better polls'));
+    ok('after an update, friends see what’s new (newest first)', news.includes('Meme soundboard') && news.indexOf('Meme soundboard') < news.indexOf('Home dashboard') && news.indexOf('Home dashboard') < news.indexOf('Better polls'));
     await b.screenshot({ path: `${RESULTS}/whats-new.png` });
     await b.click('#newsOk');
     await b.reload(); await b.waitForSelector('#room:not([hidden])'); await b.waitForTimeout(800);
