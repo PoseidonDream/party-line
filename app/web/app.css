@@ -1360,6 +1360,9 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 
 /* Voice effects */
 .fx-opts button { font-size: 13px; white-space: nowrap; }
+.lab-fx { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); max-width: 720px; }
+.lab-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 720px; }
+.lab-meter .meter { margin-top: 6px; }
 
 /* Streaks, achievements and level rewards */
 .name-legend { background: linear-gradient(100deg, var(--nc, #ffd76a) 0%, #fff 45%, var(--nc, #ffd76a) 60%, #ffb347 100%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: legend-shine 3.2s linear infinite; text-shadow: none; }

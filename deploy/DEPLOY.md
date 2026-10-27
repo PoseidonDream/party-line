@@ -224,6 +224,7 @@ It uses Claude Opus 5.5 at low effort, which answers well. To make it much cheap
 Signed in as the admin (Poseidon), click the **Home** button (top left) → **Developer**, under Friends. The Friends page also has a **Developer** button at the right of its tabs. You can also press **Ctrl+Shift+D** (Cmd+Shift+D on a Mac), or open the server menu → **Developer**. You'll see:
 - **Server:** the server's version (and the app you're using), how long it's been up, memory and storage, who's online, who's in which voice channel, **Health** (disk, memory, updates, backups), whether last night's backup worked, and **Download a backup**. If something needs you, Party Bot also messages you privately.
 - **My voice:** live numbers for each voice connection: direct or relayed, ping, lost packets, and how much sound is coming in and going out. "0 kbps" in red means sound stopped arriving from that friend.
+- **Voice check:** try every voice effect without joining a call (friends don't hear it). **Hear myself live** (with headphones), or **Record 5 seconds** and click through the effects to hear the same words each way. **Use … in calls** makes it your voice in calls.
 - **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
 - **Check a friend:** pulls a friend's live voice numbers to your screen. They get a short note that you checked.
 

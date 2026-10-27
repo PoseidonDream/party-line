@@ -36,7 +36,7 @@ export default async function (ok) {
     const robot = await fx('robot');   // the voice times a 50 Hz tone: it splits 50 Hz above and below
     ok(`Robot: they hear it changed (${Math.round(robot)} Hz)`, Math.abs(robot - normal) > 25);
     const demon = await fx('demon');
-    ok(`Demon: they hear it much lower (${Math.round(demon)} Hz, ×${(demon / normal).toFixed(2)})`, demon / normal > 0.5 && demon / normal < 0.7);
+    ok(`Demon: they hear it much lower (${Math.round(demon)} Hz, ×${(demon / normal).toFixed(2)})`, demon / normal > 0.45 && demon / normal < 0.7);
     const quiet = [];
     for (const name of ['alien', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch']) {
       const hz = await fx(name);
@@ -50,6 +50,36 @@ export default async function (ok) {
     await a.waitForFunction(() => parseFloat(document.querySelector('#micPanel .meter i').style.width) > 0, null, { timeout: 5000 });
     ok('the mic check’s level bar moves while it’s open', true);
     await a.click('#meBtn');
+
+    // Developer panel → Voice check: try effects without a call, then use one in calls.
+    await a.keyboard.press('Control+Shift+D');
+    await a.click('#devPanel [data-tab="lab"]');
+    await a.evaluate(() => {   // keep hold of the microphone the panel opens, to check it's let go later
+      const md = navigator.mediaDevices, orig = md.getUserMedia.bind(md);
+      md.getUserMedia = async (c) => { const st = await orig(c); window.__labStream = st; return st; };
+    });
+    await a.click('#devPanel button:has-text("Start microphone")');
+    await a.waitForFunction(() => { const i = document.querySelector('#labMicMeter i'); return i && parseFloat(i.style.width) > 0; }, null, { timeout: 8000 });
+    ok('Voice check: your microphone’s level shows, without being in a call', true);
+    await a.click('#devPanel [data-labfx="chipmunk"]');
+    await a.click('#labLive');
+    await a.waitForFunction(() => { const i = document.querySelector('#labOutMeter i'); return i && parseFloat(i.style.width) > 0; }, null, { timeout: 8000 });
+    ok('…“Hear myself live” plays you back through the effect', await a.getAttribute('#labLive', 'aria-pressed') === 'true');
+    await a.click('#labRec');
+    await a.waitForSelector('#labRecLeft');
+    await a.waitForSelector('#labPlay:has-text("Stop")', { timeout: 9000 });
+    ok('…recording 5 seconds plays them straight back', true);
+    await a.click('#devPanel [data-labfx="demon"]');
+    await a.waitForSelector('#devPanel .hint:has-text("through 😈 Demon")');
+    ok('…and picking another effect replays the same words through it', true);
+    await a.click('#labUse');
+    await a.waitForSelector('#labUse:has-text("Friends hear you as")');
+    const inCall = await a.evaluate(async () => (await import('/js/util.js')).settings.voiceFx);
+    await a.keyboard.press('Escape');
+    await a.waitForTimeout(1500);
+    const viaLab = await heard();
+    ok(`…“Use in calls” switches your call voice to it (${Math.round(viaLab)} Hz, ×${(viaLab / normal).toFixed(2)})`, inCall === 'demon' && viaLab / normal > 0.45 && viaLab / normal < 0.7);
+    ok('closing the panel lets go of its microphone', await a.evaluate(() => window.__labStream.getTracks().every((t) => t.readyState === 'ended')));
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }

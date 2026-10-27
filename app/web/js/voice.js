@@ -165,6 +165,9 @@ async function effectChain(c, kind) {
   if (kind === 'glitch') { const g = await worklet('pl-glitch', {}); return done(g, g); }
   return null;
 }
+/* For the developer panel's voice check: the same effects on any sound, and a microphone of its own. */
+export const buildEffect = (kind) => effectChain(audioCtx(), kind);
+export const testMic = () => acquireMic(settings.micId).catch(() => acquireMic(''));
 export async function setVoiceFx(kind) {
   if (!VOICE_FX.includes(kind) || settings.voiceFx === kind) return;
   settings.voiceFx = kind; saveSettings();

@@ -4204,6 +4204,7 @@ initDev({
   appLabel: () => S.appLabel || '',
   avatar: (u) => { if (!S.users.has(u.id)) S.users.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, admin: u.admin, online: false }); return avEl(u.id); },
   resetPassword,
+  voiceLab: { effects: VOICE_FX, current: () => settings.voiceFx, use: (k) => Voice.setVoiceFx(k).then(syncFx), build: Voice.buildEffect, mic: Voice.testMic },
 });
 $('#mDev').addEventListener('click', () => { closeMenu(); openDev(); });
 $('#devOpen').addEventListener('click', () => { $('#settings').close(); openDev(); });

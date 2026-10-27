@@ -1,7 +1,7 @@
 /* Developer panel (admins only) and the event log every app keeps.
    Voice events and errors are also reported to the server, so an admin can see what went wrong on a friend's device. */
 import { live, api } from './net.js';
-import { fmtTime, fmtSize, toast } from './util.js';
+import { fmtTime, fmtSize, toast, audioCtx, level } from './util.js';
 
 /* ---------- the log ---------- */
 export const events = [];   // this device, newest last
@@ -57,6 +57,7 @@ function build() {
       <button type="button" class="tab" role="tab" data-tab="overview">Server</button>
       <button type="button" class="tab" role="tab" data-tab="everyone">Everyone</button>
       <button type="button" class="tab" role="tab" data-tab="voice">My voice</button>
+      <button type="button" class="tab" role="tab" data-tab="lab">Voice check</button>
       <button type="button" class="tab" role="tab" data-tab="log">Log</button>
       <button type="button" class="tab" role="tab" data-tab="audit">Admin log</button>
       <button type="button" class="tab" role="tab" data-tab="people">Check a friend</button>
@@ -64,8 +65,8 @@ function build() {
     <div class="dev-body" id="devBody"></div>`;
   document.body.appendChild(dlg);
   dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
-  dlg.addEventListener('close', () => { clearInterval(timer); timer = 0; });
-  dlg.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+  dlg.addEventListener('close', () => { clearInterval(timer); timer = 0; stopLab(); });
+  dlg.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { if (tab === 'lab' && b.dataset.tab !== 'lab') stopLab(); tab = b.dataset.tab; render(); }));
 }
 export function openDev() {
   if (!ctx || !ctx.isAdmin()) return;
@@ -89,6 +90,7 @@ async function render() {
   else if (tab === 'voice') renderVoice();
   else if (tab === 'log') renderLog();
   else if (tab === 'audit') renderAudit();
+  else if (tab === 'lab') renderLab();
   else renderPeople();
 }
 const body = () => dlg.querySelector('#devBody');
@@ -267,6 +269,147 @@ async function renderVoice() {
   btn('Copy report', () => navigator.clipboard.writeText(JSON.stringify({ diagnostics: d, events: events.slice(-80) }, null, 2)).then(() => toast('Copied.', 1500)));
   b.appendChild(row);
   b.appendChild(el('p', 'hint', 'In and Out should stay above about 10 kbps while you’re connected. 0 kbps in red means audio stopped arriving from that friend.'));
+}
+
+/* ---------- Voice check: try the voice effects without being in a call ----------
+   Its own microphone, so it works anywhere and friends in a call never hear it. Sound goes
+   (live mic or a 5-second recording) → input → the effect → out → your speakers. */
+const lab = { stream: null, source: null, micAn: null, input: null, out: null, outAn: null, chain: null, fx: 'none', seq: 0, live: false, rec: null, recAt: 0, buffer: null, player: null, raf: 0, note: '' };
+const freeChain = (ch) => { for (const n of (ch && ch.nodes) || []) { try { n.stop && n.stop(); } catch {} try { n.disconnect(); } catch {} } };
+const fxName = (k) => { const f = ctx.voiceLab.effects.find(([key]) => key === k); return f ? `${f[1]} ${f[2]}` : k; };
+async function labWire() {
+  const c = audioCtx(), my = ++lab.seq;
+  if (!lab.input) {
+    lab.input = c.createGain(); lab.out = c.createGain(); lab.outAn = c.createAnalyser(); lab.outAn.fftSize = 512;
+    lab.out.connect(lab.outAn); lab.out.connect(c.destination);
+  }
+  let chain = null;
+  try { chain = await ctx.voiceLab.build(lab.fx); } catch { toast('That effect can’t run on this device.', 3000); }
+  if (my !== lab.seq) { freeChain(chain); return; }   // another effect was picked meanwhile
+  try { lab.input.disconnect(); } catch {}
+  freeChain(lab.chain); lab.chain = chain;
+  if (chain) { lab.input.connect(chain.input); chain.output.connect(lab.out); } else lab.input.connect(lab.out);
+}
+async function labStartMic() {
+  try { lab.stream = await ctx.voiceLab.mic(); }
+  catch { lab.note = 'The microphone didn’t start. Check that Party Line is allowed to use it.'; renderLab(); return; }
+  const c = audioCtx();
+  lab.source = c.createMediaStreamSource(lab.stream);
+  lab.micAn = c.createAnalyser(); lab.micAn.fftSize = 512; lab.source.connect(lab.micAn);
+  lab.note = '';
+  await labWire();
+  renderLab();
+}
+function labSetLive(on) {
+  lab.live = !!on && !!lab.source;
+  try { lab.source && lab.source.disconnect(lab.input); } catch {}
+  if (lab.live) { labStopPlay(); lab.source.connect(lab.input); }
+  renderLab();
+}
+function labStopPlay() { const p = lab.player; lab.player = null; if (p) { try { p.stop(); } catch {} try { p.disconnect(); } catch {} } }
+function labPlay() {
+  if (!lab.buffer || !lab.input) return;
+  labStopPlay();
+  const s = audioCtx().createBufferSource(); s.buffer = lab.buffer; s.connect(lab.input);
+  s.onended = () => { if (lab.player === s) { lab.player = null; renderLab(); } };
+  s.start(); lab.player = s;
+  renderLab();
+}
+function labRecord() {
+  if (!lab.stream || lab.rec || typeof MediaRecorder !== 'function') return;
+  if (lab.live) labSetLive(false);
+  labStopPlay();
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+  const rec = new MediaRecorder(lab.stream, mime ? { mimeType: mime } : undefined), chunks = [];
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = async () => {
+    if (lab.rec !== rec) return;
+    lab.rec = null;
+    try { lab.buffer = await audioCtx().decodeAudioData(await new Blob(chunks, { type: rec.mimeType }).arrayBuffer()); lab.note = ''; labPlay(); }
+    catch { lab.note = 'Couldn’t play the recording back on this device. Try “Hear myself live” instead.'; renderLab(); }
+  };
+  lab.rec = rec; lab.recAt = Date.now();
+  rec.start();
+  setTimeout(() => { if (rec.state !== 'inactive') rec.stop(); }, 5000);
+  renderLab();
+}
+async function labPick(k) {
+  lab.fx = k;
+  renderLab();
+  if (!lab.input) return;
+  await labWire();
+  if (lab.buffer && !lab.live && !lab.rec) labPlay();   // hear the same recording through the new effect
+}
+function stopLab() {
+  cancelAnimationFrame(lab.raf); lab.raf = 0;
+  if (lab.rec) { const r = lab.rec; lab.rec = null; try { r.stop(); } catch {} }
+  labStopPlay();
+  lab.live = false;
+  try { lab.source && lab.source.disconnect(); } catch {}
+  if (lab.stream) lab.stream.getTracks().forEach((t) => t.stop());
+  lab.stream = null; lab.source = null; lab.micAn = null;
+  freeChain(lab.chain); lab.chain = null; lab.seq++;
+  try { lab.input && lab.input.disconnect(); } catch {}
+  try { lab.out && lab.out.disconnect(); } catch {}
+  lab.input = null; lab.out = null; lab.outAn = null;
+}
+function labMeters() {
+  lab.raf = 0;
+  if (!dlg || !dlg.open || tab !== 'lab') return;
+  const set = (id, an) => { const i = dlg.querySelector(`#${id} i`); if (i) i.style.width = `${Math.min(100, level(an) * 400)}%`; };
+  set('labMicMeter', lab.micAn); set('labOutMeter', lab.outAn);
+  const t = dlg.querySelector('#labRecLeft');
+  if (t && lab.rec) t.textContent = `Recording… ${Math.max(0, Math.ceil(5 - (Date.now() - lab.recAt) / 1000))}`;
+  lab.raf = requestAnimationFrame(labMeters);
+}
+function renderLab() {
+  if (!dlg || !dlg.open || tab !== 'lab') return;
+  const b = body(); b.textContent = '';
+  b.appendChild(el('p', 'hint', 'Try the voice effects without joining a call. Only you hear this — friends in a call don’t.'));
+  const btn = (label, fn, cls = 'btn small') => { const x = el('button', cls, label); x.type = 'button'; x.addEventListener('click', fn); return x; };
+  if (!lab.stream) {
+    const row = el('div', 'pop-btns dev-actions');
+    row.appendChild(btn('🎤 Start microphone', labStartMic, 'btn primary'));
+    b.appendChild(row);
+  } else {
+    const meters = el('div', 'lab-meters');
+    for (const [id, label] of [['labMicMeter', 'Your microphone'], ['labOutMeter', 'What comes out']]) {
+      const m = el('div', 'lab-meter'); m.appendChild(el('span', 'dev-label', label));
+      const bar = el('div', 'meter'); bar.id = id; bar.appendChild(el('i')); m.appendChild(bar); meters.appendChild(m);
+    }
+    b.appendChild(meters);
+  }
+  if (lab.note) b.appendChild(el('p', 'error', lab.note));
+
+  b.appendChild(el('h3', 'dev-h', 'Effect'));
+  const opts = el('div', 'dis-opts fx-opts lab-fx'); opts.setAttribute('role', 'radiogroup'); opts.setAttribute('aria-label', 'Effect to try');
+  for (const [key, emoji, name] of ctx.voiceLab.effects) {
+    const x = btn(`${emoji} ${name}`, () => labPick(key), ''); x.setAttribute('role', 'radio'); x.dataset.labfx = key;
+    x.setAttribute('aria-checked', String(key === lab.fx)); opts.appendChild(x);
+  }
+  b.appendChild(opts);
+
+  b.appendChild(el('h3', 'dev-h', 'Listen'));
+  const row = el('div', 'pop-btns dev-actions');
+  const liveBtn = btn(lab.live ? '🎧 Stop hearing myself' : '🎧 Hear myself live', () => labSetLive(!lab.live));
+  liveBtn.id = 'labLive'; liveBtn.setAttribute('aria-pressed', String(lab.live)); liveBtn.disabled = !lab.stream;
+  const recBtn = btn('⏺ Record 5 seconds', labRecord); recBtn.id = 'labRec'; recBtn.disabled = !lab.stream || !!lab.rec;
+  if (lab.rec) { recBtn.textContent = ''; const t = el('span', null, 'Recording… 5'); t.id = 'labRecLeft'; recBtn.appendChild(t); }
+  const playBtn = btn(lab.player ? '⏹ Stop' : '▶ Play it back', () => (lab.player ? (labStopPlay(), renderLab()) : labPlay())); playBtn.id = 'labPlay'; playBtn.disabled = !lab.buffer || !!lab.rec;
+  row.append(liveBtn, recBtn, playBtn);
+  b.appendChild(row);
+  b.appendChild(el('p', 'hint', lab.live ? 'Wear headphones, or it echoes.'
+    : lab.buffer ? `Playing your recording${lab.player ? ` through ${fxName(lab.fx)}` : ''}. Click another effect to hear the same words through it.`
+      : 'Record yourself saying something, then click through the effects to hear it each way. No headphones needed.'));
+
+  b.appendChild(el('h3', 'dev-h', 'In calls'));
+  const use = el('div', 'pop-btns dev-actions');
+  const cur = ctx.voiceLab.current();
+  const useBtn = btn(cur === lab.fx ? `✓ Friends hear you as ${fxName(lab.fx)}` : `Use ${fxName(lab.fx)} in calls`, async () => { await ctx.voiceLab.use(lab.fx); toast(lab.fx === 'none' ? 'Voice effect off in calls.' : `In calls, friends now hear you as ${fxName(lab.fx)}.`, 3000); renderLab(); });
+  useBtn.id = 'labUse'; useBtn.disabled = cur === lab.fx;
+  use.appendChild(useBtn);
+  b.appendChild(use);
+  if (!lab.raf && lab.stream) lab.raf = requestAnimationFrame(labMeters);
 }
 
 /* ---------- Log ---------- */
