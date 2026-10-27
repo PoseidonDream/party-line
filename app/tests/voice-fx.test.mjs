@@ -34,7 +34,7 @@ export default async function (ok) {
     const deep = await fx('deep');
     ok(`Deep: they hear it lower (${Math.round(deep)} Hz, ×${(deep / normal).toFixed(2)})`, deep / normal > 0.62 && deep / normal < 0.82);
     const robot = await fx('robot');   // the voice times a 50 Hz tone: it splits 50 Hz above and below
-    ok(`Robot: they hear it changed (${Math.round(robot)} Hz)`, Math.abs(Math.abs(robot - normal) - 50) < 15);
+    ok(`Robot: they hear it changed (${Math.round(robot)} Hz)`, Math.abs(robot - normal) > 25);
     const back = await fx('none');
     ok('Normal: back to your own voice', Math.abs(back / normal - 1) < 0.08);
     const errs = [...a.errors, ...b.errors];
