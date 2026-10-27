@@ -1892,7 +1892,8 @@ $('#stageClipBtn').addEventListener('click', async () => {
     const c = await clipBuf.clip();
     if (!c || c.blob.size < 2000) { toast('Nothing to clip yet. Try again in a few seconds.', 3500); return; }
     toast('🎬 Saving the clip…', 2500);
-    const file = new File([await withDuration(c.blob, c.ms)], `Clip of ${of === S.me.id ? 'my' : `${nameOf(of)}’s`} screen (${c.seconds}s).webm`, { type: c.blob.type || 'video/webm' });
+    const type = c.blob.type || 'video/webm', ext = /mp4/.test(type) ? 'mp4' : 'webm';   // Safari records MP4
+    const file = new File([await withDuration(c.blob, c.ms)], `Clip of ${of === S.me.id ? 'my' : `${nameOf(of)}’s`} screen (${c.seconds}s).${ext}`, { type });
     const up = await upload('/api/upload', file);
     const r = await live.req('clip.post', { upload: up.id, of });
     const f = findChannel(r.channelId);

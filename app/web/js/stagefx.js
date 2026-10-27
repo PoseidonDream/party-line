@@ -89,7 +89,7 @@ export function createClipBuffer(seconds = 30) {
   const recs = [null, null];
   const mimeFor = (s) => {
     const audio = s.getAudioTracks().length;
-    return [audio ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+    return [audio ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';   // MP4: Safari
   };
   function start(slot) {
     if (!stream) return;
