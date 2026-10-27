@@ -5,7 +5,7 @@ import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, h
 import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
 import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './music.js';
-import { builtinSounds, playSound, soundLength } from './sounds.js';
+import { builtinSounds, playSound, openClip, clipToWav, previewClip, MAX_CLIP } from './sounds.js';
 import { createDrawLayer, createClipBuffer, clipsSupported } from './stagefx.js';
 import { withDuration } from './webm.js';
 const { V } = Voice;
@@ -358,6 +358,10 @@ live.on('voice', (d) => {
     if (prev && prev.channelId === V.channelId && st.channelId !== V.channelId) chime('leave', V.deafened);
   }
   if (S.watching === st.userId && !st.sharing && !(st.userId === S.me.id && V.sharing)) S.watching = null;
+  // Someone in your voice channel started sharing their screen (or came in sharing): offer to watch.
+  if (V.channelId && S.me && st.userId !== S.me.id && st.sharing && st.channelId === V.channelId && !(prev && prev.sharing && prev.channelId === V.channelId) && S.watching !== st.userId) {
+    toast(`${nameOf(st.userId)} is sharing their screen.`, 9000, { label: 'Watch', fn: () => watchScreen(st.userId) });
+  }
   renderVoiceBits();
 });
 live.on('voice.left', (d) => {
@@ -702,7 +706,11 @@ function renderSide() {
           mb.dataset.uid = p.userId;
           mb.appendChild(avEl(p.userId));
           const nm = document.createElement('span'); nm.className = 'member-name'; nameInto(nm, p.userId, s); addCrown(nm, p.userId); mb.appendChild(nm);
-          if (p.sharing) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; mb.appendChild(l); peekOn(mb, p.userId); }
+          if (p.sharing) {
+            const l = document.createElement('span'); l.className = 'chan-live watch'; l.textContent = 'LIVE'; l.title = 'Watch their screen';
+            l.addEventListener('click', (e) => { e.stopPropagation(); $('#livePeek').hidden = true; watchScreen(p.userId); });
+            mb.appendChild(l); peekOn(mb, p.userId);
+          }
           if (p.deafened) mb.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
           else if (p.muted || p.serverMuted) mb.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
           mb.addEventListener('click', (e) => openUserPop(p.userId, e.currentTarget));
@@ -1756,6 +1764,16 @@ async function joinVoice(channelId) {
   catch (e) { toast(e.message || 'Couldn’t join voice.', 4500); }
   renderVoiceBits();
 }
+/* Watch someone's screen share: joins their voice channel first if you're not in it, then puts it on the big stage. */
+async function watchScreen(userId) {
+  const st = S.voice.get(userId);
+  if (!st || !st.sharing) { toast('They stopped sharing.', 3000); return; }
+  if (V.channelId !== st.channelId) { await joinVoice(st.channelId); if (V.channelId !== st.channelId) return; }
+  S.watching = userId;
+  const f = findChannel(st.channelId);
+  if (S.view.kind !== 'voice' || S.view.channelId !== st.channelId) setView({ kind: 'voice', serverId: f ? f.server.id : V.serverId, channelId: st.channelId });
+  else renderVoiceView();
+}
 function renderVoiceView() {
   const chId = S.view.channelId;
   const people = voiceIn(chId);
@@ -2172,7 +2190,7 @@ function peekOn(el, userId) {
   const show = () => {
     const img = S.previews.get(userId), box = $('#livePeek');
     $('#livePeekImg').hidden = !img; if (img) $('#livePeekImg').src = img;
-    $('#livePeekText').textContent = `${nameOf(userId)} is sharing their screen${img ? '' : ' (preview coming)'} · click the channel to watch`;
+    $('#livePeekText').textContent = `${nameOf(userId)} is sharing their screen${img ? '' : ' (preview coming)'} · click LIVE to watch`;
     box.hidden = false;
     const r = el.getBoundingClientRect();
     box.style.left = `${Math.min(innerWidth - box.offsetWidth - 8, r.right + 8)}px`;
@@ -2213,6 +2231,7 @@ function openUserPop(id, anchor) {
     $('#volMute').checked = !!pref.mute;
   }
   const isBot = !!user(id).bot;
+  $('#popWatch').hidden = isMe || !(vst && vst.sharing) || S.watching === id;
   $('#popMsg').hidden = isMe || isBot;
   const fs = S.friends.get(id);
   const fb = $('#popFriend');
@@ -2309,6 +2328,7 @@ function setPref(id, patch) { friendVols[id] = Object.assign(Voice.peerPrefs(id)
 $('#volRange').addEventListener('input', (e) => { $('#volOut').textContent = `${e.target.value}%`; $('#volOut').classList.toggle('boost', e.target.value > 100); setPref(S.popUser, { vol: e.target.value / 100 }); });
 $('#volMute').addEventListener('change', (e) => { setPref(S.popUser, { mute: e.target.checked }); renderVoiceBits(); });
 $('#volReset').addEventListener('click', () => { $('#volRange').value = 100; $('#volOut').textContent = '100%'; setPref(S.popUser, { vol: 1, mute: false }); $('#volMute').checked = false; });
+$('#popWatch').addEventListener('click', () => { const id = S.popUser; closeUserPop(); watchScreen(id); });
 $('#popMsg').addEventListener('click', () => { const id = S.popUser; closeUserPop(); setView({ kind: 'dm', userId: id }); });
 $('#popFriend').addEventListener('click', async () => {
   const id = S.popUser;
@@ -4064,36 +4084,75 @@ function openSoundboard() {
   renderSoundboard();
   $('#soundVol').value = settings.soundVolume ?? 60;
   $('#soundForm').hidden = true; $('#soundAddBtn').hidden = false;
-  const pop = $('#soundPop'); pop.hidden = false;
-  const r = $('#soundBtn').getBoundingClientRect();
-  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left))}px`;
-  pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+  $('#soundPop').hidden = false;
+  placeSoundPop();
   $('#soundBtn').setAttribute('aria-expanded', 'true');
 }
-function closeSoundboard() { $('#soundPop').hidden = true; $('#soundBtn').setAttribute('aria-expanded', 'false'); soundKeysMode = false; keyCapture = null; }
+/* Above the soundboard button, and kept on screen as the Add a sound form grows. */
+function placeSoundPop() {
+  const pop = $('#soundPop'), r = $('#soundBtn').getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left))}px`;
+  pop.style.top = `${Math.max(8, Math.min(r.top - pop.offsetHeight - 8, innerHeight - pop.offsetHeight - 8))}px`;
+}
+function closeSoundboard() { $('#soundPop').hidden = true; $('#soundBtn').setAttribute('aria-expanded', 'false'); soundKeysMode = false; keyCapture = null; endPreview(); }
 $('#soundBtn').addEventListener('click', () => ($('#soundPop').hidden ? openSoundboard() : closeSoundboard()));
 document.addEventListener('pointerdown', (e) => { if (!$('#soundPop').hidden && !e.target.closest('#soundPop, #soundBtn, #confirmDlg')) closeSoundboard(); });
 $('#soundVol').addEventListener('input', () => { settings.soundVolume = Number($('#soundVol').value); saveSettings(); });
-let soundFile = null;
-$('#soundAddBtn').addEventListener('click', () => { soundFile = null; $('#soundName').value = ''; $('#soundEmoji').value = '🔊'; $('#soundFileName').textContent = 'Pick a short clip: up to 7 seconds and 1 MB.'; $('#soundForm').hidden = false; $('#soundAddBtn').hidden = true; });
+/* Adding a sound: any audio or video file; for a long one, pick which part (up to 7 seconds) with Start and Length. */
+let clip = null, stopPreview = null;   // clip: { buf, name }
+const SOUND_HINT = 'Pick any audio or video file and use up to 7 seconds of it. Everyone can add up to 10 sounds.';
+const secsLabel = (x) => `${Math.floor(x / 60)}:${(x % 60).toFixed(1).padStart(4, '0')}`;
+function endPreview() { if (stopPreview) { stopPreview(); stopPreview = null; } $('#soundPreview').textContent = '▶ Preview'; }
+function syncTrim() {
+  if (!clip) return;
+  const dur = clip.buf.duration, len = Math.min(Number($('#soundLen').value), dur);
+  $('#soundStart').max = String(Math.max(0, Math.floor((dur - len) * 10) / 10));
+  const start = Math.min(Number($('#soundStart').value), Number($('#soundStart').max));
+  $('#soundStart').disabled = Number($('#soundStart').max) === 0;
+  $('#soundRange').textContent = `${secsLabel(start)} – ${secsLabel(start + len)} (${len.toFixed(1)} s)`;
+  return { start, len };
+}
+function resetSoundForm() {
+  endPreview(); clip = null;
+  $('#soundName').value = ''; $('#soundEmoji').value = '🔊'; $('#soundFileName').textContent = SOUND_HINT; $('#soundTrim').hidden = true;
+}
+$('#soundAddBtn').addEventListener('click', () => { resetSoundForm(); $('#soundForm').hidden = false; $('#soundAddBtn').hidden = true; placeSoundPop(); });
 $('#soundPick').addEventListener('click', () => $('#soundFile').click());
 $('#soundFile').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
-  if (f.size > 1048576) { toast('That file is over 1 MB. Use a shorter clip.', 4000); return; }
-  let secs = 0;
-  try { secs = await soundLength(f); } catch { toast('That doesn’t look like an audio file this device can play.', 4000); return; }
-  if (secs > 7.5) { toast(`That clip is ${Math.round(secs)} seconds long. Sounds can be up to 7 seconds.`, 4500); return; }
-  soundFile = f;
-  $('#soundFileName').textContent = `${f.name} · ${secs.toFixed(1)} s`;
-  if (!$('#soundName').value) $('#soundName').value = f.name.replace(/\.\w+$/, '').slice(0, 24);
+  if (f.size > 50 * 1048576) { toast('That file is over 50 MB. Pick a smaller one.', 4000); return; }
+  endPreview();
+  $('#soundFileName').textContent = `Opening ${f.name}…`;
+  let buf;
+  try { buf = await openClip(f); } catch { clip = null; $('#soundTrim').hidden = true; $('#soundFileName').textContent = SOUND_HINT; toast('This device can’t play the sound in that file. Try an MP3, WAV or MP4.', 4500); return; }
+  const autoName = clip && clip.autoName;   // a name we filled in from the last file follows the new file
+  clip = { buf, name: f.name, autoName: f.name.replace(/\.\w+$/, '').slice(0, 24) };
+  $('#soundFileName').textContent = `${f.name} · ${buf.duration.toFixed(1)} s${buf.duration > MAX_CLIP + 0.05 ? ` · pick up to ${MAX_CLIP} seconds of it` : ''}`;
+  $('#soundLen').max = String(Math.max(0.3, Math.min(MAX_CLIP, Math.floor(buf.duration * 10) / 10)));
+  $('#soundLen').value = $('#soundLen').max; $('#soundStart').value = '0';
+  $('#soundTrim').hidden = false;
+  syncTrim(); placeSoundPop();
+  if (!$('#soundName').value || $('#soundName').value === autoName) $('#soundName').value = clip.autoName;
+});
+for (const id of ['#soundStart', '#soundLen']) $(id).addEventListener('input', () => { endPreview(); syncTrim(); });
+$('#soundPreview').addEventListener('click', () => {
+  if (stopPreview) { endPreview(); return; }
+  const t = syncTrim(); if (!t) return;
+  stopPreview = previewClip(clip.buf, t.start, t.len, (settings.soundVolume ?? 60) / 100, endPreview);
+  $('#soundPreview').textContent = '⏹ Stop';
 });
 $('#soundForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!soundFile) { toast('Choose an audio file first.', 3000); return; }
-  const sid = voiceServerId();
-  const r = await act(async () => { const up = await upload('/api/upload', soundFile); return live.req('sound.add', { serverId: sid, uploadId: up.id, name: $('#soundName').value, emoji: $('#soundEmoji').value.trim() }); }, 'Sound added to the soundboard.');
-  if (r) { $('#soundForm').hidden = true; $('#soundAddBtn').hidden = false; }
+  if (!clip) { toast('Choose a file first.', 3000); return; }
+  endPreview();
+  const sid = voiceServerId(), t = syncTrim(), name = $('#soundName').value;
+  const r = await act(async () => {
+    const wav = new File([await clipToWav(clip.buf, t.start, t.len)], `${name.trim() || 'sound'}.wav`, { type: 'audio/wav' });
+    const up = await upload('/api/upload', wav);
+    return live.req('sound.add', { serverId: sid, uploadId: up.id, name, emoji: $('#soundEmoji').value.trim() });
+  }, 'Sound added to the soundboard.');
+  if (r) { resetSoundForm(); $('#soundForm').hidden = true; $('#soundAddBtn').hidden = false; }
 });
 
 /* ================= events ================= */

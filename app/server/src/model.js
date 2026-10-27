@@ -896,13 +896,16 @@ export function gameVotesDue(minute) {
 const soundView = (r) => ({ id: r.id, serverId: r.server_id, userId: r.user_id, name: r.name, emoji: r.emoji || '🔊', url: `/uploads/${r.upload_id}` });
 export const soundsOf = (serverId) => all('SELECT * FROM sounds WHERE server_id = ? ORDER BY id', serverId).map(soundView);
 export const getSound = (id) => one('SELECT * FROM sounds WHERE id = ?', id);
+export const SOUNDS_EACH = 10, SOUNDS_MAX = 100;
 export function addSound(userId, serverId, d) {
   const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
   if (!name) fail('Give the sound a name.');
   const up = one('SELECT * FROM uploads WHERE id = ? AND user_id = ?', String(d.uploadId || ''), userId);
   if (!up || !up.type.startsWith('audio/')) fail('Pick an audio file (MP3, WAV, OGG or M4A).');
   if (up.size > 1048576) fail('Sounds can be up to 1 MB. Use a shorter clip.');
-  if (one('SELECT COUNT(*) AS n FROM sounds WHERE server_id = ?', serverId).n >= 30) fail('This server already has 30 sounds. Remove one first.');
+  // Everyone can add sounds: up to 10 each, so nobody fills the board for the others, and 100 in a server.
+  if (one('SELECT COUNT(*) AS n FROM sounds WHERE server_id = ? AND user_id = ?', serverId, userId).n >= SOUNDS_EACH) fail(`You’ve added ${SOUNDS_EACH} sounds here already. Remove one of yours first.`);
+  if (one('SELECT COUNT(*) AS n FROM sounds WHERE server_id = ?', serverId).n >= SOUNDS_MAX) fail(`This server already has ${SOUNDS_MAX} sounds. Remove one first.`);
   const emoji = EMOJI.test(String(d.emoji || '')) ? String(d.emoji) : '🔊';
   run('INSERT INTO sounds (server_id, user_id, name, emoji, upload_id, created_at) VALUES (?, ?, ?, ?, ?, ?)', serverId, userId, name, emoji, up.id, now());
 }

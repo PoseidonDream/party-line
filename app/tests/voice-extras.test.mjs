@@ -36,6 +36,24 @@ export default async function (ok) {
     ok('hovering LIVE shows a snapshot of their screen before you join', (await b.textContent('#livePeekText')).includes('Poseidon is sharing'));
     await b.screenshot({ path: `${RESULTS}/live-peek.png` });
 
+    // Three ways to start watching
+    await b.evaluate(() => { window.PL_MUTED_MS = 3_600_000; });
+    await b.click(`${live} .chan-live`);
+    await b.waitForSelector('#stage:not([hidden])', { timeout: 10000 });
+    await b.waitForFunction(() => document.querySelector('#stageVideo').videoWidth > 0, null, { timeout: 15000 });
+    ok('clicking LIVE in the channel list takes you into their channel and shows their screen', (await b.textContent('#stageTitle')).includes('Poseidon'));
+    await b.click('#stageClose');
+    await b.click('#voiceList .member:has-text("Poseidon")');
+    await b.click('#popWatch');
+    await b.waitForSelector('#stage:not([hidden])');
+    ok('their profile card has “Watch screen” while they share', true);
+    await b.click('#stageClose');
+    await a.click('#shareBtn'); await a.waitForSelector('#shareBtn:not(.on)');
+    await a.click('#shareBtn'); await a.waitForSelector('#shareBtn.on', { timeout: 8000 });
+    await b.click('.toast:has-text("Poseidon is sharing their screen") button:has-text("Watch")', { timeout: 10000 });
+    await b.waitForSelector('#stage:not([hidden])');
+    ok('when someone in your channel starts sharing, a note offers to watch it', true);
+
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }

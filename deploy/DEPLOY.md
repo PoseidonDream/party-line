@@ -150,7 +150,8 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 ## What friends can do
 
 - **Chat:** messages, replies, reactions, @mentions, editing, search (Ctrl+K), **pinned messages** (the Pinned button lists them), **link previews** (YouTube links play right in the chat), photos, videos and **any file** up to 25 MB, and **voice messages** (the mic button in the message box).
-- **Voice:** voice channels with screen sharing, camera, noise filter, push to talk, the **soundboard** (16 meme sounds, plus short clips your server adds), and Listen together (see Party Bot below).
+- **Voice:** voice channels with screen sharing, camera, noise filter, push to talk, the **soundboard** (16 meme sounds, plus up to 10 clips each member adds: any audio or video file, trimmed to 7 seconds), and Listen together (see Party Bot below).
+- **Watching a screen share:** click the red **LIVE** next to the person's name in the channel list (it joins the call for you), press **Watch** on the note that pops up when someone in your call starts sharing, or press **LIVE** on their picture. To share your own screen, press the screen button in the voice bar.
 - **Private chats:** one-to-one chats, **group chats** for 3 to 10 people (the + next to Private chats), and **calls** in either (the Call button). Starting a call rings the others.
 - **You:** click your picture at the bottom left to set **Online, Idle, Do not disturb or Invisible** and a custom status. Settings has **About me** and a banner color. The desktop app shows **"Playing ..."** when you're in a known game (switch it off in the tray menu).
 - **Events:** the Events button in a server plans things like game night. Friends answer Going or Maybe, and Party Bot reminds everyone going 15 minutes before.

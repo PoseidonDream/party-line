@@ -210,7 +210,31 @@ export function renderBuiltin(id, secs = 4) {
   SYNTH[id](c, out, 0.02);
   return c.startRendering();
 }
-/* How long an audio file is, to keep uploads short. */
-export function soundLength(file) {
-  return file.arrayBuffer().then((b) => audio().decodeAudioData(b)).then((buf) => buf.duration);
+/* Adding a sound: any audio or video file this device can play is opened, and the part you pick (up to 7
+   seconds) becomes a small WAV file that plays everywhere, at a steady loudness. */
+export const MAX_CLIP = 7;
+export async function openClip(file) { return audio().decodeAudioData(await file.arrayBuffer()); }
+export async function clipToWav(buf, start, len) {
+  const rate = Math.min(48000, buf.sampleRate), n = Math.max(1, Math.round(len * rate));
+  const c = new OfflineAudioContext(1, n, rate), src = c.createBufferSource();
+  src.buffer = buf; src.connect(c.destination); src.start(0, start, len);
+  const d = (await c.startRendering()).getChannelData(0);
+  let peak = 0; for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  const gain = peak > 0 ? Math.min(4, 0.9 / peak) : 1, fade = Math.min(d.length / 2, Math.round(rate * 0.01));
+  const out = new DataView(new ArrayBuffer(44 + d.length * 2)), str = (o, t) => { for (let i = 0; i < t.length; i++) out.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); out.setUint32(4, 36 + d.length * 2, true); str(8, 'WAVE'); str(12, 'fmt '); out.setUint32(16, 16, true);
+  out.setUint16(20, 1, true); out.setUint16(22, 1, true); out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true);
+  str(36, 'data'); out.setUint32(40, d.length * 2, true);
+  for (let i = 0; i < d.length; i++) {
+    const edge = Math.min(1, i / fade, (d.length - 1 - i) / fade);   // a 10 ms fade at both ends, so a cut never clicks
+    out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i] * gain * edge)) * 0x7fff, true);
+  }
+  return new Blob([out.buffer], { type: 'audio/wav' });
+}
+/* Plays part of a clip to you alone (the Preview button). Returns a function that stops it. */
+export function previewClip(buf, start, len, volume, onEnd) {
+  const c = audio(), src = c.createBufferSource(), g = c.createGain();
+  src.buffer = buf; g.gain.value = Math.max(0, Math.min(1, volume));
+  src.connect(g).connect(c.destination); src.onended = onEnd; src.start(0, start, len);
+  return () => { src.onended = null; try { src.stop(); } catch {} };
 }

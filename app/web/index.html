@@ -978,9 +978,14 @@
   <label class="sound-vol"><svg class="ic"><use href="#i-volume"/></svg><span class="sr">Soundboard volume, only for you</span><input type="range" id="soundVol" min="0" max="100" step="1"></label>
   <button type="button" class="btn small" id="soundAddBtn"><svg class="ic"><use href="#i-plus"/></svg>Add a sound</button>
   <form class="sound-form" id="soundForm" hidden>
-    <input type="file" id="soundFile" accept="audio/*" hidden>
+    <input type="file" id="soundFile" accept="audio/*,video/*,.mp3,.wav,.ogg,.oga,.opus,.m4a,.aac,.flac,.mp4,.webm,.mov,.mkv" hidden>
     <div class="row"><input class="input sound-emoji" id="soundEmoji" maxlength="8" value="🔊" aria-label="Emoji"><input class="input" id="soundName" maxlength="24" placeholder="Name" aria-label="Name" required></div>
-    <small class="hint" id="soundFileName">Pick a short clip: up to 7 seconds and 1 MB.</small>
+    <small class="hint" id="soundFileName"></small>
+    <div class="sound-trim" id="soundTrim" hidden>
+      <label class="trim-row"><span>Start</span><input type="range" id="soundStart" min="0" max="0" step="0.1" value="0"></label>
+      <label class="trim-row"><span>Length</span><input type="range" id="soundLen" min="0.3" max="7" step="0.1" value="7"></label>
+      <div class="trim-foot"><small id="soundRange"></small><button type="button" class="btn small" id="soundPreview">▶ Preview</button></div>
+    </div>
     <div class="row-btns"><button type="button" class="btn small" id="soundPick">Choose file</button><button type="submit" class="btn small primary">Add</button></div>
   </form>
 </div>
@@ -1025,6 +1030,7 @@
     </div>
   </div>
   <div class="pop-btns">
+    <button type="button" class="btn small primary" id="popWatch" hidden><svg class="ic"><use href="#i-screen"/></svg>Watch screen</button>
     <button type="button" class="btn small" id="popMsg"><svg class="ic"><use href="#i-chat"/></svg>Message</button>
     <button type="button" class="btn small" id="popFriend"><svg class="ic"><use href="#i-user-plus"/></svg>Add friend</button>
   </div>
