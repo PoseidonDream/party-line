@@ -1,8 +1,6 @@
 /* Things that depend on time passing, fast-forwarded in the database: streaks carry on or start over, level 20's
    shimmering name, group posts that expire, and ended polls staying ended. */
-import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
-import { startServer, launchBrowser, signUp } from './lib.mjs';
+import { startServer, launchBrowser, signUp, openDb } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer({ XP_GAP_MS: '1' });
@@ -11,7 +9,7 @@ export default async function (ok) {
     const a = await signUp(browser, srv.url, 'Poseidon');
     const b = await signUp(browser, srv.url, 'Bora');
     const req = (p, t, d) => p.evaluate(async ([t, d]) => { const { live } = await import('/js/net.js'); return live.req(t, d).catch((e) => ({ error: e.message })); }, [t, d]);
-    const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+    const db = openDb(srv);
     const day = (off) => { const d = new Date(Date.now() + off * 86400e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
     // streak continues from yesterday, resets after a missed day
     db.prepare("UPDATE users SET streak = 6, streak_day = ? WHERE name = 'Bora'").run(day(-1));

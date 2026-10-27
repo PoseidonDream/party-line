@@ -1,8 +1,6 @@
 /* Things found by poking at the app: odd words that used to reach inside the server's lookup tables, and the phone
    layout of the message box and the header. */
-import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
-import { startServer, launchBrowser, signUp } from './lib.mjs';
+import { startServer, launchBrowser, signUp, openDb } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer();
@@ -34,7 +32,7 @@ export default async function (ok) {
     ok('⋯ opens what moved into it', true);
 
     // A long chat: after scrolling back through 1,000 messages, a reaction or vote updates just that message
-    const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+    const db = openDb(srv);
     const ins = db.prepare('INSERT INTO messages (channel_id, user_id, body, created_at) VALUES (?, 1, ?, ?)');
     db.exec('BEGIN'); for (let i = 0; i < 1200; i++) ins.run(general, `old message ${i} with **bold** and https://example.com/${i}`, Date.now() - (1200 - i) * 60_000); db.exec('COMMIT'); db.close();
     const d = await signUp(browser, srv.url, 'Bora');

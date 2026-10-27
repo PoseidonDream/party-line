@@ -1,7 +1,5 @@
 /* "New in Party Line", birthdays, custom emoji, stickers and saved GIFs. */
-import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
-import { startServer, launchBrowser, signUp, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, RESULTS, openDb } from './lib.mjs';
 
 // Two tiny pictures (a red and a blue dot).
 const RED = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
@@ -16,7 +14,7 @@ export default async function (ok) {
 
     // New in Party Line
     ok('new accounts don’t get the “New in Party Line” list', !(await a.isVisible('#newsDlg[open]')));
-    const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+    const db = openDb(srv);
     db.prepare("UPDATE users SET news_seen = 0 WHERE name = 'Bora'").run();
     db.close();
     await b.reload();

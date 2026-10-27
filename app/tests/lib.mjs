@@ -1,4 +1,5 @@
 /* Shared test helpers: start a throwaway Party Line server and open fake people in Chromium. */
+import { DatabaseSync } from 'node:sqlite';
 import { chromium } from 'playwright-core';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -93,6 +94,14 @@ export async function joinVoice(page, channel = 'Lobby') {
   await page.click('#railList .rail-btn');
   await page.click(`#voiceList .chan:has-text("${channel}")`);
   await page.waitForSelector('#voiceStatus:not([hidden])', { timeout: 10000 });
+}
+
+/* The server's database, for tests that fast-forward time or check what was saved. It waits its turn while the
+   server is writing (instead of failing with "database is locked"). */
+export function openDb(srv) {
+  const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+  db.exec('PRAGMA busy_timeout = 5000');
+  return db;
 }
 
 export function assert(ok, msg) { if (!ok) throw new Error(msg); }

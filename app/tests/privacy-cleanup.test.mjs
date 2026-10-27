@@ -1,6 +1,6 @@
 /* People only see each other when they share a server, are friends, or have chatted.
    Photos nobody uses any more are deleted from the server. */
-import { startServer, launchBrowser, signUp } from './lib.mjs';
+import { startServer, launchBrowser, signUp, openDb } from './lib.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -39,8 +39,7 @@ export default async function (ok) {
     const up = await (await fetch(`${srv.url}/api/upload`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'image/png' }, body: Buffer.from('fake') })).json();
     const file = path.join(srv.dataDir, 'uploads', up.id);
     ok('upload is stored', fs.existsSync(file));
-    const { DatabaseSync } = await import('node:sqlite');
-    const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+    const db = openDb(srv);
     db.prepare('UPDATE uploads SET created_at = 0 WHERE id = ?').run(up.id);   // pretend it is old
     db.close();
     await srv.kill(); await srv.restart();

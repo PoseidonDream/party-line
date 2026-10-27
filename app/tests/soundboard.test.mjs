@@ -2,8 +2,7 @@
    refused, removing a sound, and deafened people don't hear it. */
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { startServer, launchBrowser, signUp, joinVoice, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, joinVoice, RESULTS, openDb } from './lib.mjs';
 
 function wav(seconds) {
   const rate = 8000, n = Math.floor(rate * seconds), b = Buffer.alloc(44 + n);
@@ -56,7 +55,7 @@ export default async function (ok) {
     await b.click('#soundBtn');
     await b.waitForSelector('#soundGrid .sound-btn:has-text("bruh")');
     ok('an uploaded sound shows on everyone’s soundboard', true);
-    const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+    const db = openDb(srv);
     const saved = fs.readFileSync(path.join(srv.dataDir, 'uploads', db.prepare("SELECT upload_id FROM sounds WHERE name = 'bruh'").get().upload_id));
     const secs = saved.readUInt32LE(40) / (saved.readUInt32LE(24) * 2);
     ok(`…saved as just the part you picked (${secs.toFixed(2)} s of WAV, ${Math.round(saved.length / 1024)} KB)`, saved.toString('ascii', 8, 12) === 'WAVE' && Math.abs(secs - 7) < 0.02 && saved.length <= 1048576);
