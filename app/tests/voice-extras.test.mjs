@@ -21,7 +21,8 @@ export default async function (ok) {
     await b.waitForSelector('#afkBar:not([hidden]):has-text("Moving you to the AFK channel")');
     ok('a warning shows before moving you', true);
     await b.waitForSelector('#voiceList .chan:has-text("Gaming") + .members .member:has-text("Bora")', { timeout: 10000 });
-    ok('muted too long: moved to the AFK channel instead of disconnected', await b.isVisible('.toast:has-text("moved to the AFK channel")'));
+    // (the note comes once the move is done: through the media server that's a moment after the list shows it)
+    ok('muted too long: moved to the AFK channel instead of disconnected', await b.waitForSelector('.toast:has-text("moved to the AFK channel")', { timeout: 10000 }).then(() => true, () => false));
 
     // Go Live preview
     await joinVoice(a);
