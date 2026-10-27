@@ -320,13 +320,6 @@ CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS xp (
-  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  xp INTEGER NOT NULL DEFAULT 0,
-  msg_at INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (server_id, user_id)
-);
 `);
 // Game nights: a vote on the 🎮 list this many minutes before the event.
 if (!columns('events').includes('game_vote')) db.exec('ALTER TABLE events ADD COLUMN game_vote INTEGER; ALTER TABLE events ADD COLUMN vote_started INTEGER NOT NULL DEFAULT 0;');
@@ -334,6 +327,11 @@ if (!columns('events').includes('game_vote')) db.exec('ALTER TABLE events ADD CO
 if (!columns('dms').includes('disappear')) db.exec('ALTER TABLE dms ADD COLUMN disappear INTEGER');
 if (!columns('servers').includes('disappear')) db.exec('ALTER TABLE servers ADD COLUMN disappear INTEGER');
 if (!columns('messages').includes('expires_at')) db.exec('ALTER TABLE messages ADD COLUMN expires_at INTEGER; CREATE INDEX IF NOT EXISTS messages_expiry ON messages (expires_at) WHERE expires_at IS NOT NULL;');
+// XP is one total per person for the whole app. For a short while it was per server: those are added up once.
+if (!columns('users').includes('xp')) {
+  db.exec('ALTER TABLE users ADD COLUMN xp INTEGER NOT NULL DEFAULT 0; ALTER TABLE users ADD COLUMN xp_msg_at INTEGER NOT NULL DEFAULT 0;');
+  if (columns('xp').length) db.exec('UPDATE users SET xp = COALESCE((SELECT SUM(xp) FROM xp WHERE xp.user_id = users.id), 0); DROP TABLE xp;');
+}
 // Which sign-in a push subscription belongs to, so signing that device out also stops its notifications.
 if (!columns('push_subs').includes('session')) db.exec('ALTER TABLE push_subs ADD COLUMN session TEXT');
 

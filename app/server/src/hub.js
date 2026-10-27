@@ -211,7 +211,7 @@ const handlers = {
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
-      gainXp(ch.server_id, user.id, 10, true, { channelId: ch.id });
+      gainXp(user.id, 10, true, { channelId: ch.id });
       pushMessage(m, user);
       addPreviews(M.getMessage(m.id)).catch(() => {});
       return { msg: m };
@@ -225,6 +225,7 @@ const handlers = {
     const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
+    if (!other.is_bot) gainXp(user.id, 10, true, null);
     pushMessage(m, user);
     addPreviews(M.getMessage(m.id)).catch(() => {});
     return { msg: m };
@@ -978,22 +979,23 @@ function laterTarget(user, d) {
   return { toUserId: other.id };
 }
 /* A poll changed: everyone in its chat gets the new results, each with their own picks. */
-/* XP (see M.addXp). Everyone in the server sees the new total; from level 2 up Party Bot cheers in the chat it
-   happened in (a voice channel's own chat for time in voice). */
-function gainXp(serverId, userId, amount, fromMessage, where) {
-  const r = M.addXp(serverId, userId, amount, fromMessage);
+/* XP (see M.addXp). Everyone who can see the person gets the new total; from level 2 up Party Bot cheers in the
+   server channel it happened in (a voice channel's own chat for time in voice). */
+function gainXp(userId, amount, fromMessage, where) {
+  const r = M.addXp(userId, amount, fromMessage);
   if (!r) return;
-  toServer(serverId, { t: 'xp', serverId, userId, xp: r.xp });
-  if (r.up >= 2) botHost.post(where, `🎉 **${M.getUser(userId).name}** reached **level ${r.up}**!`);
+  toWatchers(userId, { t: 'xp', userId, xp: r.xp });
+  const ch = r.up >= 2 && where && M.getChannel(where.channelId), srv = ch && M.getServer(ch.server_id);
+  if (srv && srv.kind === 'server') botHost.post(where, `🎉 **${M.getUser(userId).name}** reached **level ${r.up}**!`);
 }
-/* Every minute in a voice channel with at least one other person (not deafened, not in the AFK channel): 5 XP. */
+/* Every minute in a voice channel or call with at least one other person (not deafened, not in the AFK channel): 5 XP. */
 setInterval(() => {
   const byChannel = new Map();
   for (const [userId, v] of voice) if (!v.deafened) (byChannel.get(v.channelId) || byChannel.set(v.channelId, []).get(v.channelId)).push(userId);
   for (const [channelId, ids] of byChannel) {
     const ch = M.getChannel(channelId), srv = ch && M.getServer(ch.server_id);
     if (!srv || ids.length < 2 || srv.afk_channel_id === ch.id) continue;
-    for (const id of ids) gainXp(srv.id, id, 5, false, { channelId: ch.id });
+    for (const id of ids) gainXp(id, 5, false, { channelId: ch.id });
   }
 }, Number(process.env.XP_VOICE_MS) || 60_000).unref();
 function sharePoll(pollId) {

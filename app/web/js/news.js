@@ -4,7 +4,7 @@
 export const NEWS = [
   { id: 6, items: [
     ['📊', 'Better polls', 'Press + next to the message box → Poll. Pick several, keep it anonymous, set an end time, and watch the votes come in live.'],
-    ['🏅', 'Levels', 'Chatting and hanging out in voice earn XP. Click someone to see their level, or server menu → Leaderboard (/rank, /top).'],
+    ['🏅', 'Levels', 'Chatting and hanging out in voice anywhere in Party Line earn XP. Click someone to see their level, or Home → Leaderboard (/rank, /top).'],
     ['💬', 'Chat in voice channels', 'Every voice channel has its own chat for links and invites during a call: the Chat button at the top.'],
     ['✨', 'Voice effects', 'In voice, press ✨: Robot, Deep, Chipmunk, Cave echo or Radio. Turn on “Hear myself” to try them.'],
     ['⏰', 'Remind me about this', 'The clock on any message: Party Bot reminds you about it later, privately.'],

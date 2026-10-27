@@ -691,7 +691,6 @@ function renderSide() {
     }
   }
   $('#mRename').hidden = !can(s, 'server');
-  $('#mTop').hidden = s.kind !== 'server';
   $('#mAfk').hidden = !can(s, 'server') || s.kind !== 'server' || !s.channels.some((c) => c.kind === 'voice');
   $('#mRoles').hidden = !can(s, 'server') && !(s.roles || []).length;
   $('#mCategory').hidden = !manage;
@@ -2117,10 +2116,9 @@ function fillUserPop(id) {
   const srv = S.popServer && S.servers.get(S.popServer), roles = rolesOf(srv, id), box = $('#popRoles');
   box.textContent = ''; box.hidden = !roles.length;
   for (const r of roles) { const chip = document.createElement('span'); chip.className = 'role-chip'; chip.style.setProperty('--rc', r.color || 'var(--dim)'); chip.textContent = r.name; box.appendChild(chip); }
-  const xp = srv && srv.kind === 'server' && !u.bot ? (srv.xp || {})[id] || 0 : null;
-  $('#popLevel').hidden = xp == null;
-  if (xp != null) {
-    const b = levelBits(xp);
+  $('#popLevel').hidden = !!u.bot;
+  if (!u.bot) {
+    const b = levelBits(u.xp || 0);
     $('#popLevelText').textContent = `Level ${b.level}`; $('#popLevelXp').textContent = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
     $('#popLevelBar').style.width = `${b.pct}%`;
   }
@@ -2251,29 +2249,26 @@ function renderHits(res) {
   }
 }
 
-/* ================= XP and levels (per server; the server adds the XP, see M.addXp) ================= */
+/* ================= XP and levels (one total per person for the whole app; the server adds it, see M.addXp) ================= */
 const xpLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 30));
 function levelBits(xp) {
   const level = xpLevel(xp), from = 30 * level ** 2, to = 30 * (level + 1) ** 2;
   return { level, into: xp - from, need: to - from, pct: Math.round(((xp - from) / (to - from)) * 100) };
 }
 live.on('xp', (d) => {
-  const s = S.servers.get(d.serverId);
-  if (!s) return;
-  s.xp ||= {};
-  const before = xpLevel(s.xp[d.userId]);
-  s.xp[d.userId] = d.xp;
-  if (d.userId === S.me.id && xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)} in ${s.name}!`, 4000);
-  if (S.popUser === d.userId && S.popServer === d.serverId) fillUserPop(d.userId);
-  if ($('#topDlg').open && S.topServer === d.serverId) renderTop();
+  const u = S.users.get(d.userId);
+  if (!u) return;
+  const before = xpLevel(u.xp);
+  u.xp = d.xp;
+  if (d.userId === S.me.id) { S.me.xp = d.xp; if (xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)}!`, 4000); }
+  if (S.popUser === d.userId) fillUserPop(d.userId);
+  if ($('#topDlg').open) renderTop();
 });
+/* Everyone you know in Party Line, most XP first. */
 function renderTop() {
-  const s = S.servers.get(S.topServer), list = $('#topList');
+  const list = $('#topList'), medals = ['🥇', '🥈', '🥉'];
   list.textContent = '';
-  if (!s) return;
-  $('#topTitle').textContent = `Leaderboard: ${s.name}`;
-  const medals = ['🥇', '🥈', '🥉'];
-  const rows = s.members.filter((id) => !user(id).bot).map((id) => [id, (s.xp || {})[id] || 0])
+  const rows = [...S.users.values()].filter((u) => !u.bot).map((u) => [u.id, u.xp || 0])
     .sort((a, b) => b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0])));
   rows.forEach(([id, xp], i) => {
     const b = levelBits(xp), li = document.createElement('li');
@@ -2292,7 +2287,9 @@ function renderTop() {
     list.appendChild(li);
   });
 }
-$('#mTop').addEventListener('click', () => { closeMenu(); S.topServer = S.view.serverId; renderTop(); $('#topDlg').showModal(); });
+function openTop() { closeMenu(); renderTop(); $('#topDlg').showModal(); }
+$('#mTop').addEventListener('click', openTop);
+$('#navTop').addEventListener('click', () => { openTop(); $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; });
 
 /* ================= polls ================= */
 function pollEl(msg) {

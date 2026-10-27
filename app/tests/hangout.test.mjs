@@ -69,9 +69,9 @@ export default async function (ok) {
     await a.screenshot({ path: `${RESULTS}/leaderboard.png` });
     await a.keyboard.press('Escape');
     await say(b, '/rank');
-    await botSays(a, 'is level 2 (120 XP, #1 here)');
+    await botSays(a, 'is level 2 (120 XP, #1 overall)');
     await say(b, '/top');
-    await botSays(a, 'Top of');
+    await botSays(a, 'Leaderboard');
     ok('/rank and /top post levels in the chat', true);
 
     // Chat in voice channels
@@ -147,7 +147,10 @@ export default async function (ok) {
     await a.waitForSelector(`#messages .msg.flash[data-id="${mid}"]`);
     ok('“Go to message” jumps right to it', (await a.textContent('#viewTitle')) === 'general');
 
-    // Disappearing messages
+    // Disappearing messages (and XP for private chats: one level for the whole app)
+    const myXp = async () => { await a.click('#railHome'); await a.click('#navTop'); const t = await a.textContent('#topList .top-row.me .top-level'); await a.keyboard.press('Escape'); return Number(/(\d+) XP/.exec(t)[1]); };
+    const xpBeforeDm = await myXp();
+    await a.click('#railList .rail-btn'); await a.click('#textList .chan:has-text("general")');
     await a.click('#messages .msg:has-text("message number") .mini-av >> nth=0'); await a.click('#popMsg');
     await a.waitForSelector('#viewTitle:text-is("Bora")');
     await a.click('#disappearBtn');
@@ -157,6 +160,8 @@ export default async function (ok) {
     await say(a, 'this goes away tomorrow');
     await a.waitForSelector('#messages .msg:has-text("this goes away tomorrow") .msg-expires');
     ok('new messages show when they’ll go', true);
+    ok('chatting in private chats earns XP too (Home → Leaderboard)', (await myXp()) >= xpBeforeDm + 10);
+    await a.click('#dmList .dm-item:has-text("Bora")');
     await req(a, 'disappear.set', { userId: bId, seconds: 2 });
     await say(a, 'self destructing');
     await b.click('#railHome');

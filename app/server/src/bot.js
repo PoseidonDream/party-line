@@ -200,25 +200,20 @@ function seedReactions(msg, emojis) {
   for (const e of emojis) reactions = M.react(bot.id, msg.id, e, true);
   host.broadcastReactions(msg, reactions);
 }
-/* ---------- XP and levels (see M.addXp) ---------- */
-function levelServer(where) {
-  const ch = where.channelId && M.getChannel(where.channelId), srv = ch && M.getServer(ch.server_id);
-  if (!srv || srv.kind !== 'server') fail('Levels are per server: try this in a server channel.');
-  const xp = M.xpOf(srv.id), members = new Set(M.memberIds(srv.id));
-  const board = Object.entries(xp).map(([id, n]) => [Number(id), n]).filter(([id, n]) => members.has(id) && n > 0).sort((a, b) => b[1] - a[1]);
-  return { srv, xp, board };
-}
+/* ---------- XP and levels (one total per person, see M.addXp) ---------- */
 function rank(ctx) {
-  const { xp, board } = levelServer(ctx.where);
-  const m = /<@(\d+)>/.exec(ctx.args), id = m ? Number(m[1]) : ctx.user.id, n = xp[id] || 0, lvl = M.levelOf(n);
-  const place = board.findIndex(([x]) => x === id) + 1, next = 30 * (lvl + 1) ** 2;
-  post(ctx.where, `🏅 ${who(id)} is **level ${lvl}** (${n} XP${place ? `, #${place} here` : ''}). ${next - n} XP to level ${lvl + 1}.`);
+  const m = /<@(\d+)>/.exec(ctx.args), u = M.getUser(m ? Number(m[1]) : ctx.user.id);
+  if (!u || u.is_bot) fail('Party Bot doesn’t collect XP.');
+  const lvl = M.levelOf(u.xp), next = 30 * (lvl + 1) ** 2;
+  post(ctx.where, `🏅 ${who(u.id)} is **level ${lvl}** (${u.xp} XP, #${M.xpRank(u.xp)} overall). ${next - u.xp} XP to level ${lvl + 1}.`);
 }
+/* The top 10 of the people in this chat (everyone in the server, or both people in a private chat). */
 function top(ctx) {
-  const { srv, board } = levelServer(ctx.where);
-  if (!board.length) return { ephemeral: 'Nobody has any XP here yet. Chat or hang out in voice to earn some!' };
+  const ids = ctx.where.channelId ? M.memberIds(M.getChannel(ctx.where.channelId).server_id) : (({ user_a, user_b }) => [user_a, user_b])(M.getDm(ctx.where.dmId));
+  const board = ids.map((id) => M.getUser(id)).filter((u) => u && !u.is_bot && u.xp > 0).sort((a, b) => b.xp - a.xp);
+  if (!board.length) return { ephemeral: 'Nobody here has any XP yet. Chat or hang out in voice to earn some!' };
   const medals = ['🥇', '🥈', '🥉'];
-  post(ctx.where, `🏆 **Top of ${srv.name}**\n` + board.slice(0, 10).map(([id, n], i) => `${medals[i] || `${i + 1}.`} ${who(id)}: level ${M.levelOf(n)} (${n} XP)`).join('\n'));
+  post(ctx.where, '🏆 **Leaderboard**\n' + board.slice(0, 10).map((u, i) => `${medals[i] || `${i + 1}.`} ${who(u.id)}: level ${M.levelOf(u.xp)} (${u.xp} XP)`).join('\n'));
 }
 const UNITS = { s: 1, sec: 1, second: 1, seconds: 1, m: 60, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400 };
 function remind(ctx) {
@@ -412,8 +407,8 @@ const HELP = [
   '/coinflip: heads or tails',
   '/poll Question | Choice 1 | Choice 2: a poll (or press + then Poll for more options)',
   '/remind 10m take the pizza out: a reminder in this chat (s, m, h or d)',
-  '🏅 **Levels** (chatting and time in voice earn XP)',
-  '/rank: your level here (or /rank @someone). /top: the leaderboard',
+  '🏅 **Levels** (chatting and time in voice anywhere in Party Line earn XP)',
+  '/rank: your level (or /rank @someone). /top: the leaderboard for this chat',
   '🎮 **Games**',
   '/game Name: add a game to this chat’s list for later (or use the 🎮 button). /games: the list',
   '/vote: everyone votes on tonight’s game from the list (/vote 1h for a longer vote)',
@@ -432,7 +427,7 @@ export const COMMAND_LIST = [
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],
   ['poll', 'Question | Choice | Choice', 'Start a poll'],
-  ['remind', '10m what', 'Get a reminder in this chat'], ['rank', '[@someone]', 'Level and XP in this server'], ['top', '', 'The server’s XP leaderboard'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['help', '', 'All bot commands'],
+  ['remind', '10m what', 'Get a reminder in this chat'], ['rank', '[@someone]', 'Level and XP'], ['top', '', 'The XP leaderboard for this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['help', '', 'All bot commands'],
 ];
 
 export const isCommand = (body) => { const m = /^\/([a-z]+)(?:\s|$)/i.exec(String(body || '').trim()); return !!(m && Object.hasOwn(COMMANDS, m[1].toLowerCase())); };

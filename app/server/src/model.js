@@ -41,7 +41,7 @@ const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-
 /* ---------- users and sessions ---------- */
 export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
   custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null,
-  flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [] });
+  flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [], xp: u.xp || 0 });
 /* Profile flair: an animated ring around your picture and an effect on your profile banner. */
 export const FLAIRS = ['glow', 'rainbow', 'fire', 'ice', 'gold'];
 export const BANNER_FX = ['aurora', 'stars', 'scan'];
@@ -461,26 +461,25 @@ export function serverView(serverId, viewerId) {
   for (const r of all('SELECT user_id, role_id FROM member_roles WHERE server_id = ?', serverId)) (memberRoles[r.user_id] ||= []).push(r.role_id);
   const categories = all('SELECT id, name, position FROM categories WHERE server_id = ? ORDER BY position, id', serverId);
   const afk = channels.some((c) => c.id === s.afk_channel_id && c.kind === 'voice') ? s.afk_channel_id : null;
-  return { xp: (s.kind || 'server') === 'server' ? xpOf(serverId) : {}, disappear: s.disappear || 0, id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories, afkChannelId: afk };
+  return { disappear: s.disappear || 0, id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories, afkChannelId: afk };
 }
 
-/* ---------- XP and levels (servers only, not group chats) ----------
-   10 XP for chatting (at most once a minute), 5 XP a minute in voice with someone else (see hub.js).
+/* ---------- XP and levels: one total per person for the whole app ----------
+   10 XP for chatting anywhere (at most once a minute), 5 XP a minute in voice with someone else (see hub.js).
    Level n needs 30 * n² XP: level 1 after 3 messages, level 5 at 750, level 10 at 3000. */
 const XP_GAP = Number(process.env.XP_GAP_MS) || 60_000;
 export const levelOf = (xp) => Math.floor(Math.sqrt(xp / 30));
 /* Returns the new total and the level reached (0 if no new level), or null if nothing was added. */
-export function addXp(serverId, userId, amount, fromMessage) {
-  const s = getServer(serverId), u = getUser(userId);
-  if (!s || (s.kind || 'server') !== 'server' || !u || u.is_bot) return null;
-  const row = one('SELECT xp, msg_at FROM xp WHERE server_id = ? AND user_id = ?', serverId, userId) || { xp: 0, msg_at: 0 };
-  if (fromMessage && now() - row.msg_at < XP_GAP) return null;
-  const xp = row.xp + amount;
-  run('INSERT INTO xp (server_id, user_id, xp, msg_at) VALUES (?, ?, ?, ?) ON CONFLICT (server_id, user_id) DO UPDATE SET xp = excluded.xp, msg_at = excluded.msg_at',
-    serverId, userId, xp, fromMessage ? now() : row.msg_at);
-  return { xp, up: levelOf(xp) > levelOf(row.xp) ? levelOf(xp) : 0 };
+export function addXp(userId, amount, fromMessage) {
+  const u = getUser(userId);
+  if (!u || u.is_bot) return null;
+  if (fromMessage && now() - u.xp_msg_at < XP_GAP) return null;
+  const xp = u.xp + amount;
+  run('UPDATE users SET xp = ?, xp_msg_at = ? WHERE id = ?', xp, fromMessage ? now() : u.xp_msg_at, userId);
+  return { xp, up: levelOf(xp) > levelOf(u.xp) ? levelOf(xp) : 0 };
 }
-export const xpOf = (serverId) => Object.fromEntries(all('SELECT user_id, xp FROM xp WHERE server_id = ?', serverId).map((r) => [r.user_id, r.xp]));
+/* Place among everyone in the app (1 = the most XP). */
+export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot = 0 AND xp > ?', xp).n + 1;
 
 /* ---------- messages ---------- */
 function attachmentsFrom(userId, list) {
