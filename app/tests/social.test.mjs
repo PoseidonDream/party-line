@@ -67,6 +67,14 @@ export default async function (ok) {
     await a.waitForSelector('#messages .msg:has(.bot-tag):has-text("first message ever") .jump-msg');
     ok('with enough ⭐ a message goes into #hall-of-fame (made when the first one gets in)', true);
     await a.click('#textList .chan:has-text("general")');
+    const famous = await req(b, 'msg.send', { channelId: general, body: 'oops, delete me later', attachments: [] });
+    await req(a, 'react', { id: famous.msg.id, emoji: '⭐', on: true });
+    await a.click('#textList .chan:has-text("hall-of-fame")');
+    await a.waitForSelector('#messages .msg:has-text("oops, delete me later")');
+    await req(b, 'msg.delete', { id: famous.msg.id });
+    await a.waitForSelector('#messages .msg:has-text("oops, delete me later")', { state: 'detached' });
+    ok('deleting a message also takes its copy out of the hall of fame', true);
+    await a.click('#textList .chan:has-text("general")');
 
     // Looking for group
     await req(b, 'profile.set', { favGames: 'Valorant, Peak' });

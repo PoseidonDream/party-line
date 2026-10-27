@@ -506,6 +506,7 @@ export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot 
 
 /* ---------- hall of fame: messages that got enough ⭐ are copied (by Party Bot) into #hall-of-fame ---------- */
 export const inHallOfFame = (messageId) => !!one('SELECT 1 AS x FROM hall_of_fame WHERE message_id = ?', messageId);
+export const hallOfFameCopy = (messageId) => one('SELECT m.* FROM hall_of_fame h JOIN messages m ON m.id = h.post_id WHERE h.message_id = ?', messageId);
 export const addHallOfFame = (messageId, postId) => run('INSERT OR IGNORE INTO hall_of_fame (message_id, post_id) VALUES (?, ?)', messageId, postId);
 export const clipsChannel = (serverId) => one("SELECT * FROM channels WHERE server_id = ? AND kind = 'text' AND name LIKE '%clip%' ORDER BY position, id LIMIT 1", serverId);
 export const textChannelNamed = (serverId, name) => one("SELECT * FROM channels WHERE server_id = ? AND kind = 'text' AND name = ?", serverId, name);

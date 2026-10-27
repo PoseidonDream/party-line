@@ -2578,7 +2578,7 @@ function renderDash() {
   const vl = $('#dashVoice'); vl.textContent = '';
   for (const s of S.servers.values()) {
     if (s.kind === 'pair') continue;
-    for (const c of s.channels.filter((x) => x.kind === 'voice')) {
+    for (const c of s.channels.filter((x) => x.kind === 'voice' && x.id !== s.afkChannelId)) {   // not the AFK channel: nobody's hanging out there
       const people = voiceIn(c.id);
       if (!people.length) continue;
       const avs = document.createElement('div'); avs.className = 'dash-avs';

@@ -367,6 +367,9 @@ const handlers = {
     if (m.user_id !== user.id) log(user, m.channel_id ? M.getChannel(m.channel_id).server_id : null, 'Deleted a message', `by ${nm(m.user_id)}${m.channel_id ? ` in #${M.getChannel(m.channel_id).name}` : ''}: “${String(m.body || '(file)').slice(0, 80)}”`);
     M.deleteMessage(m.id);
     broadcastAbout(m, { t: 'msg.del', id: m.id, channelId: m.channel_id, dmId: m.dm_id });
+    // Its copy in #hall-of-fame goes too: deleting something should take it away everywhere.
+    const copy = M.hallOfFameCopy(m.id);
+    if (copy) { M.deleteMessage(copy.id); broadcastAbout(copy, { t: 'msg.del', id: copy.id, channelId: copy.channel_id, dmId: null }); }
     return {};
   },
   'msg.pin'(c, user, d) {
