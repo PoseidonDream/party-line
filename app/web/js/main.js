@@ -7,6 +7,7 @@ import { initDev, openDev, log } from './dev.js';
 import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './music.js';
 import { builtinSounds, playSound, soundLength } from './sounds.js';
 import { createDrawLayer, createClipBuffer, clipsSupported } from './stagefx.js';
+import { withDuration } from './webm.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
@@ -1596,7 +1597,7 @@ async function finishRecording() {
   const type = (r.recorder.mimeType || 'audio/webm').split(';')[0];
   const ext = type === 'audio/mp4' ? 'm4a' : type === 'audio/ogg' ? 'ogg' : 'webm';
   const len = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-  const file = new File(r.chunks, `Voice message (${len}).${ext}`, { type });
+  const file = new File([await withDuration(new Blob(r.chunks, { type }), Date.now() - r.started)], `Voice message (${len}).${ext}`, { type });
   const target = composeTarget();
   if (!target) return;
   try {
@@ -1882,7 +1883,7 @@ $('#stageClipBtn').addEventListener('click', async () => {
     const c = await clipBuf.clip();
     if (!c || c.blob.size < 2000) { toast('Nothing to clip yet. Try again in a few seconds.', 3500); return; }
     toast('🎬 Saving the clip…', 2500);
-    const file = new File([c.blob], `Clip of ${of === S.me.id ? 'my' : `${nameOf(of)}’s`} screen (${c.seconds}s).webm`, { type: c.blob.type || 'video/webm' });
+    const file = new File([await withDuration(c.blob, c.ms)], `Clip of ${of === S.me.id ? 'my' : `${nameOf(of)}’s`} screen (${c.seconds}s).webm`, { type: c.blob.type || 'video/webm' });
     const up = await upload('/api/upload', file);
     const r = await live.req('clip.post', { upload: up.id, of });
     const f = findChannel(r.channelId);

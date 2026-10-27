@@ -123,7 +123,8 @@ export function createClipBuffer(seconds = 30) {
       return new Promise((resolve) => {
         r.rec.onstop = () => {
           const type = (r.rec.mimeType || 'video/webm').split(';')[0];
-          resolve(r.chunks.length ? { blob: new Blob(r.chunks, { type }), seconds: Math.round((Date.now() - r.at) / 1000) } : null);
+          const ms = Date.now() - r.at;
+          resolve(r.chunks.length ? { blob: new Blob(r.chunks, { type }), ms, seconds: Math.round(ms / 1000) } : null);
         };
         try { r.rec.stop(); } catch { resolve(null); }
         start(slot);

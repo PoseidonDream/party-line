@@ -73,6 +73,13 @@ export default async function (ok) {
       check();
     }));
     ok(`a voice message arrives and plays (${dur.toFixed ? dur.toFixed(1) : dur} s)`, dur > 0 && dur !== Infinity);
+    const fileLen = (p, sel) => p.evaluate((sel) => new Promise((res) => {   // read straight from the file, no tricks
+      const x = document.createElement(sel.includes('video') ? 'video' : 'audio'); x.preload = 'metadata';
+      x.onloadedmetadata = () => res(x.duration); x.onerror = () => res(-1); x.src = [...document.querySelectorAll(sel)].pop().src;
+      setTimeout(() => res(x.duration), 5000);
+    }), sel);
+    const raw = await fileLen(b, '.voice-msg audio');
+    ok('…and the file itself says how long it is (so any player shows it)', Number.isFinite(raw) && raw > 0);
     await a.click('#recBtn'); await a.waitForTimeout(500); await a.click('#recCancel');
     await a.waitForSelector('#recBar', { state: 'hidden' });
     await a.waitForTimeout(800);

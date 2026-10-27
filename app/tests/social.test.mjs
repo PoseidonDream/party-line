@@ -130,6 +130,12 @@ export default async function (ok) {
     await a.click('.toast:has-text("Clip saved") button:has-text("Open")');
     await a.waitForSelector('#messages .msg:has-text("Clip of Bora’s screen") video.media-video');
     ok('Clip it saves the last seconds of the screen share as a video in #clips-and-highlights', true);
+    const clipLen = await a.evaluate(() => new Promise((res) => {
+      const x = document.createElement('video'); x.preload = 'metadata';
+      x.onloadedmetadata = () => res(x.duration); x.onerror = () => res(-1); x.src = [...document.querySelectorAll('#messages video.media-video')].pop().src;
+      setTimeout(() => res(x.duration), 5000);
+    }));
+    ok(`…and the video knows its length, so it can be skipped through (${Number(clipLen).toFixed(1)} s)`, Number.isFinite(clipLen) && clipLen > 1);
     await a.click('#voiceList .chan:has-text("Lobby")');   // back to the voice channel, to see who plays sounds
 
     // Soundboard keys (Bora has the desktop app)
