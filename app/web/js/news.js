@@ -3,7 +3,7 @@
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
   { id: 9, items: [
-    ['📺', 'Easier to watch screens', 'When someone in your call shares their screen, press Watch on the note that pops up. Or click LIVE next to their name, even from outside the call.'],
+    ['📺', 'Easier to watch screens', 'Click a voice channel that says LIVE and the stream opens. Already in the call? Click the bubble of whoever is live.'],
     ['🔊', 'Add your own sounds', 'Everyone can add up to 10 sounds: Soundboard → Add a sound. Any audio or video file works: pick the 7 seconds you want and preview it.'],
   ] },
   { id: 8, items: [

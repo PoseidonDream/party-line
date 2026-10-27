@@ -424,6 +424,10 @@ button.member:hover { background: var(--panel-2); color: var(--fg); }
 .tiles { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 300px)); justify-content: center; align-content: center; gap: 14px; }
 .tile { position: relative; aspect-ratio: 16 / 10; min-width: 0; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); display: grid; place-items: center; transition: border-color .15s, box-shadow .15s; }
 .tile.dim { opacity: .6; }
+.tile.is-live { cursor: pointer; border-color: var(--danger); }
+.tile.is-live[style*="--peek"] { background: linear-gradient(rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), var(--peek) center / cover no-repeat; }
+.tile.is-live:hover { box-shadow: 0 0 0 2px var(--danger), 0 0 24px rgba(255, 90, 78, .35); }
+.tile-watch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); padding: 4px 10px; border-radius: 999px; background: var(--danger); color: var(--on-danger); font: 700 12px/1.2 var(--font-body); white-space: nowrap; pointer-events: none; }
 .avatar { width: clamp(52px, 30%, 84px); aspect-ratio: 1; border-radius: 50%; background: hsl(var(--h, 30) var(--av-s) var(--av-l)); color: var(--av-fg); display: grid; place-items: center; font: 800 clamp(20px, 2.4vw, 30px)/1 var(--font-display); letter-spacing: .03em; transition: box-shadow .15s; }
 .tile.speaking { border-color: var(--lamp); }
 .tile.speaking .avatar { box-shadow: 0 0 0 3px var(--lamp), 0 0 26px 6px var(--lamp-glow); }

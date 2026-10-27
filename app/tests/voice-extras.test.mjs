@@ -43,6 +43,16 @@ export default async function (ok) {
     await b.waitForFunction(() => document.querySelector('#stageVideo').videoWidth > 0, null, { timeout: 15000 });
     ok('clicking LIVE in the channel list takes you into their channel and shows their screen', (await b.textContent('#stageTitle')).includes('Poseidon'));
     await b.click('#stageClose');
+    await b.click('#tiles .tile.is-live:has-text("Poseidon")');
+    await b.waitForSelector('#stage:not([hidden])');
+    ok('clicking the bubble of whoever is live opens their screen', true);
+    await b.click('#vcLeaveBtn');
+    await b.waitForSelector('#voiceStatus', { state: 'hidden' });
+    await b.click('#voiceList .chan:has-text("Lobby")');
+    await b.waitForSelector('#stage:not([hidden])', { timeout: 10000 });
+    await b.waitForFunction(() => document.querySelector('#stageVideo').videoWidth > 0, null, { timeout: 15000 });
+    ok('clicking a voice channel where someone is live joins it and opens the stream right away', true);
+    await b.click('#stageClose');
     await b.click('#voiceList .member:has-text("Poseidon")');
     await b.click('#popWatch');
     await b.waitForSelector('#stage:not([hidden])');

@@ -692,6 +692,9 @@ function renderSide() {
       if (c.unread && !(current && S.view.kind === 'text') && !chatMuted) { const cb = document.createElement('span'); cb.className = 'chan-chat'; cb.title = 'New messages in this voice channel’s chat'; cb.textContent = `💬 ${c.unread > 99 ? '99+' : c.unread}`; b.appendChild(cb); }
       b.addEventListener('click', (e) => {
         if (e.target.closest('.chan-chat')) { setView({ kind: 'text', serverId: s.id, channelId: c.id }); return; }
+        // Someone's live in there: clicking the channel is enough to join and watch.
+        const sharer = voiceIn(c.id).find((p) => p.sharing && p.userId !== S.me.id);
+        if (sharer && !(S.watching && V.channelId === c.id)) { watchScreen(sharer.userId); return; }
         setView({ kind: 'voice', serverId: s.id, channelId: c.id }); if (V.channelId !== c.id) joinVoice(c.id);
       });
       li.appendChild(b);
@@ -1768,11 +1771,17 @@ async function joinVoice(channelId) {
 async function watchScreen(userId) {
   const st = S.voice.get(userId);
   if (!st || !st.sharing) { toast('They stopped sharing.', 3000); return; }
-  if (V.channelId !== st.channelId) { await joinVoice(st.channelId); if (V.channelId !== st.channelId) return; }
   S.watching = userId;
   const f = findChannel(st.channelId);
   if (S.view.kind !== 'voice' || S.view.channelId !== st.channelId) setView({ kind: 'voice', serverId: f ? f.server.id : V.serverId, channelId: st.channelId });
-  else renderVoiceView();
+  if (V.channelId !== st.channelId) {
+    await joinVoice(st.channelId);
+    if (V.channelId !== st.channelId) return;
+    const now = S.voice.get(userId);
+    if (!now || !now.sharing) return;
+    S.watching = userId;
+  }
+  renderVoiceView();
 }
 function renderVoiceView() {
   const chId = S.view.channelId;
@@ -1843,7 +1852,15 @@ function renderVoiceView() {
       vb.innerHTML = iconSvg(Voice.peerPrefs(p.userId).mute ? 'volume-x' : 'volume');
       vb.addEventListener('click', (e) => { e.stopPropagation(); openUserPop(p.userId, vb); });
       d.appendChild(vb);
-      d.addEventListener('click', () => openUserPop(p.userId, d));
+      if (!p.sharing) d.addEventListener('click', () => openUserPop(p.userId, d));
+    }
+    // Live: clicking their bubble opens the stream (the volume button still opens their card).
+    if (p.sharing || (isMe && V.sharing && inThis)) {
+      d.classList.add('is-live'); d.title = isMe ? 'See what you’re sharing' : `Watch ${nameOf(p.userId)}’s screen`;
+      const peek = S.previews.get(p.userId);   // a snapshot of their screen behind their picture (checked by the server: a JPEG)
+      if (peek && !d.classList.contains('has-cam')) d.style.setProperty('--peek', `url("${peek}")`);
+      if (S.watching !== p.userId) { const w = document.createElement('span'); w.className = 'tile-watch'; w.textContent = isMe ? '▶ Your screen' : '▶ Watch'; d.appendChild(w); }
+      d.addEventListener('click', () => { if (isMe) { S.watching = S.me.id; renderVoiceView(); } else watchScreen(p.userId); });
     }
     tiles.appendChild(d);
   }
@@ -2185,7 +2202,7 @@ function syncPreview() {
   setTimeout(snap, 1500);
   previewTimer = setInterval(snap, 15_000);
 }
-live.on('voice.preview', (d) => { if (d.img) S.previews.set(d.userId, d.img); else S.previews.delete(d.userId); });
+live.on('voice.preview', (d) => { if (d.img) S.previews.set(d.userId, d.img); else S.previews.delete(d.userId); if (S.view.kind === 'voice') renderVoiceView(); });
 function peekOn(el, userId) {
   const show = () => {
     const img = S.previews.get(userId), box = $('#livePeek');
