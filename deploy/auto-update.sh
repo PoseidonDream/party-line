@@ -4,13 +4,18 @@
 # If someone stays in voice for 2 hours straight (often a forgotten open tab), it updates anyway; people reconnect in seconds.
 # To turn it off: add AUTO_UPDATE=0 to .env in this folder.
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 exec 9>/tmp/party-line-auto-update.lock
 flock -n 9 || exit 0
 grep -qx 'AUTO_UPDATE=0' .env 2>/dev/null && exit 0
 
 git fetch -q origin || exit 0
-if [ "$(git rev-parse HEAD)" = "$(git rev-parse '@{u}')" ]; then rm -f .update-waiting; exit 0; fi
+if [ "$(git rev-parse HEAD)" = "$(git rev-parse '@{u}')" ]; then
+  # Up to date, unless this version was downloaded but didn't build (update.sh writes .built when it does):
+  # then it tries the build again, at most once an hour.
+  built=$(cat .built 2>/dev/null || true)
+  if [ -z "$built" ] || [ "$built" = "$(git rev-parse HEAD)" ] || [ -n "$(find .last-try -mmin -60 2>/dev/null)" ]; then rm -f .update-waiting; exit 0; fi
+fi
 
 in_voice=$(docker compose exec -T partyline node -e "fetch('http://127.0.0.1:3000/api/local/voice-count').then((r) => r.json()).then((j) => console.log(j.inVoice)).catch(() => console.log(0))" 2>/dev/null | tr -dc '0-9')
 if [ "${in_voice:-0}" -gt 0 ]; then
@@ -23,6 +28,7 @@ target=$(git log -1 --format='%h %s' '@{u}')
 echo "$(date '+%F %T') updating to $target"
 # Tell the server how it went, so Party Bot can warn the admins if an update fails (the old version keeps running).
 report() { printf '%s' "$1" | docker compose exec -T partyline sh -c 'cat > /data/update-status.json' 2>/dev/null || true; }
+touch .last-try
 if out=$(./update.sh 2>&1); then
   echo "$out"
   report "{\"ok\":true,\"at\":$(date +%s)}"
