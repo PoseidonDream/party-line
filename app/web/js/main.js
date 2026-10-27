@@ -1686,7 +1686,7 @@ function renderFriends() {
   if (S.friendTab !== 'add') {
     const rows = [...S.friends].filter(([id, st]) => (S.friendTab === 'pending' ? st !== 'friends' : st === 'friends' && (S.friendTab === 'all' || user(id).online)))
       .sort((a, b) => nameOf(a[0]).localeCompare(nameOf(b[0])));
-    const title = document.createElement('h3'); title.className = 'fr-section-title';
+    const title = document.createElement('h2'); title.className = 'fr-section-title';
     title.textContent = `${{ online: 'Online', all: 'All friends', pending: 'Pending' }[S.friendTab]} — ${rows.length}`;
     body.appendChild(title);
     if (!rows.length) {

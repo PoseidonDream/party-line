@@ -365,11 +365,13 @@
     </div>
     <div class="view-home" id="viewHome" hidden>
       <div class="friends-page">
-        <div class="tabs" role="tablist" aria-label="Friends">
-          <button type="button" class="tab" role="tab" data-tab="online">Online</button>
-          <button type="button" class="tab" role="tab" data-tab="all">All</button>
-          <button type="button" class="tab" role="tab" data-tab="pending">Pending<span class="count-pill" id="pendingCount2" hidden></span></button>
-          <button type="button" class="tab tab-add" role="tab" data-tab="add">Add friend</button>
+        <div class="tabs">
+          <div class="tab-group" role="tablist" aria-label="Friends">
+            <button type="button" class="tab" role="tab" data-tab="online">Online</button>
+            <button type="button" class="tab" role="tab" data-tab="all">All</button>
+            <button type="button" class="tab" role="tab" data-tab="pending">Pending<span class="count-pill" id="pendingCount2" hidden></span></button>
+            <button type="button" class="tab tab-add" role="tab" data-tab="add">Add friend</button>
+          </div>
           <button type="button" class="tab tab-dev" id="frDev" hidden><svg class="ic"><use href="#i-code"/></svg>Developer</button>
         </div>
         <div class="fr-scroll">
@@ -385,7 +387,7 @@
           </form>
           <div id="frBody"></div>
           <section class="home-servers-box" aria-labelledby="homeServersTitle">
-            <h3 class="fr-section-title" id="homeServersTitle">Your servers</h3>
+            <h2 class="fr-section-title" id="homeServersTitle">Your servers</h2>
             <ul class="home-servers" id="homeServers"></ul>
             <p class="home-empty" id="homeEmpty">You're not in any servers yet.</p>
             <button type="button" class="btn" id="homeAdd"><svg class="ic"><use href="#i-plus"/></svg>Join or create a server</button>
@@ -550,7 +552,7 @@
       <p class="hint">One level for all of Party Line. Chatting anywhere earns 10 XP (once a minute) and hanging out in voice with friends earns 5 XP a minute. Chat or join voice every day to keep your 🔥 streak. Type <b>/rank</b> in a chat to show off your level.</p>
       <ol class="top-list" id="topList"></ol>
     </section>
-    <section id="topAch" hidden>
+    <section id="topAch" tabindex="0" aria-label="Achievements and level rewards" hidden>
       <p class="hint" id="achCount"></p>
       <ul class="ach-grid" id="achGrid"></ul>
       <div class="flabel">Level rewards</div>
