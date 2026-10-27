@@ -176,6 +176,15 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **Voice effects:** the ✨ button while in voice: Robot, Deep, Chipmunk, Cave echo or Radio. Friends hear you through it. **Hear myself** lets you try them (with headphones).
 - **Remind me about this:** the clock on any message. Party Bot sends it back to you privately at the time you pick, with a button that jumps to it.
 - **Disappearing messages:** the ⏳ button at the top of a private chat or group chat: new messages delete themselves for everyone after 24 hours or 7 days.
+- **Home dashboard:** the Home button shows who's in voice (with a Join button), who's playing what, open groups and the next events.
+- **Streaks and achievements:** chat or join voice every day for a 🔥 streak. 15 achievements (Night owl, Voice veteran, Famous, Squad up and more) show as badges on your profile; Home → Leaderboard → Achievements lists them all.
+- **Level rewards:** level 5 unlocks name colors, level 10 the Galaxy picture ring and Matrix banner, level 15 the Plasma ring, and from level 20 your name shimmers.
+- **Hall of fame:** a server message that gets 3 ⭐ (not counting the writer's own) is copied into **#hall-of-fame** by Party Bot. The channel is made when the first one gets in.
+- **Looking for group:** + next to the message box → **Looking for group** (or `/lfg Valorant 2 | ranked`): game, how many more people, when, and a note. Friends who list that game among their favorites get pinged, and everyone in it gets pinged when it's full.
+- **Draw on screen shares:** while watching a screen, press **Draw** and draw with the mouse or a finger. Everyone watching sees it for a few seconds. When the sharer uses the desktop app and shares a whole screen, the drawings also show on top of their real screen (even over a game), without showing up twice in the share.
+- **Clip it:** while watching a screen, **Clip it** saves the last 15 to 30 seconds as a video in the server's clips channel (any text channel with "clip" in its name), or in the voice channel's chat.
+- **Pop out:** keeps a screen share playing in a small floating window while you chat.
+- **Soundboard keys:** soundboard → **Keys**, click a sound, press a combination like Ctrl+Alt+1. In the desktop app they work in any app; in a browser while Party Line is in front.
 - **What's new:** after an update, everyone sees a short list of new features once.
 - **Organising a server:** channel topics, **categories** (server menu), drag and drop to reorder channels, and **roles** with colors and permissions (server menu, Roles).
 
@@ -185,7 +194,7 @@ Type these in any text channel or private chat. Type **/** to see the list.
 
 - **Listen together:** join a voice channel, then type `/play` and a YouTube link. Everyone in that voice channel hears it at the same moment, in a small YouTube player at the top right. `/pause`, `/resume`, `/skip`, `/stop` and `/queue` control it, and so do the player's buttons. The volume slider and the ✕ only affect you. The music stops when everyone leaves the channel.
 - **Watch together:** while you're in a voice channel, press **Watch together** under any video shared in the chat. It plays for everyone in that voice channel at the same moment, in the same player and queue as `/play` (with a full-screen button).
-- **Fun:** `/roll` (or `/roll 20`, `/roll 2d6`), `/coinflip`, `/poll Question | Choice | Choice` (a quick poll), `/remind 10m take the pizza out`, and `/rank` and `/top` for levels.
+- **Fun:** `/roll` (or `/roll 20`, `/roll 2d6`), `/coinflip`, `/poll Question | Choice | Choice` (a quick poll), `/remind 10m take the pizza out`, `/lfg Game 2` to find players, and `/rank` and `/top` for levels.
 - `/help` lists everything.
 
 Each device plays the video in YouTube's own player, so it follows YouTube's rules. A few videos can't be played outside YouTube, and the bot skips those.

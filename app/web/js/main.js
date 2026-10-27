@@ -6,11 +6,13 @@ import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
 import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './music.js';
 import { builtinSounds, playSound, soundLength } from './sounds.js';
+import { createDrawLayer, createClipBuffer, clipsSupported } from './stagefx.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
+  perks: { achievements: [], unlocks: { flair: {}, bannerFx: {}, nameColor: 5, legend: 20 }, nameColors: [] },
   users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(), voiceStatus: new Map(), bookmarks: new Set(), later: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
@@ -45,6 +47,16 @@ $('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 
 const user = (id) => S.users.get(id) || { id, name: 'Someone', avatar: null, online: false };
 const nameOf = (id) => user(id).name;
 /* Admins (developers) get a crown after their name wherever it shows. */
+/* A name: the person's own color (a level reward) or their role's, shimmering from level 20 (also a reward). */
+function nameInto(el, id, srv, text = nameOf(id)) {
+  const u = user(id), color = u.nameColor || (srv && roleColor(srv, id)) || '';
+  el.textContent = '';
+  const t = document.createElement('span'); t.className = 'nm'; t.textContent = text;
+  if (!u.bot && xpLevel(u.xp) >= S.perks.unlocks.legend) { t.classList.add('name-legend'); t.title = 'Legend: level 20 or higher'; }
+  el.style.color = color;
+  if (color) t.style.setProperty('--nc', color);
+  el.appendChild(t);
+}
 const addCrown = (el, id) => {
   if (user(id).admin || (S.me && id === S.me.id && S.me.admin)) el.insertAdjacentHTML('beforeend', `<span class="crown" title="Developer">${iconSvg('crown')}</span>`);
   if (user(id).bot) el.insertAdjacentHTML('beforeend', '<span class="bot-tag">BOT</span>');
@@ -231,6 +243,7 @@ live.on('down', () => { $('#offlineBar').hidden = !S.ready; renderConn(); });
 live.on('open', () => { $('#offlineBar').hidden = true; renderConn(); });
 live.on('ready', (d) => {
   S.me = d.me;
+  S.perks = d.perks || S.perks;
   S.users = new Map(d.users.map((u) => [u.id, u]));
   S.servers = new Map(d.servers.map((s) => [s.id, s]));
   S.friends = new Map(d.friends.map((f) => [f.id, f.state]));
@@ -257,10 +270,10 @@ live.on('ready', (d) => {
   $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true;
   if (first) {
     const last = store.get('lastView', null);
-    if (last && last.kind === 'dm' && S.users.has(last.userId)) S.view = last;
+    if (last && ((last.kind === 'dm' && S.users.has(last.userId)) || last.kind === 'home')) S.view = last;
     else if (last && last.serverId && S.servers.has(last.serverId)) openServer(last.serverId, true);
     else if (S.servers.size) openServer(([...S.servers.values()].find((x) => !isPrivate(x)) || [...S.servers.values()][0]).id, true);
-    else S.view = { kind: 'friends' };
+    else S.view = { kind: 'friends' };   // in no servers yet: Add friend is the useful start
   } else if (S.view.serverId && !S.servers.has(S.view.serverId)) S.view = { kind: 'friends' };
   if (S.view.kind === 'voice' && !findChannel(S.view.channelId)) S.view = { kind: 'friends' };
   renderAll();
@@ -287,6 +300,7 @@ live.on('presence', (d) => {
   Object.assign(u, { online: d.online, status: d.status, activity: d.activity });
   renderSide(); renderConn(); renderUserArea();
   if (S.view.kind === 'friends') renderFriends();
+  if (S.view.kind === 'home') renderDash();
   if (S.view.kind === 'dm') renderHeader();
   if (S.popUser === d.userId && !$('#userPop').hidden) fillUserPop(d.userId);
 });
@@ -370,7 +384,7 @@ live.on('sound', (d) => {
   if (S.view.kind === 'voice') renderVoiceView();
   setTimeout(() => { S.soundFlash.delete(d.userId); if (S.view.kind === 'voice') renderVoiceView(); }, 2500);
 });
-live.on('events', (d) => { S.events.set(d.serverId, d.events); renderHeader(); if ($('#eventsDlg').open) renderEvents(); });
+live.on('events', (d) => { S.events.set(d.serverId, d.events); renderHeader(); if ($('#eventsDlg').open) renderEvents(); if (S.view.kind === 'home') renderDash(); });
 live.on('reset.request', (d) => {
   S.resets = S.resets.filter((x) => x.userId !== d.request.userId).concat(d.request);
   renderResetBar();
@@ -386,7 +400,7 @@ live.on('seen', (d) => {
 live.on('notify', (d) => { S.notif = d.prefs; renderAll(); });
 live.on('reset.done', (d) => { S.resets = S.resets.filter((x) => x.id !== d.id); renderResetBar(); if ($('#resetDlg').open) renderResets(); });
 live.on('rtc', (d) => Voice.onRtc(d.from, d.data));
-live.on('msg', (d) => onMessage(`c:${d.msg.channelId}`, d.msg));
+live.on('msg', (d) => { onMessage(`c:${d.msg.channelId}`, d.msg); if (d.msg.lfg && S.view.kind === 'home') loadDashLfg(); });
 live.on('dm', (d) => {
   learnUsers([d.user]);
   if (closedDms.delete(d.withUserId)) saveDmList();
@@ -658,8 +672,7 @@ function renderSide() {
           mb.type = 'button'; mb.className = 'member' + (p.userId === S.me.id ? ' is-me' : '') + (V.speaking.has(p.userId) ? ' speaking' : '');
           mb.dataset.uid = p.userId;
           mb.appendChild(avEl(p.userId));
-          const nm = document.createElement('span'); nm.className = 'member-name'; nm.textContent = nameOf(p.userId); addCrown(nm, p.userId); mb.appendChild(nm);
-          const rc = roleColor(s, p.userId); if (rc) nm.style.color = rc;
+          const nm = document.createElement('span'); nm.className = 'member-name'; nameInto(nm, p.userId, s); addCrown(nm, p.userId); mb.appendChild(nm);
           if (p.sharing) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; mb.appendChild(l); peekOn(mb, p.userId); }
           if (p.deafened) mb.insertAdjacentHTML('beforeend', iconSvg('headphones-off'));
           else if (p.muted || p.serverMuted) mb.insertAdjacentHTML('beforeend', iconSvg('mic-off'));
@@ -699,6 +712,7 @@ function renderSide() {
 }
 function renderHomeSide() {
   $('#navFriends').setAttribute('aria-current', String(S.view.kind === 'friends'));
+  $('#navHome').setAttribute('aria-current', String(S.view.kind === 'home'));
   $('#navDev').hidden = $('#frDev').hidden = !S.me.admin;
   const pend = [...S.friends.values()].filter((s) => s === 'incoming').length;
   for (const el of [$('#pendingCount'), $('#pendingCount2')]) { el.hidden = !pend; el.textContent = pend; }
@@ -804,6 +818,7 @@ function renderHeader() {
   const soon = v.serverId ? upcoming(v.serverId).filter((e) => e.startsAt < Date.now() + 7 * 86_400_000).length : 0;
   $('#eventsCount').hidden = !soon; $('#eventsCount').textContent = soon;
   if (v.kind === 'friends') { icon.innerHTML = iconSvg('users'); $('#viewTitle').textContent = 'Friends'; $('#viewSub').textContent = ''; }
+  else if (v.kind === 'home') { icon.innerHTML = iconSvg('home'); $('#viewTitle').textContent = 'Home'; $('#viewSub').textContent = 'What’s happening'; }
   else if (v.kind === 'dm') {
     icon.textContent = '@'; $('#viewTitle').textContent = nameOf(v.userId);
     $('#viewSub').textContent = presenceLine(v.userId);
@@ -831,6 +846,8 @@ function renderMainView() {
   const k = S.view.kind;
   $('#viewText').hidden = k !== 'text' && k !== 'dm';
   $('#viewHome').hidden = k !== 'friends';
+  $('#viewDash').hidden = k !== 'home';
+  if (k === 'home') { renderDash(); loadDashLfg(); }
   $('#viewVoice').hidden = k !== 'voice';
   if (k === 'friends') renderFriends();
   if (k === 'voice') renderVoiceView();
@@ -839,7 +856,7 @@ function renderMainView() {
     $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message ${f.channel.kind === 'voice' ? '🔊 ' : '#'}${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
   }
 }
-function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); sendOverlay(); syncPreview(); }
+function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); if (S.view.kind === 'home') renderDash(); syncStageExtras(); syncPhoneCall(); syncMusic(); sendOverlay(); syncPreview(); }
 /* Listen together (music.js): play what's on in my voice channel. */
 function syncMusic() {
   const ch = V.channelId || null, st = ch ? S.music.get(ch) : null;
@@ -1002,7 +1019,7 @@ function encodeMentions(text) {
   for (const u of people) text = text.replace(new RegExp(`(^|[^\\p{L}\\p{N}_])@${escapeRe(u.name)}(?![\\p{L}\\p{N}_])`, 'giu'), `$1<@${u.id}>`);
   return text;
 }
-const decodeMentions = (text) => String(text || '').replace(/^<poll:\d+>$/, '📊 Started a poll').replace(/^<s:\d+>$/, 'Sent a sticker').replace(/^<g:[\w-]+>$/, 'Sent a GIF').replace(/<:(\w+):\d+>/g, ':$1:').replace(/\s*<m:[cd]:\d+:\d+>/g, '')
+const decodeMentions = (text) => String(text || '').replace(/^<poll:\d+>$/, '📊 Started a poll').replace(/^<lfg:\d+>$/, '🎮 Looking for a group').replace(/^<s:\d+>$/, 'Sent a sticker').replace(/^<g:[\w-]+>$/, 'Sent a GIF').replace(/<:(\w+):\d+>/g, ':$1:').replace(/\s*<m:[cd]:\d+:\d+>/g, '')
   .replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '')
   .replace(/\|\|[^\n]*?\|\|/g, '[spoiler]').replace(/```[\w+-]*\n?|~~|__|`/g, '')
   .replace(/<t:(\d{9,11})(?::R)?>/g, (x, t) => fmtWhen(Number(t) * 1000));
@@ -1028,9 +1045,8 @@ function messageEl(msg, prev) {
   av.addEventListener('click', (e) => openUserPop(msg.userId, e.currentTarget));
   li.appendChild(av);
   const head = document.createElement('div'); head.className = 'msg-head';
-  const nm = document.createElement('span'); nm.className = 'msg-name'; nm.style.setProperty('--h', hue(nameOf(msg.userId))); nm.textContent = nameOf(msg.userId);
-  const rc = msg.channelId && roleColor((findChannel(msg.channelId) || {}).server, msg.userId);
-  if (rc) nm.style.color = rc;
+  const nm = document.createElement('span'); nm.className = 'msg-name'; nm.style.setProperty('--h', hue(nameOf(msg.userId)));
+  nameInto(nm, msg.userId, msg.channelId && (findChannel(msg.channelId) || {}).server);
   addCrown(nm, msg.userId);
   head.appendChild(nm);
   if (msg.expiresAt) { const x = document.createElement('span'); x.className = 'msg-expires'; x.textContent = '⏳'; x.title = `Disappears ${fmtRelative(msg.expiresAt)}`; head.appendChild(x); }
@@ -1041,6 +1057,7 @@ function messageEl(msg, prev) {
   li.appendChild(head);
   const special = msg.body && /^<([sg]):([\w-]+)>$/.exec(msg.body);
   if (/^<poll:\d+>$/.test(msg.body || '')) li.appendChild(pollEl(msg));
+  else if (/^<lfg:\d+>$/.test(msg.body || '')) li.appendChild(lfgEl(msg));
   else if (special) li.appendChild(special[1] === 's' ? stickerEl(Number(special[2])) : gifEl(special[2]));
   else if (msg.body) {
     const body = document.createElement('div'); body.className = 'msg-body';
@@ -1076,7 +1093,7 @@ function messageEl(msg, prev) {
 }
 
 /* ---------- reactions ---------- */
-const QUICK_EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👀', '💯', '🙏', '😡', '✅'];
+const QUICK_EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👀', '💯', '🙏', '⭐', '✅'];   // 3 ⭐ puts a message in the hall of fame
 function reactionsEl(msg) {
   const row = document.createElement('div'); row.className = 'reactions';
   for (const r of msg.reactions) {
@@ -1489,9 +1506,10 @@ $('#chatForm').addEventListener('submit', async (e) => {
   } catch (ex) { toast(ex.message, 5000); }
   finally { S.sending = false; renderTray(); }
 });
-$('#attachBtn').addEventListener('click', () => { const m = $('#attachMenu'); m.hidden = !m.hidden; $('#attachBtn').setAttribute('aria-expanded', String(!m.hidden)); });
+$('#attachBtn').addEventListener('click', () => { const m = $('#attachMenu'); m.hidden = !m.hidden; $('#attachLfg').hidden = S.view.kind !== 'text'; $('#attachBtn').setAttribute('aria-expanded', String(!m.hidden)); });
 $('#attachFiles').addEventListener('click', () => { $('#attachMenu').hidden = true; $('#fileInput').click(); });
 $('#attachPoll').addEventListener('click', () => { $('#attachMenu').hidden = true; openPollBuilder(); });
+$('#attachLfg').addEventListener('click', () => { $('#attachMenu').hidden = true; openLfgBuilder(); });
 document.addEventListener('pointerdown', (e) => { if (!$('#attachMenu').hidden && !e.target.closest('#attachMenu, #attachBtn')) { $('#attachMenu').hidden = true; $('#attachBtn').setAttribute('aria-expanded', 'false'); } });
 
 /* ---------- voice messages: record with the mic, up to 2 minutes ---------- */
@@ -1725,6 +1743,7 @@ function renderVoiceView() {
       sw.appendChild(b);
     }
   } else if (video.srcObject) video.srcObject = null;
+  syncStageExtras();
   for (const p of people) {
     const d = document.createElement('div');
     const isMe = p.userId === S.me.id;
@@ -1736,7 +1755,7 @@ function renderVoiceView() {
     if (cam && inThis) { d.classList.add('has-cam'); d.appendChild(camVideo(p.userId, cam, isMe)); }
     else d.appendChild(avEl(p.userId, 'avatar'));
     const meta = document.createElement('div'); meta.className = 'tile-meta';
-    const n = document.createElement('span'); n.className = 'tile-name'; n.textContent = nameOf(p.userId) + (isMe ? ' (you)' : ''); addCrown(n, p.userId); meta.appendChild(n);
+    const n = document.createElement('span'); n.className = 'tile-name'; nameInto(n, p.userId, null, nameOf(p.userId) + (isMe ? ' (you)' : '')); addCrown(n, p.userId); meta.appendChild(n);
     if (S.soundFlash.has(p.userId)) { const f = document.createElement('span'); f.className = 'tile-sound'; f.textContent = S.soundFlash.get(p.userId); f.title = 'Played a sound'; n.appendChild(f); }
     const sub = document.createElement('span'); sub.className = 'tile-sub';
     sub.textContent = p.serverMuted ? 'Muted by admin' : p.deafened ? 'Deafened' : p.muted ? 'Muted' : !inThis || isMe ? 'In voice'
@@ -1772,7 +1791,63 @@ function renderVoiceView() {
   $('#aloneText').textContent = 'You’re the only one here. Friends in this server see you in the channel list and can hop in.';
 }
 for (const b of [$('#joinVoiceBtn'), $('#joinVoiceBtn2')]) b.addEventListener('click', () => joinVoice(S.view.channelId));
-$('#stageClose').addEventListener('click', () => { S.watching = null; renderVoiceView(); });
+$('#stageClose').addEventListener('click', () => { S.watching = null; renderVoiceView(); syncStageExtras(); });
+
+/* ---------- on the stage: draw together, Clip it, pop out (see stagefx.js) ---------- */
+const DRAW_COLORS = ['#ffd43b', '#ff6b6b', '#74c0fc', '#8ce99a', '#f783ac', '#b197fc', '#ffa94d', '#66d9e8'];
+const drawLayer = createDrawLayer($('#stageCanvas'), $('#stageVideo'));
+const clipBuf = createClipBuffer();
+drawLayer.onSend((p) => { if (S.watching) live.send('draw', Object.assign({ target: S.watching }, p)); });
+function stageStream() {
+  if (!S.watching || !V.channelId) return null;
+  return (S.watching === S.me.id ? V.screenStream : (V.peers.get(S.watching) || {}).screenStream) || null;
+}
+/* Keeps the clip recorder on whatever you're watching, and tidies up when the share ends. */
+function syncStageExtras() {
+  const st = stageStream();
+  clipBuf.watch(isPhone() ? null : st);
+  $('#stageClipBtn').hidden = !clipsSupported() || isPhone();
+  $('#stagePipBtn').hidden = !document.pictureInPictureEnabled;
+  if (!st) {
+    if (drawLayer.drawing) setDrawing(false);
+    drawLayer.clear();
+    if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+  }
+}
+function setDrawing(on) {
+  drawLayer.setColor(DRAW_COLORS[hue(S.me.name) % DRAW_COLORS.length]);
+  drawLayer.setDrawing(on);
+  $('#stageDrawBtn').setAttribute('aria-pressed', String(on));
+  $('#stageDrawBtn').classList.toggle('on', on);
+  if (on && !store.get('drawTip')) { store.set('drawTip', 1); toast('Draw on the screen: everyone watching sees it for a few seconds. Press Esc or Draw again to stop.', 6000); }
+}
+$('#stageDrawBtn').addEventListener('click', () => setDrawing(!drawLayer.drawing));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawLayer.drawing) setDrawing(false); });
+live.on('draw', (d) => {
+  if (d.target === S.watching && V.channelId) drawLayer.addRemote(d);
+  // On your own screen share, the desktop app can show the drawings on top of your real screen (even over a game).
+  if (d.target === S.me.id && V.sharing && desktop && desktop.drawOnScreen) desktop.drawOnScreen({ from: d.from, id: d.id, color: d.color, pts: d.pts, end: d.end });
+});
+$('#stageClipBtn').addEventListener('click', async () => {
+  const b = $('#stageClipBtn'), of = S.watching;
+  if (b.disabled || !of) return;
+  b.disabled = true;
+  try {
+    const c = await clipBuf.clip();
+    if (!c || c.blob.size < 2000) { toast('Nothing to clip yet. Try again in a few seconds.', 3500); return; }
+    toast('🎬 Saving the clip…', 2500);
+    const file = new File([c.blob], `Clip of ${of === S.me.id ? 'my' : `${nameOf(of)}’s`} screen (${c.seconds}s).webm`, { type: c.blob.type || 'video/webm' });
+    const up = await upload('/api/upload', file);
+    const r = await live.req('clip.post', { upload: up.id, of });
+    const f = findChannel(r.channelId);
+    toast(`🎬 Clip saved${f ? ` in ${f.channel.kind === 'voice' ? '🔊 ' : '#'}${f.channel.name}` : ''}.`, 5000, f ? { label: 'Open', fn: () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }) } : undefined);
+  } catch (e) { toast(e.message || 'Couldn’t save the clip.', 4500); }
+  finally { b.disabled = false; }
+});
+$('#stagePipBtn').addEventListener('click', () => {
+  if (document.pictureInPictureElement) { document.exitPictureInPicture().catch(() => {}); return; }
+  $('#stageVideo').requestPictureInPicture().catch(() => toast('Pop out isn’t available here.', 3000));
+});
 $('#stageFull').addEventListener('click', () => { const el = $('#stage'); if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen && el.requestFullscreen().catch(() => {}); });
 
 /* One <video> per person, reused between renders so the picture doesn't flicker. */
@@ -1940,7 +2015,10 @@ document.addEventListener('keyup', (e) => { if (e.code === 'Space' && settings.p
 window.addEventListener('blur', () => { if (V.pttHeld) Voice.setPtt(false); });
 // Desktop app: push to talk works even when Party Line isn't the window in front.
 /* Desktop app: the mute and deafen keys work even while a game is in front. */
-if (desktop && desktop.onHotkey) desktop.onHotkey((what) => { if (!V.channelId) return; if (what === 'mute') toggleMute(); else if (what === 'deafen') toggleDeafen(); });
+if (desktop && desktop.onHotkey) desktop.onHotkey((what) => {
+  if (!V.channelId) return;
+  if (what === 'mute') toggleMute(); else if (what === 'deafen') toggleDeafen(); else if (String(what).startsWith('sound:')) playSoundKey(String(what).slice(6));
+});
 if (desktop && desktop.onPtt) desktop.onPtt((held) => { if (settings.ptt && V.channelId) Voice.setPtt(held); });
 
 /* Quiet in voice: muted or deafened for 30 minutes, or silent and not touching Party Line for 15. With an AFK
@@ -2104,7 +2182,7 @@ function fillUserPop(id) {
   $('#popDot').className = 'status-dot ' + statusOf(id);
   $('#popBanner').style.background = u.banner || `hsl(${hue(u.name)} 45% 45%)`;
   $('#popBanner').className = 'pop-banner' + (u.bannerFx ? ` fx-${u.bannerFx}` : '');
-  $('#popName').textContent = nameOf(id) + (isMe ? ' (you)' : ''); addCrown($('#popName'), id);
+  nameInto($('#popName'), id, S.popServer && S.servers.get(S.popServer), nameOf(id) + (isMe ? ' (you)' : '')); addCrown($('#popName'), id);
   $('#popPresence').textContent = u.bot ? 'Bot' : STATUS_TEXT[statusOf(id)];
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
   $('#popActivity').hidden = !(u.online && u.activity); $('#popActivity').textContent = u.activity ? `🎮 Playing ${u.activity}` : '';
@@ -2117,6 +2195,10 @@ function fillUserPop(id) {
   box.textContent = ''; box.hidden = !roles.length;
   for (const r of roles) { const chip = document.createElement('span'); chip.className = 'role-chip'; chip.style.setProperty('--rc', r.color || 'var(--dim)'); chip.textContent = r.name; box.appendChild(chip); }
   $('#popLevel').hidden = !!u.bot;
+  $('#popStreak').hidden = !u.streak; $('#popStreak').textContent = `🔥 ${u.streak}`; $('#popStreak').title = `${u.streak}-day streak`;
+  const got = S.perks.achievements.filter((a) => (u.badges || {})[a.key]);
+  $('#popBadges').hidden = !got.length; $('#popBadges').textContent = '';
+  for (const a of got) { const c = document.createElement('span'); c.className = 'badge-chip'; c.textContent = a.emoji; c.title = `${a.name}: ${a.how}`; c.setAttribute('aria-label', a.name); $('#popBadges').appendChild(c); }
   if (!u.bot) {
     const b = levelBits(u.xp || 0);
     $('#popLevelText').textContent = `Level ${b.level}`; $('#popLevelXp').textContent = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
@@ -2262,7 +2344,7 @@ live.on('xp', (d) => {
   u.xp = d.xp;
   if (d.userId === S.me.id) { S.me.xp = d.xp; if (xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)}!`, 4000); }
   if (S.popUser === d.userId) fillUserPop(d.userId);
-  if ($('#topDlg').open) renderTop();
+  if ($('#topDlg').open) { renderTop(); if (!$('#topAch').hidden) renderAchievements(); }
 });
 /* Everyone you know in Party Line, most XP first. */
 function renderTop() {
@@ -2275,7 +2357,9 @@ function renderTop() {
     li.className = 'top-row' + (id === S.me.id ? ' me' : '');
     const place = document.createElement('span'); place.className = 'top-place'; place.textContent = xp && medals[i] ? medals[i] : String(i + 1);
     const who = document.createElement('div'); who.className = 'top-who';
-    const nm = document.createElement('b'); nm.textContent = nameOf(id) + (id === S.me.id ? ' (you)' : '');
+    const nm = document.createElement('b'); nameInto(nm, id, null, nameOf(id) + (id === S.me.id ? ' (you)' : ''));
+    const streak = user(id).streak;
+    if (streak) { const f = document.createElement('span'); f.className = 'top-streak'; f.textContent = `🔥 ${streak}`; f.title = `${streak}-day streak`; nm.appendChild(f); }
     const bar = document.createElement('div'); bar.className = 'xp-bar'; bar.title = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
     const fill = document.createElement('span'); fill.style.width = `${b.pct}%`; bar.appendChild(fill);
     who.append(nm, bar);
@@ -2287,9 +2371,177 @@ function renderTop() {
     list.appendChild(li);
   });
 }
-function openTop() { closeMenu(); renderTop(); $('#topDlg').showModal(); }
+/* Your achievements (the ones you don't have yet say how to get them) and what each level unlocks. */
+function renderAchievements() {
+  const mine = S.me.badges || {}, list = S.perks.achievements, grid = $('#achGrid');
+  $('#achCount').textContent = `You have ${list.filter((a) => mine[a.key]).length} of ${list.length}. Everyone sees yours on your profile.`;
+  grid.textContent = '';
+  for (const a of list) {
+    const li = document.createElement('li'); li.className = 'ach' + (mine[a.key] ? ' got' : '');
+    const e = document.createElement('span'); e.className = 'ach-emoji'; e.textContent = mine[a.key] ? a.emoji : '🔒';
+    const t = document.createElement('div');
+    const n = document.createElement('b'); n.textContent = a.name;
+    const h = document.createElement('small'); h.textContent = mine[a.key] ? `${a.how} Unlocked ${fmtDay(mine[a.key])}.` : a.how;
+    t.append(n, h); li.append(e, t); grid.appendChild(li);
+  }
+  const lvl = xpLevel(S.me.xp), u = S.perks.unlocks, rewards = [
+    [u.nameColor, '🎨', 'Name colors', 'Settings → Profile → Name color'],
+    [u.flair.galaxy, '🌌', 'Galaxy picture ring and Matrix banner', 'Settings → Profile'],
+    [u.flair.plasma, '⚡', 'Plasma picture ring', 'Settings → Profile'],
+    [u.legend, '✨', 'Shimmering Legend name', 'Shows by itself everywhere'],
+  ];
+  const rl = $('#rewardList'); rl.textContent = '';
+  for (const [at, emoji, what, where] of rewards) {
+    const li = document.createElement('li'); li.className = 'reward' + (lvl >= at ? ' got' : '');
+    li.textContent = `${lvl >= at ? emoji : '🔒'} Level ${at}: ${what}`;
+    const sm = document.createElement('small'); sm.textContent = lvl >= at ? where : `${30 * at * at - (S.me.xp || 0)} XP to go`;
+    li.appendChild(sm); rl.appendChild(li);
+  }
+}
+function showTopTab(name) {
+  for (const t of document.querySelectorAll('[data-toptab]')) t.setAttribute('aria-selected', String(t.dataset.toptab === name));
+  $('#topBoard').hidden = name !== 'board'; $('#topAch').hidden = name !== 'ach';
+  if (name === 'ach') renderAchievements();
+}
+document.querySelectorAll('[data-toptab]').forEach((t) => t.addEventListener('click', () => showTopTab(t.dataset.toptab)));
+live.on('achievement', (d) => {
+  for (const key of d.keys) {
+    const a = S.perks.achievements.find((x) => x.key === key);
+    if (a) toast(`🏆 Achievement unlocked: ${a.emoji} ${a.name}`, 5000, { label: 'See all', fn: () => { openTop(); showTopTab('ach'); } });
+  }
+});
+function openTop() { closeMenu(); renderTop(); showTopTab('board'); $('#topDlg').showModal(); }
 $('#mTop').addEventListener('click', openTop);
 $('#navTop').addEventListener('click', () => { openTop(); $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; });
+
+/* ================= looking for group (see M.createLfg) ================= */
+const lfgWhen = (l) => !l.at ? 'now' : l.at < Date.now() ? `started ${fmtTime(l.at)}` : `at ${new Date(l.at).toDateString() === new Date().toDateString() ? '' : fmtDay(l.at) + ' '}${fmtTime(l.at)}`;
+function lfgEl(msg) {
+  const l = msg.lfg, card = document.createElement('div'); card.className = 'lfg-card';
+  if (!l) { card.textContent = '(this group post was removed)'; card.classList.add('gone'); return card; }
+  card.classList.toggle('closed', l.closed); card.classList.toggle('full', l.full && !l.closed);
+  const head = document.createElement('div'); head.className = 'lfg-head';
+  const g = document.createElement('b'); g.textContent = `🎮 ${l.game}`;
+  const st = document.createElement('span'); st.className = 'lfg-state';
+  const left = l.need - l.members.length;
+  st.textContent = l.closed ? (l.expired ? 'Expired' : 'Closed') : l.full ? 'Full' : `Need ${left} more`;
+  head.append(g, st);
+  const sub = document.createElement('div'); sub.className = 'lfg-sub'; sub.textContent = [lfgWhen(l), l.note].filter(Boolean).join(' · ');
+  const people = document.createElement('div'); people.className = 'lfg-people';
+  for (const id of [l.by, ...l.members]) { const a = avEl(id); a.title = nameOf(id) + (id === l.by ? ' (posted it)' : ''); a.style.cursor = 'pointer'; a.addEventListener('click', (e) => openUserPop(id, e.currentTarget)); people.appendChild(a); }
+  for (let i = 0; i < Math.max(0, left); i++) { const e = document.createElement('span'); e.className = 'lfg-slot'; e.setAttribute('aria-hidden', 'true'); people.appendChild(e); }
+  card.append(head, sub, people);
+  const btns = document.createElement('div'); btns.className = 'lfg-btns';
+  const mine = l.by === S.me.id, joined = l.members.includes(S.me.id), f = msg.channelId && findChannel(msg.channelId);
+  const button = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = `btn small ${cls}`; b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); };
+  if (!l.closed && !mine && !joined && !l.full) button('Join', 'primary', () => act(() => live.req('lfg.join', { id: l.id, on: true }), 'You’re in!'));
+  if (!l.closed && joined) button('Leave', '', () => act(() => live.req('lfg.join', { id: l.id, on: false })));
+  const hv = S.voice.get(l.by), hf = hv && findChannel(hv.channelId);
+  if (!l.closed && hf && f && hf.server.id === f.server.id && V.channelId !== hv.channelId && (joined || mine || !l.full)) button(`Join 🔊 ${hf.channel.name}`, '', () => { setView({ kind: 'voice', serverId: hf.server.id, channelId: hf.channel.id }); joinVoice(hf.channel.id); });
+  if (!l.closed && (mine || (f && can(f.server, 'messages')))) button('Close', 'ghost', () => act(() => live.req('lfg.close', { id: l.id })));
+  if (btns.childNodes.length) card.appendChild(btns);
+  return card;
+}
+live.on('lfg', (d) => {
+  const key = `c:${d.channelId}`, m = S.msgs.get(key), msg = m && m.list.find((x) => x.id === d.messageId);
+  if (msg) { msg.lfg = d.lfg; if (msgKey() === key) renderMessages(true); }
+  if (S.view.kind === 'home') loadDashLfg();
+});
+function openLfgBuilder() {
+  if (S.view.kind !== 'text') return;
+  const names = new Set([...(S.me.favGames || []), ...[...S.users.values()].flatMap((u) => u.favGames || []), ...(S.games.get(msgKey()) || []).map((g) => g.name)]);
+  const dl = $('#lfgGames'); dl.textContent = '';
+  for (const n of names) { const o = document.createElement('option'); o.value = n; dl.appendChild(o); }
+  $('#lfgGame').value = ''; $('#lfgNeed').value = '2'; $('#lfgWhen').value = 'now'; $('#lfgAt').hidden = true; $('#lfgNote').value = '';
+  $('#lfgDlg').showModal(); $('#lfgGame').focus();
+}
+$('#lfgWhen').addEventListener('change', () => {
+  const pick = $('#lfgWhen').value === 'pick';
+  $('#lfgAt').hidden = !pick;
+  if (pick && !$('#lfgAt').value) $('#lfgAt').value = localInput(atTime(0, 21) > Date.now() ? atTime(0, 21) : atTime(1, 21));
+});
+$('#lfgForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const w = $('#lfgWhen').value, at = w === 'now' ? null : w === 'pick' ? new Date($('#lfgAt').value).getTime() : Date.now() + Number(w) * 60_000;
+  const r = await act(() => live.req('lfg.create', { channelId: S.view.channelId, game: $('#lfgGame').value, need: Number($('#lfgNeed').value), at, note: $('#lfgNote').value }));
+  if (r) $('#lfgDlg').close();
+});
+
+/* ================= Home dashboard: who's in voice, who's playing, open groups, what's coming up ================= */
+async function loadDashLfg() {
+  try { S.dashLfg = (await live.req('lfg.list', {})).list || []; } catch { S.dashLfg = S.dashLfg || []; }
+  if (S.view.kind === 'home') renderDash();
+}
+function dashItem(list, parts, onClick) {
+  const li = document.createElement('li'); li.className = 'dash-item';
+  for (const p of parts) if (p) li.appendChild(p);
+  if (onClick) { li.classList.add('click'); li.tabIndex = 0; li.addEventListener('click', (e) => { if (!e.target.closest('button')) onClick(); }); li.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.target.closest('button')) onClick(); }); }
+  list.appendChild(li);
+  return li;
+}
+const dashText = (title, sub) => { const d = document.createElement('div'); d.className = 'dash-text'; const b = document.createElement('b'); b.textContent = title; d.appendChild(b); if (sub) { const s = document.createElement('small'); s.textContent = sub; d.appendChild(s); } return d; };
+const dashBtn = (label, fn, cls = '') => { const b = document.createElement('button'); b.type = 'button'; b.className = `btn small ${cls}`; b.textContent = label; b.addEventListener('click', fn); return b; };
+const dashEmpty = (list, text) => { const li = document.createElement('li'); li.className = 'dash-empty'; li.textContent = text; list.appendChild(li); };
+function renderDash() {
+  if (!S.me) return;
+  const me = user(S.me.id), b = levelBits(me.xp || 0), got = S.perks.achievements.filter((a) => (me.badges || {})[a.key]).length;
+  const top = $('#dashMe'); top.textContent = '';
+  const av = avEl(S.me.id, 'avatar');
+  const hi = document.createElement('div'); hi.className = 'dash-hi';
+  const h = document.createElement('h2'); h.textContent = `Hi ${nameOf(S.me.id)} 👋`;
+  const stats = document.createElement('div'); stats.className = 'dash-stats';
+  stats.textContent = [`Level ${b.level}`, `${b.need - b.into} XP to level ${b.level + 1}`, me.streak ? `🔥 ${me.streak}-day streak` : 'Chat or join voice today to start a 🔥 streak', `🏆 ${got} of ${S.perks.achievements.length}`].join(' · ');
+  const bar = document.createElement('div'); bar.className = 'xp-bar'; const fill = document.createElement('span'); fill.style.width = `${b.pct}%`; bar.appendChild(fill);
+  hi.append(h, stats, bar);
+  const bdays = [...S.users.values()].filter((u) => !u.bot && isBirthday(u.id));
+  if (bdays.length) { const p = document.createElement('p'); p.className = 'dash-bday'; p.textContent = `🎂 Today is ${bdays.map((u) => u.id === S.me.id ? 'your' : `${u.name}’s`).join(' and ')} birthday!`; hi.appendChild(p); }
+  top.append(av, hi, dashBtn('Leaderboard', openTop));
+
+  const vl = $('#dashVoice'); vl.textContent = '';
+  for (const s of S.servers.values()) {
+    if (s.kind === 'pair') continue;
+    for (const c of s.channels.filter((x) => x.kind === 'voice')) {
+      const people = voiceIn(c.id);
+      if (!people.length) continue;
+      const avs = document.createElement('div'); avs.className = 'dash-avs';
+      for (const p of people.slice(0, 6)) avs.appendChild(avEl(p.userId));
+      if (people.length > 6) { const more = document.createElement('span'); more.className = 'dash-more'; more.textContent = `+${people.length - 6}`; avs.appendChild(more); }
+      const live2 = people.some((p) => p.sharing) ? Object.assign(document.createElement('span'), { className: 'live', textContent: 'LIVE' }) : null;
+      const here = V.channelId === c.id;
+      const open = () => setView({ kind: 'voice', serverId: s.id, channelId: c.id });
+      dashItem(vl, [dashText(isPrivate(s) ? groupName(s) : `🔊 ${c.name}`, isPrivate(s) ? 'Group call' : s.name), live2, avs,
+        here ? Object.assign(document.createElement('small'), { className: 'dash-here', textContent: 'You’re here' }) : dashBtn('Join', () => { open(); joinVoice(c.id); }, 'primary')], open);
+    }
+  }
+  if (!vl.childNodes.length) dashEmpty(vl, 'Nobody’s in voice right now. Hop into a voice channel and friends will see you here.');
+
+  const pl = $('#dashPlaying'); pl.textContent = '';
+  for (const u of [...S.users.values()].filter((x) => !x.bot && x.online && x.activity).sort((a, z) => a.name.localeCompare(z.name))) {
+    const li = dashItem(pl, [avEl(u.id), dashText(u.id === S.me.id ? `${u.name} (you)` : u.name, `🎮 ${u.activity}`)], () => openUserPop(u.id, li));
+  }
+  if (!pl.childNodes.length) dashEmpty(pl, 'Nobody’s playing anything right now. The desktop app shows the game you’re in.');
+
+  const ll = $('#dashLfg'); ll.textContent = '';
+  for (const l of S.dashLfg || []) {
+    const f = findChannel(l.channelId);
+    if (!f) continue;
+    const joined = l.members.includes(S.me.id), mine = l.by === S.me.id;
+    const btn = mine ? null : joined ? dashBtn('Leave', () => act(() => live.req('lfg.join', { id: l.id, on: false })))
+      : l.full ? null : dashBtn('Join', () => act(() => live.req('lfg.join', { id: l.id, on: true }), 'You’re in!'), 'primary');
+    dashItem(ll, [avEl(l.by), dashText(`${l.game}: ${l.full ? 'full' : `need ${l.need - l.members.length} more`}`, `${nameOf(l.by)} · ${lfgWhen(l)} · ${isPrivate(f.server) ? groupName(f.server) : `#${f.channel.name}`}`), btn],
+      () => jumpTo(`c:${l.channelId}`, l.messageId));
+  }
+  if (!ll.childNodes.length) dashEmpty(ll, 'No open groups. In a chat, press + then “Looking for group” to find players.');
+
+  const el = $('#dashEvents'); el.textContent = '';
+  const soon = [...S.servers.values()].filter((s) => !isPrivate(s)).flatMap((s) => upcoming(s.id).map((e) => ({ e, s })))
+    .filter(({ e }) => e.startsAt < Date.now() + 14 * 86_400_000).sort((a, z) => a.e.startsAt - z.e.startsAt).slice(0, 6);
+  for (const { e, s } of soon) {
+    const going = (e.going || []).length;
+    dashItem(el, [dashText(e.title, `${fmtWhen(e.startsAt)} · ${s.name}${going ? ` · ${going} going` : ''}`)], () => { openServer(s.id); openEvents(); });
+  }
+  if (!el.childNodes.length) dashEmpty(el, 'Nothing planned. Open Events at the top of a server to plan a game night.');
+}
 
 /* ================= polls ================= */
 function pollEl(msg) {
@@ -2686,7 +2938,8 @@ $('#mDelete').addEventListener('click', async () => {
 });
 $('#mSettings').addEventListener('click', () => { closeMenu(); openSettings(); });
 $('#mFeedback').addEventListener('click', () => { closeMenu(); openFeedback(); });
-$('#railHome').addEventListener('click', () => setView({ kind: 'friends' }));
+$('#railHome').addEventListener('click', () => setView({ kind: 'home' }));
+$('#navHome').addEventListener('click', () => setView({ kind: 'home' }));
 $('#navFriends').addEventListener('click', () => setView({ kind: 'friends' }));
 for (const b of [$('#railAdd'), $('#homeAdd')]) b.addEventListener('click', () => { $('#asError').hidden = true; $('#asInvite').value = ''; $('#asName').value = ''; $('#addServer').showModal(); });
 $('#asClose').addEventListener('click', () => $('#addServer').close());
@@ -2792,26 +3045,48 @@ function fillBirthday(b) {
   ms.onchange = days;
 }
 const birthdayValue = () => ($('#setBdayMonth').value && $('#setBdayDay').value ? `${$('#setBdayMonth').value.padStart(2, '0')}-${$('#setBdayDay').value.padStart(2, '0')}` : '');
-const FLAIRS = [['', 'None'], ['glow', 'Glow'], ['rainbow', 'Rainbow'], ['fire', 'Fire'], ['ice', 'Ice'], ['gold', 'Gold']];
+const FLAIRS = [['', 'None'], ['glow', 'Glow'], ['rainbow', 'Rainbow'], ['fire', 'Fire'], ['ice', 'Ice'], ['gold', 'Gold'], ['galaxy', 'Galaxy'], ['plasma', 'Plasma']];
+let profileNameColor = '';
 let profileFlair = '';
 function renderFlairs() {
   const box = $('#setFlair'); box.textContent = '';
   for (const [k, label] of FLAIRS) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'flair-opt'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === profileFlair));
     const av = avEl(S.me.id); for (const c of [...av.classList]) if (c.startsWith('flair-')) av.classList.remove(c); if (k) av.classList.add(`flair-${k}`);
-    const t = document.createElement('small'); t.textContent = label;
-    b.append(av, t); b.title = label;
-    b.addEventListener('click', () => { profileFlair = k; renderFlairs(); });
+    const need = S.perks.unlocks.flair[k], locked = need && xpLevel(S.me.xp) < need;
+    const t = document.createElement('small'); t.textContent = locked ? `🔒 Lv ${need}` : label;
+    b.append(av, t); b.title = locked ? `${label}: unlocks at level ${need}` : label;
+    b.classList.toggle('locked', !!locked);
+    b.addEventListener('click', () => { if (locked) { toast(`The ${label} ring unlocks at level ${need}.`, 3000); return; } profileFlair = k; renderFlairs(); });
     box.appendChild(b);
   }
 }
+function renderNameColors() {
+  const box = $('#setNameColor'), need = S.perks.unlocks.nameColor, locked = xpLevel(S.me.xp) < need;
+  box.textContent = '';
+  for (const c of ['', ...S.perks.nameColors]) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch' + (c ? '' : ' none'); b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(c === profileNameColor)); b.setAttribute('aria-label', c ? `Name color ${c}` : 'No name color');
+    if (c) b.style.background = c; else b.textContent = '✕';
+    b.disabled = locked && !!c;
+    b.addEventListener('click', () => { profileNameColor = c; renderNameColors(); });
+    box.appendChild(b);
+  }
+  $('#nameColorHint').textContent = locked ? `🔒 Unlocks at level ${need} (you’re level ${xpLevel(S.me.xp)}).` : 'Your name shows in this color everywhere.';
+}
 function fillFlair() {
   profileFlair = S.me.flair || ''; renderFlairs();
-  for (const r of document.querySelectorAll('input[name="bannerFx"]')) r.checked = r.value === (S.me.bannerFx || '');
+  profileNameColor = S.me.nameColor || ''; renderNameColors();
+  for (const r of document.querySelectorAll('input[name="bannerFx"]')) {
+    r.checked = r.value === (S.me.bannerFx || '');
+    const need = S.perks.unlocks.bannerFx[r.value], locked = need && xpLevel(S.me.xp) < need;
+    r.disabled = !!locked;
+    r.nextElementSibling.textContent = locked ? `🔒 Lv ${need}` : { '': 'None', aurora: 'Aurora', stars: 'Stars', scan: 'Scanlines', matrix: 'Matrix' }[r.value];
+  }
   $('#setFavGames').value = (S.me.favGames || []).join(', ');
 }
 $('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, birthday: birthdayValue(),
-  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', favGames: $('#setFavGames').value }), 'Profile saved.'));
+  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', nameColor: profileNameColor, favGames: $('#setFavGames').value }), 'Profile saved.'));
 /* Settings is split into tabs: Profile, Look, Voice, Alerts, Account. */
 let setTab = 'profile';
 function showSetTab(name) {
@@ -3597,22 +3872,72 @@ function voiceServerId() { const f = V.channelId && findChannel(V.channelId); re
 function renderSoundboard() {
   const grid = $('#soundGrid'); grid.textContent = '';
   const sid = voiceServerId(), srv = sid && S.servers.get(sid);
-  const btn = (emoji, name, fn, del) => {
+  const btn = (emoji, name, fn, del, keyId) => {
     const wrap = document.createElement('div'); wrap.className = 'sound';
     const b = document.createElement('button'); b.type = 'button'; b.className = 'sound-btn'; b.title = `Play ${name}`;
     b.innerHTML = `<span class="sound-emoji-big" aria-hidden="true"></span><span class="sound-name"></span>`;
     b.firstChild.textContent = emoji; b.lastChild.textContent = name;
-    b.addEventListener('click', fn); wrap.appendChild(b);
+    const key = (settings.soundKeys || {})[keyId];
+    if (keyCapture === keyId) { const k = document.createElement('span'); k.className = 'sound-key wait'; k.textContent = 'Press keys…'; b.appendChild(k); }
+    else if (key) { const k = document.createElement('span'); k.className = 'sound-key'; k.textContent = accelLabel(key); b.appendChild(k); b.title += ` (${accelLabel(key)})`; }
+    b.addEventListener('click', () => { if (soundKeysMode) { keyCapture = keyCapture === keyId ? null : keyId; renderSoundboard(); } else fn(); });
+    wrap.appendChild(b);
     if (del) { const x = document.createElement('button'); x.type = 'button'; x.className = 'sound-del'; x.title = `Remove ${name}`; x.setAttribute('aria-label', x.title); x.innerHTML = iconSvg('x'); x.addEventListener('click', del); wrap.appendChild(x); }
     grid.appendChild(wrap);
   };
   const play = (data) => live.req('sound.play', data).catch((ex) => toast(ex.message, 3000));
-  for (const s of builtinSounds()) btn(s.emoji, s.name, () => play({ builtin: s.id }));
+  for (const s of builtinSounds()) btn(s.emoji, s.name, () => play({ builtin: s.id }), null, `b:${s.id}`);
   for (const s of (sid && S.sounds.get(sid)) || []) {
     const mayDelete = s.userId === S.me.id || (srv && can(srv, 'messages'));
-    btn(s.emoji, s.name, () => play({ id: s.id }), mayDelete ? async () => { if (await confirmBox(`Remove ${s.name}?`, 'It’s removed from the soundboard for everyone in this server.', 'Remove')) act(() => live.req('sound.delete', { id: s.id })); } : null);
+    btn(s.emoji, s.name, () => play({ id: s.id }), mayDelete && !soundKeysMode ? async () => { if (await confirmBox(`Remove ${s.name}?`, 'It’s removed from the soundboard for everyone in this server.', 'Remove')) act(() => live.req('sound.delete', { id: s.id })); } : null, `c:${s.id}`);
   }
+  $('#soundKeysBtn').setAttribute('aria-pressed', String(soundKeysMode));
+  $('#soundKeysBtn').classList.toggle('on', soundKeysMode);
+  $('#soundKeysHint').hidden = !soundKeysMode;
+  $('#soundKeysHint').textContent = keyCapture ? 'Press a key combination, like Ctrl+Alt+1 or F8. Backspace removes it, Esc cancels.'
+    : `Click a sound, then press its keys.${desktop && desktop.setSoundKeys ? ' They work even while you’re in a game.' : ' They work while Party Line is in front (in the desktop app, in any app).'}`;
 }
+/* ---------- soundboard keys: kept on this device; the desktop app makes them work in any app ---------- */
+let soundKeysMode = false, keyCapture = null;
+function accelOf(e) {
+  const c = e.code;
+  const key = /^Key[A-Z]$/.test(c) ? c.slice(3) : /^Digit\d$/.test(c) ? c.slice(5) : /^F([1-9]|1\d|2[0-4])$/.test(c) ? c : /^Numpad\d$/.test(c) ? `num${c.slice(6)}` : null;
+  if (!key) return null;
+  const mods = [e.ctrlKey || e.metaKey ? 'CommandOrControl' : null, e.altKey ? 'Alt' : null, e.shiftKey ? 'Shift' : null].filter(Boolean);
+  // A plain letter or number (or one with only Shift) would go off while typing, so those need Ctrl or Alt.
+  if (!/^(F\d|num)/.test(key) && !mods.some((m) => m !== 'Shift')) return null;
+  return [...mods, key].join('+');
+}
+const accelLabel = (a) => a.replace('CommandOrControl', /Mac/.test(navigator.platform) ? 'Cmd' : 'Ctrl').replace(/num(\d)/, 'Num $1');
+function syncSoundKeys() {
+  if (desktop && desktop.setSoundKeys) desktop.setSoundKeys(Object.entries(settings.soundKeys || {}).map(([id, key]) => ({ id, key })));
+}
+function playSoundKey(id) {
+  if (!V.channelId) return;
+  const data = id.startsWith('b:') ? { builtin: id.slice(2) } : { id: Number(id.slice(2)) };
+  live.req('sound.play', data).catch((ex) => toast(ex.message, 3000));
+}
+$('#soundKeysBtn').addEventListener('click', () => { soundKeysMode = !soundKeysMode; keyCapture = null; renderSoundboard(); });
+document.addEventListener('keydown', (e) => {
+  if (keyCapture) {
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation();
+    settings.soundKeys = settings.soundKeys || {};
+    if (e.key === 'Backspace' || e.key === 'Delete') delete settings.soundKeys[keyCapture];
+    else if (e.key !== 'Escape') {
+      const a = accelOf(e);
+      if (!a) { toast('Use Ctrl or Alt with a letter or number, or an F key or number pad key.', 3500); return; }
+      for (const [id, k] of Object.entries(settings.soundKeys)) if (k === a) delete settings.soundKeys[id];   // one sound per key
+      settings.soundKeys[keyCapture] = a;
+    }
+    keyCapture = null; saveSettings(); syncSoundKeys(); renderSoundboard();
+    return;
+  }
+  if (!V.channelId || isTyping(e.target) || !settings.soundKeys) return;
+  const a = accelOf(e), hit = a && Object.entries(settings.soundKeys).find(([, k]) => k === a);
+  if (hit) { e.preventDefault(); e.stopPropagation(); playSoundKey(hit[0]); }
+}, true);
+syncSoundKeys();
 /* ---------- voice effects (see Voice.setVoiceFx) ---------- */
 const VOICE_FX = [['none', '🙂', 'Normal'], ['robot', '🤖', 'Robot'], ['deep', '🐻', 'Deep'], ['chipmunk', '🐿️', 'Chipmunk'], ['cave', '🏔️', 'Cave echo'], ['radio', '📻', 'Radio']];
 for (const box of [$('#fxOpts'), $('#setFx')]) {
@@ -3652,7 +3977,7 @@ function openSoundboard() {
   pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
   $('#soundBtn').setAttribute('aria-expanded', 'true');
 }
-function closeSoundboard() { $('#soundPop').hidden = true; $('#soundBtn').setAttribute('aria-expanded', 'false'); }
+function closeSoundboard() { $('#soundPop').hidden = true; $('#soundBtn').setAttribute('aria-expanded', 'false'); soundKeysMode = false; keyCapture = null; }
 $('#soundBtn').addEventListener('click', () => ($('#soundPop').hidden ? openSoundboard() : closeSoundboard()));
 document.addEventListener('pointerdown', (e) => { if (!$('#soundPop').hidden && !e.target.closest('#soundPop, #soundBtn, #confirmDlg')) closeSoundboard(); });
 $('#soundVol').addEventListener('input', () => { settings.soundVolume = Number($('#soundVol').value); saveSettings(); });

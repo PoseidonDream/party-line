@@ -30,7 +30,7 @@ export default async function (ok) {
     ok('nor told when you come online', !cFrames.some((f) => f.includes('"t":"presence"') && f.includes(`"userId":${ready.me.id}`)));
     // A friend request makes them visible to each other
     await b.click('.tab[data-tab="add"]'); await b.fill('#frAddName', 'Cem'); await b.click('#frAddForm button[type=submit]');
-    await c.click('#railHome'); await c.click('.tab[data-tab="pending"]');
+    await c.click('#railHome'); await c.click('#navFriends'); await c.click('.tab[data-tab="pending"]');
     await c.waitForSelector('.fr-row:has-text("Bulut")', { timeout: 5000 });
     ok('a friend request introduces you', true);
 

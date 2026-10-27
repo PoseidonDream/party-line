@@ -41,10 +41,20 @@ const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-
 /* ---------- users and sessions ---------- */
 export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
   custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null,
-  flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [], xp: u.xp || 0 });
-/* Profile flair: an animated ring around your picture and an effect on your profile banner. */
-export const FLAIRS = ['glow', 'rainbow', 'fire', 'ice', 'gold'];
-export const BANNER_FX = ['aurora', 'stars', 'scan'];
+  flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [], xp: u.xp || 0,
+  streak: [dayKey(0), dayKey(-1)].includes(u.streak_day) ? u.streak : 0, badges: u.badges ? JSON.parse(u.badges) : {}, nameColor: u.name_color || null });
+/* Today (offset 0), yesterday (-1)... on the server's clock, like birthdays: streaks count these days. */
+export function dayKey(offset) {
+  const d = new Date(Date.now() + offset * 86_400_000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/* Profile flair: an animated ring around your picture and an effect on your profile banner. Some are level rewards. */
+export const FLAIRS = ['glow', 'rainbow', 'fire', 'ice', 'gold', 'galaxy', 'plasma'];
+export const BANNER_FX = ['aurora', 'stars', 'scan', 'matrix'];
+export const NAME_COLORS = ['#ff6b6b', '#ffa94d', '#ffd43b', '#8ce99a', '#66d9e8', '#74c0fc', '#b197fc', '#f783ac'];
+/* The level each reward needs (the app shows the rest locked). At level 20 your name shimmers. */
+export const UNLOCKS = { flair: { galaxy: 10, plasma: 15 }, bannerFx: { matrix: 10 }, nameColor: 5, legend: 20 };
+const needLevel = (userId, lvl, what) => { if (levelOf(getUser(userId).xp) < lvl) fail(`Reach level ${lvl} to unlock ${what}.`); };
 /* What only you see about yourself. */
 export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
@@ -272,8 +282,21 @@ export function setProfile(userId, d) {
     if (b && !(m && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= new Date(2024, +m[1], 0).getDate())) fail('Pick a month and day.');
     run('UPDATE users SET birthday = ? WHERE id = ?', b || null, userId);
   }
-  if (d.flair !== undefined) { if (d.flair && !FLAIRS.includes(d.flair)) fail('Pick one of the rings.'); run('UPDATE users SET flair = ? WHERE id = ?', d.flair || null, userId); }
-  if (d.bannerFx !== undefined) { if (d.bannerFx && !BANNER_FX.includes(d.bannerFx)) fail('Pick one of the banner effects.'); run('UPDATE users SET banner_fx = ? WHERE id = ?', d.bannerFx || null, userId); }
+  if (d.flair !== undefined) {
+    if (d.flair && !FLAIRS.includes(d.flair)) fail('Pick one of the rings.');
+    if (UNLOCKS.flair[d.flair]) needLevel(userId, UNLOCKS.flair[d.flair], `the ${d.flair[0].toUpperCase() + d.flair.slice(1)} ring`);
+    run('UPDATE users SET flair = ? WHERE id = ?', d.flair || null, userId);
+  }
+  if (d.bannerFx !== undefined) {
+    if (d.bannerFx && !BANNER_FX.includes(d.bannerFx)) fail('Pick one of the banner effects.');
+    if (UNLOCKS.bannerFx[d.bannerFx]) needLevel(userId, UNLOCKS.bannerFx[d.bannerFx], `the ${d.bannerFx[0].toUpperCase() + d.bannerFx.slice(1)} banner`);
+    run('UPDATE users SET banner_fx = ? WHERE id = ?', d.bannerFx || null, userId);
+  }
+  if (d.nameColor !== undefined) {
+    if (d.nameColor && !NAME_COLORS.includes(d.nameColor)) fail('Pick one of the name colors.');
+    if (d.nameColor) needLevel(userId, UNLOCKS.nameColor, 'name colors');
+    run('UPDATE users SET name_color = ? WHERE id = ?', d.nameColor || null, userId);
+  }
   if (d.favGames !== undefined) {
     const list = [...new Set((Array.isArray(d.favGames) ? d.favGames : String(d.favGames || '').split(','))
       .map((g) => String(g).replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40)).filter(Boolean))].slice(0, 5);
@@ -481,6 +504,58 @@ export function addXp(userId, amount, fromMessage) {
 /* Place among everyone in the app (1 = the most XP). */
 export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot = 0 AND xp > ?', xp).n + 1;
 
+/* ---------- hall of fame: messages that got enough ⭐ are copied (by Party Bot) into #hall-of-fame ---------- */
+export const inHallOfFame = (messageId) => !!one('SELECT 1 AS x FROM hall_of_fame WHERE message_id = ?', messageId);
+export const addHallOfFame = (messageId, postId) => run('INSERT OR IGNORE INTO hall_of_fame (message_id, post_id) VALUES (?, ?)', messageId, postId);
+export const clipsChannel = (serverId) => one("SELECT * FROM channels WHERE server_id = ? AND kind = 'text' AND name LIKE '%clip%' ORDER BY position, id LIMIT 1", serverId);
+export const textChannelNamed = (serverId, name) => one("SELECT * FROM channels WHERE server_id = ? AND kind = 'text' AND name = ?", serverId, name);
+/* A message by Party Bot carrying another message's files (the files stay as long as any message uses them). */
+export function postCopy(botId, where, body, attachments) {
+  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    where.channelId || null, where.dmId || null, botId, cleanBody(body), attachments || null, now()).lastInsertRowid);
+  return publicMessage(getMessage(id));
+}
+
+/* ---------- looking for group: "Need 2 for Valorant at 21:00", posted as a message <lfg:id> people can join ---------- */
+export const getLfg = (id) => one('SELECT * FROM lfg WHERE id = ?', id);
+const oneLine = (t, max) => String(t || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+export function createLfg(userId, d) {
+  const game = oneLine(d.game, 40);
+  if (!game) fail('Which game?');
+  const need = Math.floor(Number(d.need));
+  if (!(need >= 1 && need <= 9)) fail('Pick how many more people you need (1 to 9).');
+  const at = d.at ? Number(d.at) : null;
+  if (at !== null && (!Number.isFinite(at) || at < now() - 60_000 || at > now() + 7 * 86_400_000)) fail('Pick a time in the next 7 days.');
+  return Number(run('INSERT INTO lfg (created_by, game, need, at, note, created_at) VALUES (?, ?, ?, ?, ?, ?)', userId, game, need, at, oneLine(d.note, 120) || null, now()).lastInsertRowid);
+}
+/* A post closes when its maker (or a moderator) closes it, or by itself 3 hours after its time (12 hours after it was
+   posted if it had no time). Full groups stay open, so someone can still leave and make room. */
+export function lfgView(id) {
+  const l = getLfg(id);
+  if (!l) return null;
+  const members = all('SELECT user_id FROM lfg_members WHERE lfg_id = ? ORDER BY joined_at', id).map((r) => r.user_id);
+  const expired = now() > (l.at ? l.at + 3 * 3600_000 : l.created_at + 12 * 3600_000);
+  return { id: l.id, game: l.game, need: l.need, at: l.at, note: l.note, by: l.created_by, members, full: members.length >= l.need, closed: !!l.closed || expired, expired };
+}
+export function joinLfg(id, userId, on) {
+  const v = lfgView(id);
+  if (!v) fail('That group is gone.');
+  if (v.closed) fail('This group is closed.');
+  if (userId === v.by) fail('It’s your own group.');
+  if (on && v.full && !v.members.includes(userId)) fail('The group is full.');
+  if (on) run('INSERT OR IGNORE INTO lfg_members (lfg_id, user_id, joined_at) VALUES (?, ?, ?)', id, userId, now());
+  else run('DELETE FROM lfg_members WHERE lfg_id = ? AND user_id = ?', id, userId);
+  return lfgView(id);
+}
+export const closeLfg = (id) => run('UPDATE lfg SET closed = 1 WHERE id = ?', id);
+/* Open group posts in these servers (for the Home dashboard), newest first. */
+export function openLfgs(serverIds) {
+  if (!serverIds.length) return [];
+  return all(`SELECT l.id, m.id AS message_id, m.channel_id FROM lfg l JOIN messages m ON m.id = l.message_id JOIN channels c ON c.id = m.channel_id
+    WHERE l.closed = 0 AND l.created_at > ? AND c.server_id IN (${serverIds.map(() => '?').join(',')}) ORDER BY l.created_at DESC LIMIT 20`, now() - 8 * 86_400_000, ...serverIds)
+    .map((r) => Object.assign(lfgView(r.id), { messageId: r.message_id, channelId: r.channel_id })).filter((v) => !v.closed);
+}
+
 /* ---------- messages ---------- */
 function attachmentsFrom(userId, list) {
   if (!Array.isArray(list)) return [];
@@ -515,7 +590,11 @@ function decorate(rows) {
     if (!e) { e = { emoji: r.emoji, users: [] }; msg.reactions.push(e); }
     e.users.push(r.user_id);
   }
-  for (const m of out) { const pl = /^<poll:(\d+)>$/.exec(m.body || ''); if (pl) m.poll = pollView(Number(pl[1])); }
+  for (const m of out) {
+    const pl = /^<poll:(\d+)>$/.exec(m.body || ''), lg = /^<lfg:(\d+)>$/.exec(m.body || '');
+    if (pl) m.poll = pollView(Number(pl[1]));
+    if (lg) m.lfg = lfgView(Number(lg[1]));
+  }
   const replyIds = [...new Set(out.filter((m) => m.replyTo).map((m) => m.replyTo))];
   if (replyIds.length) {
     const found = new Map(all(`SELECT id, user_id, body, attachments FROM messages WHERE id IN (${placeholders(replyIds.length)})`, ...replyIds).map((r) => [r.id, r]));
@@ -543,12 +622,15 @@ export function postMessage(userId, where, body, attachments, replyTo) {
   // A poll message (<poll:id>) is posted once, by whoever made the poll (see createPoll).
   const pl = /^<poll:(\d+)>$/.exec(body), poll = pl && getPoll(Number(pl[1]));
   if (pl && (!poll || poll.created_by !== userId || poll.message_id)) fail('That poll is gone.');
+  const lg = /^<lfg:(\d+)>$/.exec(body), group = lg && getLfg(Number(lg[1]));
+  if (lg && (!group || group.created_by !== userId || group.message_id)) fail('That group is gone.');
   const parent = replyTo ? getMessage(Number(replyTo)) : null;
   const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
   const ttl = disappearOf(where);
   const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null, ttl ? now() + ttl * 1000 : null).lastInsertRowid);
   if (poll) run('UPDATE polls SET message_id = ? WHERE id = ?', id, poll.id);
+  if (group) run('UPDATE lfg SET message_id = ? WHERE id = ?', id, group.id);
   markRead(userId, where.channelId ? `c:${where.channelId}` : `d:${where.dmId}`, id);
   return publicMessage(one('SELECT * FROM messages WHERE id = ?', id));
 }
@@ -558,7 +640,8 @@ export const readableBody = (body) => String(body || '')
   .replace(/<@(\d+)>/g, (_, id) => '@' + ((getUser(Number(id)) || {}).name || 'someone'))
   .replace(/<t:(\d+)(?::\w)?>/g, (_, t) => new Date(Number(t) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')
   .replace(/<:(\w+):\d+>/g, ':$1:').replace(/^<s:\d+>$/, '[sticker]').replace(/^<g:[\w-]+>$/, '[GIF]').replace(/\s*<m:[cd]:\d+:\d+>/g, '')
-  .replace(/^<poll:(\d+)>$/, (_, id) => `📊 Poll: ${(getPoll(Number(id)) || { question: '' }).question}`);
+  .replace(/^<poll:(\d+)>$/, (_, id) => `📊 Poll: ${(getPoll(Number(id)) || { question: '' }).question}`)
+  .replace(/^<lfg:(\d+)>$/, (_, id) => `🎮 Looking for ${(getLfg(Number(id)) || { game: 'a group' }).game} players`);
 /* Mentions are written in messages as <@userId>. */
 export const mentionedIds = (body) => [...new Set([...String(body || '').matchAll(/<@(\d+)>/g)].map((x) => Number(x[1])))];
 const EMOJI = /^(?=.*(?:\p{Extended_Pictographic}|\u20e3))[^\s]{1,16}$/u;   // \u20e3: keycap numbers like 1️⃣
@@ -608,6 +691,7 @@ export function editMessage(id, body) {
   if (!body) fail('Empty message.');
   checkSpecial(body);
   if (/<poll:\d+>/.test(body) || /^<poll:\d+>$/.test((getMessage(id) || {}).body || '')) fail('Polls can’t be edited. Make a new one instead.');
+  if (/<lfg:\d+>/.test(body) || /^<lfg:\d+>$/.test((getMessage(id) || {}).body || '')) fail('Group posts can’t be edited. Make a new one instead.');
   run('UPDATE messages SET body = ?, edited_at = ? WHERE id = ?', body, now(), id);
   return publicMessage(getMessage(id));
 }

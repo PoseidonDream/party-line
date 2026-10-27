@@ -8,6 +8,10 @@ contextBridge.exposeInMainWorld('partyLineDesktop', {
   onPtt: (cb) => ipcRenderer.on('ptt', (e, held) => cb(!!held)),
   onHotkey: (cb) => ipcRenderer.on('hotkey', (e, what) => cb(what)),
   setOverlay: (state) => ipcRenderer.send('overlay', state),
+  // Soundboard keys that work in any app: [{ id, key }] (key like CommandOrControl+Alt+1).
+  setSoundKeys: (list) => ipcRenderer.send('sound-keys', list),
+  // A friend's drawing on your shared screen, shown on top of that screen.
+  drawOnScreen: (stroke) => ipcRenderer.send('draw', stroke),
   // A new version is downloaded: the page shows its own card, and calls installUpdate to restart.
   onUpdate: (cb) => { ipcRenderer.on('update-ready', (e, v) => cb(String(v || ''))); ipcRenderer.send('update:get'); },
   installUpdate: () => ipcRenderer.send('update:install'),

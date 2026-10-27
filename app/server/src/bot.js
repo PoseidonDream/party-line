@@ -200,6 +200,12 @@ function seedReactions(msg, emojis) {
   for (const e of emojis) reactions = M.react(bot.id, msg.id, e, true);
   host.broadcastReactions(msg, reactions);
 }
+/* /lfg Valorant 2 | ranked: a Looking for group card (the same as + then Looking for group). */
+function lfg(ctx) {
+  const m = /^(.+?)(?:\s+(\d))?(?:\s*\|\s*(.+))?$/.exec(ctx.args);
+  if (!m) fail('Write the game, then how many more people you need, like: /lfg Valorant 2');
+  host.lfg(ctx.user, ctx.where, m[1], m[2] ? Number(m[2]) : 1, m[3] || '');
+}
 /* ---------- XP and levels (one total per person, see M.addXp) ---------- */
 function rank(ctx) {
   const m = /<@(\d+)>/.exec(ctx.args), u = M.getUser(m ? Number(m[1]) : ctx.user.id);
@@ -412,12 +418,13 @@ const HELP = [
   '🎮 **Games**',
   '/game Name: add a game to this chat’s list for later (or use the 🎮 button). /games: the list',
   '/vote: everyone votes on tonight’s game from the list (/vote 1h for a longer vote)',
+  '/lfg Valorant 2: looking for 2 more players (add | and a note). Friends who list the game get pinged',
   '🤖 **Ask**',
   '/ask anything: Party Bot answers (it reads the last few messages here for context)',
 ].join('\n');
 
 export const COMMANDS = {
-  play, watch, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote, rank, top, leaderboard: top,
+  play, watch, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote, lfg, rank, top, leaderboard: top,
   help: () => ({ ephemeral: HELP }),
 };
 /* For the command hints in the message box. */
@@ -427,7 +434,7 @@ export const COMMAND_LIST = [
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],
   ['poll', 'Question | Choice | Choice', 'Start a poll'],
-  ['remind', '10m what', 'Get a reminder in this chat'], ['rank', '[@someone]', 'Level and XP'], ['top', '', 'The XP leaderboard for this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['help', '', 'All bot commands'],
+  ['remind', '10m what', 'Get a reminder in this chat'], ['rank', '[@someone]', 'Level and XP'], ['top', '', 'The XP leaderboard for this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['lfg', 'Game [how many] [| note]', 'Looking for group: find players'], ['help', '', 'All bot commands'],
 ];
 
 export const isCommand = (body) => { const m = /^\/([a-z]+)(?:\s|$)/i.exec(String(body || '').trim()); return !!(m && Object.hasOwn(COMMANDS, m[1].toLowerCase())); };

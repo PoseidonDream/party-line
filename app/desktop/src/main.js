@@ -1,7 +1,7 @@
 /* Party Line desktop app. Opens your group's Party Line server in its own window and adds what a browser
    can't: a screen and window picker for screen sharing, push to talk that works while a game is in front,
-   mute and deafen keys that work in any app, an overlay showing who's talking while you play, a tray icon,
-   unread badges and automatic updates. */
+   mute, deafen and soundboard keys that work in any app, an overlay showing who's talking while you play,
+   friends' drawings on top of your shared screen, a tray icon, unread badges and automatic updates. */
 const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell, nativeImage, dialog, nativeTheme, globalShortcut, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -70,6 +70,8 @@ function setupPermissions() {
     if (!trusted(request.securityOrigin || (request.frame && request.frame.url))) { callback({}); return; }
     pickSource().then((src) => {
       if (!src) { callback({}); return; }
+      // A whole screen: friends' drawings on the share can be shown on top of that screen (see showDrawing).
+      sharedDisplay = src.id.startsWith('screen:') && src.display_id ? String(src.display_id) : null;
       // Windows can send the computer's sound along with the screen.
       callback(process.platform === 'win32' ? { video: src, audio: 'loopback' } : { video: src });
     }).catch(() => callback({}));
@@ -139,7 +141,49 @@ function setupHotkeys() {
     try { if (!globalShortcut.register(key, () => { if (win && !win.isDestroyed()) win.webContents.send('hotkey', what); })) console.warn('hotkey taken:', key); } catch {}
   };
   reg(cfg.muteKey, 'mute'); reg(cfg.deafenKey, 'deafen');
+  for (const s of soundKeys) reg(s.key, `sound:${s.id}`);
 }
+/* Soundboard keys, chosen in the app's soundboard (it sends the list whenever it changes). */
+let soundKeys = [];
+const ACCEL = /^((CommandOrControl|Alt|Shift)\+){0,3}([A-Z0-9]|F([1-9]|1\d|2[0-4])|num\d)$/;
+ipcMain.on('sound-keys', (e, list) => {
+  soundKeys = (Array.isArray(list) ? list : []).filter((x) => x && /^[bc]:[\w-]{1,40}$/.test(x.id) && ACCEL.test(x.key)).slice(0, 30);
+  setupHotkeys();
+});
+
+/* ---------- friends' drawings on your shared screen, on top of everything (even a game) ---------- */
+let sharedDisplay = null, drawWin = null, drawReady = false, drawQueue = [], drawHide = null;
+// Kept out of the share itself (viewers already draw them over the video). Windows before 10 version 2004 would
+// show a black box in the share instead, so there the drawings simply show up in the video too.
+const canHideFromShare = () => process.platform !== 'win32' || Number(String(process.getSystemVersion()).split('.')[2] || 0) >= 19041;
+function showDrawing(d) {
+  const disp = sharedDisplay && screen.getAllDisplays().find((x) => String(x.id) === sharedDisplay);
+  if (!disp) return;
+  if (!drawWin || drawWin.isDestroyed()) {
+    drawReady = false; drawQueue = [];
+    drawWin = new BrowserWindow({
+      ...disp.bounds, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, focusable: false,
+      show: false, hasShadow: false, alwaysOnTop: true, enableLargerThanScreen: true,
+      webPreferences: { preload: path.join(__dirname, 'draw-preload.js'), contextIsolation: true, sandbox: true },
+    });
+    drawWin.setAlwaysOnTop(true, 'screen-saver');
+    drawWin.setIgnoreMouseEvents(true);
+    drawWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    if (canHideFromShare()) drawWin.setContentProtection(true);
+    drawWin.loadFile(path.join(__dirname, 'draw.html'));
+    const dw = drawWin;
+    dw.webContents.once('did-finish-load', () => { if (dw.isDestroyed()) return; drawReady = true; for (const q of drawQueue) dw.webContents.send('stroke', q); drawQueue = []; });
+  } else drawWin.setBounds(disp.bounds);
+  if (drawReady) drawWin.webContents.send('stroke', d); else drawQueue.push(d);
+  if (!drawWin.isVisible()) drawWin.showInactive();
+  clearTimeout(drawHide);
+  drawHide = setTimeout(() => { if (drawWin && !drawWin.isDestroyed()) drawWin.hide(); }, 4000);
+}
+ipcMain.on('draw', (e, d) => {
+  if (!d || !Array.isArray(d.pts)) return;
+  const pts = d.pts.slice(0, 60).filter((p) => Array.isArray(p) && p.length === 2 && p.every((n) => Number.isFinite(n) && n >= -0.05 && n <= 1.05));
+  showDrawing({ from: String(d.from).slice(0, 12), id: String(d.id).slice(0, 16), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#ffd43b', pts, end: !!d.end });
+});
 
 /* ---------- overlay: who's talking, in a corner of the screen while you're in another app ---------- */
 let overlay = null, overlayState = null;

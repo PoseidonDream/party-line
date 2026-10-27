@@ -2,6 +2,16 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 7, items: [
+    ['🏠', 'Home dashboard', 'The Home button shows who’s in voice, who’s playing what, open groups and what’s coming up.'],
+    ['🔥', 'Streaks & achievements', 'Chat or join voice every day for a 🔥 streak, and collect 15 achievements. Home → Leaderboard → Achievements.'],
+    ['🎨', 'Level rewards', 'Level 5 unlocks name colors, level 10 the Galaxy ring and Matrix banner, level 15 the Plasma ring, level 20 a shimmering name.'],
+    ['⭐', 'Hall of fame', 'Three ⭐ on a message puts it in #hall-of-fame forever.'],
+    ['🎮', 'Looking for group', 'Press + → Looking for group (or /lfg Valorant 2). Friends who list that game get pinged.'],
+    ['✏️', 'Draw on screen shares', 'Watching someone’s screen? Press Draw to point at things. In the desktop app it shows on their real screen too.'],
+    ['🎬', 'Clip it & pop out', 'Clip it saves the last seconds of a screen share to #clips-and-highlights. Pop out keeps it in a small window.'],
+    ['⌨️', 'Soundboard keys', 'Soundboard → Keys gives sounds their own shortcuts. In the desktop app they work even in a game.'],
+  ] },
   { id: 6, items: [
     ['📊', 'Better polls', 'Press + next to the message box → Poll. Pick several, keep it anonymous, set an end time, and watch the votes come in live.'],
     ['🏅', 'Levels', 'Chatting and hanging out in voice anywhere in Party Line earn XP. Click someone to see their level, or Home → Leaderboard (/rank, /top).'],

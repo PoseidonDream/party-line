@@ -26,12 +26,12 @@ export default async function (ok) {
     await b.waitForSelector('.msg-body:has-text("hello from Poseidon")', { timeout: 8000 });
     ok('history loads after a reload, still signed in', true);
 
-    await a.click('#railHome');
+    await a.click('#railHome'); await a.click('#navFriends');
     await a.click('.tab[data-tab="add"]');
     await a.fill('#frAddName', 'bora');
     await a.click('#frAddForm button[type=submit]');
     await a.waitForSelector('#frAddNote:has-text("sent")');
-    await b.click('#railHome');
+    await b.click('#railHome'); await b.click('#navFriends');
     await b.click('.tab[data-tab="pending"]');
     await b.click('.fr-act.ok');
     await a.click('.tab[data-tab="all"]');

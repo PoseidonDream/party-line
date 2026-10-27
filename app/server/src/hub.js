@@ -8,6 +8,7 @@ import { config } from './config.js';
 import * as Bot from './bot.js';
 import { previewFor, linksIn, imagePath } from './preview.js';
 import * as Push from './push.js';
+import * as P from './progress.js';
 import QRCode from 'qrcode';
 
 const conns = new Map();     // connId -> { id, ws, userId }
@@ -16,6 +17,7 @@ const voice = new Map();     // userId -> { channelId, serverId, connId, muted, 
 const voiceStatus = new Map();   // voice channelId -> { text, by }: a line like "ranked Valorant 🔥", until the channel empties
 let nextConn = 1;
 const cmdTimes = new Map();   // userId -> times of recent bot commands
+const drawTimes = new Map();  // userId -> times of recent drawing messages
 const startedAt = Date.now();
 /* Developer log: voice events and errors reported by everyone's app, newest last. Kept in memory only. */
 const devLog = [];
@@ -104,7 +106,7 @@ export const hub = {
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
 
-/* What Party Bot (bot.js) may do: post messages, react, start polls, and see who's in voice. */
+/* What Party Bot (bot.js) may do: post messages, react, start polls and group posts, and see who's in voice. */
 const botHost = {
   games: (where) => shareGames(where),
   post(where, body, replyTo) {
@@ -121,6 +123,10 @@ const botHost = {
     const dm = where.dmId && M.getDm(where.dmId);
     const t = dm ? { toUserId: dm.user_a === user.id ? dm.user_b : dm.user_a } : { channelId: where.channelId };
     return handlers['poll.create'](null, user, Object.assign({ question, options }, t));
+  },
+  lfg(user, where, game, need, note) {
+    if (!where.channelId) fail('Looking for group works in server channels and group chats.');
+    return handlers['lfg.create'](null, user, { channelId: where.channelId, game, need, note });
   },
   broadcastReactions(m, reactions) { if (m) broadcastAbout(M.getMessage(m.id), { t: 'reactions', id: m.id, channelId: m.channelId || null, dmId: m.dmId || null, reactions }); },
   voiceOf(userId) {
@@ -174,6 +180,7 @@ function readyFor(user) {
     gifs: M.favGifs(user.id),
     bookmarks: M.bookmarkIds(user.id),
     commands: Bot.COMMAND_LIST,
+    perks: { achievements: P.ACHIEVEMENTS, unlocks: M.UNLOCKS, nameColors: M.NAME_COLORS },
     serverNow: Date.now(),
     resets: user.is_admin ? M.pendingResets() : [],
     notify: M.notifyPrefs(user.id),
@@ -211,7 +218,7 @@ const handlers = {
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
-      gainXp(user.id, 10, true, { channelId: ch.id });
+      chatted(user.id, { channelId: ch.id });
       pushMessage(m, user);
       addPreviews(M.getMessage(m.id)).catch(() => {});
       return { msg: m };
@@ -225,7 +232,7 @@ const handlers = {
     const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
-    if (!other.is_bot) gainXp(user.id, 10, true, null);
+    if (!other.is_bot) chatted(user.id, null);
     pushMessage(m, user);
     addPreviews(M.getMessage(m.id)).catch(() => {});
     return { msg: m };
@@ -233,8 +240,46 @@ const handlers = {
   /* Polls (see M.createPoll). Targets like msg.send: { channelId } or { toUserId }. */
   'poll.create'(c, user, d) {
     const id = M.createPoll(user.id, d);
-    try { return handlers['msg.send'](c, user, { channelId: d.channelId, toUserId: d.toUserId, body: `<poll:${id}>`, attachments: [] }); }
+    let r;
+    try { r = handlers['msg.send'](c, user, { channelId: d.channelId, toUserId: d.toUserId, body: `<poll:${id}>`, attachments: [] }); }
     catch (e) { M.closePoll(id); throw e; }
+    progress(user.id, P.onPoll(user.id));
+    return r;
+  },
+  /* Looking for group: in a server channel or group chat (see M.createLfg). Friends who list the game among their
+     favorites get pinged. */
+  'lfg.create'(c, user, d) {
+    const ch = M.getChannel(Number(d.channelId));
+    if (!ch || !M.isMember(user.id, ch.server_id) || M.getServer(ch.server_id).kind === 'pair') fail('Post it in a server channel or a group chat.');
+    const id = M.createLfg(user.id, d);
+    let r;
+    try { r = handlers['msg.send'](c, user, { channelId: ch.id, body: `<lfg:${id}>`, attachments: [] }); }
+    catch (e) { M.closeLfg(id); throw e; }
+    const game = M.lfgView(id).game.toLowerCase();
+    const fans = M.memberIds(ch.server_id).filter((uid) => uid !== user.id && M.publicUser(M.getUser(uid)).favGames.some((g) => g.toLowerCase() === game));
+    if (fans.length) botHost.post({ channelId: ch.id }, `🎮 ${fans.map((uid) => `<@${uid}>`).join(' ')}: **${user.name}** is looking for ${M.lfgView(id).game} players!`, r.msg.id);
+    return r;
+  },
+  'lfg.join'(c, user, d) {
+    const l = M.getLfg(Number(d.id)), m = l && l.message_id && M.getMessage(l.message_id);
+    if (!m || !canSee(user.id, m)) fail('That group is gone.');
+    const wasFull = M.lfgView(l.id).full, v = M.joinLfg(l.id, user.id, !!d.on);
+    shareLfg(l.id);
+    if (v.full && !wasFull) {
+      botHost.post({ channelId: m.channel_id }, `🎮 The **${v.game}** squad is full: ${[v.by, ...v.members].map((uid) => `<@${uid}>`).join(' ')}. Have fun!`, m.id);
+      progress(v.by, P.once(v.by, 'squad_up'));
+    }
+    return {};
+  },
+  'lfg.list'(c, user) { return { list: M.openLfgs(M.serverIdsOf(user.id)) }; },
+  'lfg.close'(c, user, d) {
+    const l = M.getLfg(Number(d.id)), m = l && l.message_id && M.getMessage(l.message_id);
+    if (!m || !canSee(user.id, m)) fail('That group is gone.');
+    const ch = M.getChannel(m.channel_id);
+    if (l.created_by !== user.id && !M.can(user, M.getServer(ch.server_id), 'messages')) fail('Only whoever posted it (or a moderator) can close it.');
+    M.closeLfg(l.id);
+    shareLfg(l.id);
+    return {};
   },
   'poll.vote'(c, user, d) {
     const p = M.getPoll(Number(d.id)), m = p && p.message_id && M.getMessage(p.message_id);
@@ -338,6 +383,7 @@ const handlers = {
     if (!m || !canSee(user.id, m)) fail('That message is gone.');
     const reactions = M.react(user.id, m.id, d.emoji, !!d.on);
     broadcastAbout(m, { t: 'reactions', id: m.id, channelId: m.channel_id, dmId: m.dm_id, reactions });
+    if (d.on && d.emoji === '⭐') hallOfFame(m, reactions);
     return {};
   },
   typing(c, user, d) {
@@ -691,6 +737,7 @@ const handlers = {
     if (!srv || !M.isMember(user.id, srv.id)) fail('You’re not in that server.');
     const e = M.createEvent(user.id, srv.id, d);
     shareEvents(srv.id);
+    progress(user.id, P.once(user.id, 'planner'));
     if (e.announce_channel_id) botHost.post({ channelId: e.announce_channel_id }, `📅 **${user.name}** planned **${e.title}** for <t:${Math.floor(e.starts_at / 1000)}>. Open **Events** at the top to say if you’re going.`);
     return { id: e.id };
   },
@@ -764,6 +811,35 @@ const handlers = {
     if (!me || !them || me.connId !== c.id || me.channelId !== them.channelId) return {};
     send(conns.get(them.connId), { t: 'rtc', from: user.id, data: d.data });
     return {};
+  },
+  /* Drawing on a screen share: a piece of a stroke (points from 0 to 1 across the shared picture) goes to everyone
+     else in the voice channel, who draw it over that screen. At most 40 pieces a second per person. */
+  draw(c, user, d) {
+    const me = voice.get(user.id), target = Number(d.target), them = voice.get(target);
+    if (!me || !them || me.channelId !== them.channelId || !them.sharing) return {};
+    const now = Date.now(), recent = (drawTimes.get(user.id) || []).filter((t) => now - t < 1000);
+    if (recent.length >= 40) return {};
+    recent.push(now); drawTimes.set(user.id, recent);
+    const pts = (Array.isArray(d.pts) ? d.pts : []).slice(0, 60).map((p) => Array.isArray(p) ? [Number(p[0]), Number(p[1])] : null)
+      .filter((p) => p && p.every((n) => Number.isFinite(n) && n >= -0.05 && n <= 1.05)).map(([x, y]) => [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4]);
+    const color = /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#ffd43b';
+    const msg = { t: 'draw', from: user.id, target, id: String(d.id || '').slice(0, 16), color, pts, end: !!d.end };
+    for (const [uid, v] of voice) if (uid !== user.id && v.channelId === me.channelId) toUser(uid, msg);
+    if (d.end) progress(user.id, P.once(user.id, 'picasso'));
+    return {};
+  },
+  /* A clip of a screen share (recorded and uploaded by the app): posted in the server's clips channel if it has one
+     (a text channel with "clip" in its name), otherwise in the voice channel's own chat. */
+  'clip.post'(c, user, d) {
+    const me = voice.get(user.id), ch = me && M.getChannel(me.channelId), srv = ch && M.getServer(ch.server_id);
+    if (!srv) fail('Join the voice channel first.');
+    const of = Number(d.of), clipCh = srv.kind === 'server' ? M.clipsChannel(srv.id) : null;
+    const who = of === user.id ? 'my screen' : `**${(M.getUser(of) || { name: 'someone' }).name}**’s screen`;
+    const where = clipCh ? clipCh.id : ch.id;
+    const r = handlers['msg.send'](c, user, { channelId: where, body: `🎬 Clip of ${who}${clipCh ? ` in 🔊 ${ch.name}` : ''}`, attachments: [{ id: String(d.upload || '') }] });
+    if (!r.msg.attachments.length) fail('The clip didn’t upload. Try again.');
+    progress(user.id, P.once(user.id, 'director'));
+    return { channelId: where };
   },
 
   /* ---- admin ---- */
@@ -987,6 +1063,18 @@ function gainXp(userId, amount, fromMessage, where) {
   toWatchers(userId, { t: 'xp', userId, xp: r.xp });
   const ch = r.up >= 2 && where && M.getChannel(where.channelId), srv = ch && M.getServer(ch.server_id);
   if (srv && srv.kind === 'server') botHost.post(where, `🎉 **${M.getUser(userId).name}** reached **level ${r.up}**!`);
+  if (r.up >= 10) progress(userId, P.once(userId, 'double_digits'));
+}
+/* A message someone sent (not a bot command): XP, and their streak and chat achievements. */
+function chatted(userId, where) {
+  gainXp(userId, 10, true, where);
+  progress(userId, P.onMessage(userId));
+}
+/* Streaks and achievements (see progress.js): a cheer for each new achievement, and everyone who can see the person
+   gets their new profile (streak and badges) when it changed. */
+function progress(userId, r) {
+  if (r.got.length) toUser(userId, { t: 'achievement', keys: r.got });
+  if (r.changed || r.got.length) hub.userChanged(M.getUser(userId));
 }
 /* Every minute in a voice channel or call with at least one other person (not deafened, not in the AFK channel): 5 XP. */
 setInterval(() => {
@@ -995,9 +1083,34 @@ setInterval(() => {
   for (const [channelId, ids] of byChannel) {
     const ch = M.getChannel(channelId), srv = ch && M.getServer(ch.server_id);
     if (!srv || ids.length < 2 || srv.afk_channel_id === ch.id) continue;
-    for (const id of ids) gainXp(id, 5, false, { channelId: ch.id });
+    for (const id of ids) { gainXp(id, 5, false, { channelId: ch.id }); progress(id, P.onVoiceMinute(id, voice.get(id).since)); }
   }
 }, Number(process.env.XP_VOICE_MS) || 60_000).unref();
+function shareLfg(id) {
+  const v = M.lfgView(id), m = v && M.getLfg(id).message_id && M.getMessage(M.getLfg(id).message_id);
+  if (m) broadcastAbout(m, { t: 'lfg', messageId: m.id, channelId: m.channel_id, lfg: v });
+}
+/* Hall of fame: a message in a server channel with enough ⭐ (not counting its writer's own) is copied by Party Bot
+   into #hall-of-fame (made when the first one gets in), with a button back to the original. */
+const HOF_STARS = Number(process.env.HOF_STARS) || 3;
+function hallOfFame(m, reactions) {
+  const stars = ((reactions.find((e) => e.emoji === '⭐') || {}).users || []).filter((id) => id !== m.user_id).length;
+  if (stars < HOF_STARS || !m.channel_id) return;
+  const ch = M.getChannel(m.channel_id), srv = M.getServer(ch.server_id), author = M.getUser(m.user_id);
+  if (srv.kind !== 'server' || ch.name === 'hall-of-fame' || !author || author.is_bot || M.inHallOfFame(m.id)) return;
+  let hof = M.textChannelNamed(srv.id, 'hall-of-fame');
+  if (!hof) {
+    hof = M.createChannel(srv.id, 'text', 'hall-of-fame');
+    M.editChannel(hof.id, { topic: `Messages that got ${HOF_STARS} ⭐. React with ⭐ to anything great.` });
+    refreshServer(srv.id);
+  }
+  const quote = M.readableBody(m.body).split('\n').map((l) => `> ${l}`).join('\n');
+  const body = `⭐ **${author.name}** in ${ch.kind === 'voice' ? '🔊 ' : '#'}${ch.name}:\n${m.body ? quote + '\n' : ''}<m:c:${ch.id}:${m.id}>`;
+  const post = M.postCopy(Bot.botUser().id, { channelId: hof.id }, body, m.attachments);
+  M.addHallOfFame(m.id, post.id);
+  toServer(srv.id, { t: 'msg', msg: post, serverId: srv.id });
+  progress(author.id, P.once(author.id, 'famous'));
+}
 function sharePoll(pollId) {
   const p = M.getPoll(pollId), m = p && M.getMessage(p.message_id);
   if (!m) return;

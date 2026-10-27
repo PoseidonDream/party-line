@@ -1,7 +1,7 @@
 {
   "name": "party-line-desktop",
   "productName": "Party Line",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Party Line desktop app for Windows, Mac and Linux.",
   "main": "src/main.js",
   "author": {
