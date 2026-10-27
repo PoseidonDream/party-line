@@ -270,6 +270,14 @@ app.use(express.static(config.webDir, { index: 'index.html', extensions: ['html'
 } }));
 app.get(['/invite/:code', '/app'], (req, res) => res.sendFile(path.join(config.webDir, 'index.html')));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+/* Broken or oversized requests get a short answer the app can show, not a web page with the server's insides. */
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'That’s too big.' });
+  if (err.status >= 400 && err.status < 500) return res.status(err.status).json({ error: 'That request wasn’t readable.' });
+  console.error(err);
+  res.status(500).json({ error: 'Something went wrong on the server.' });
+});
 
 /* Hourly: delete photos and videos nothing uses any more, and half-finished uploads. */
 function cleanUploads() {

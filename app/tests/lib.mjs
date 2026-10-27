@@ -36,7 +36,14 @@ export async function startServer(env = {}) {
     if (proc.exitCode !== null) await exited;
     throw new Error(`server didn't start (port ${port}, exit ${proc.exitCode}):\n${log}`);
   };
+  // PL_SERVER_ERRORS=1: print anything the server logged as an error (tests can pass while it hides a problem).
+  const showErrors = () => {
+    if (!process.env.PL_SERVER_ERRORS) return;
+    const lines = log.split('\n').filter((l) => /Error|^\s+at .*src[\\/].*\.js:\d+/.test(l));
+    if (lines.length) console.log(`  [server errors]\n    ${lines.slice(0, 15).join('\n    ')}`);
+  };
   const stop = () => new Promise((resolve) => {
+    showErrors();
     if (!proc || proc.exitCode !== null) { resolve(); return; }
     proc.once('exit', () => resolve());
     proc.kill();

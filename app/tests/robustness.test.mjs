@@ -17,6 +17,12 @@ export default async function (ok) {
     ok('/remind with a made-up unit explains how to use it', /Say when, then what/.test(r.ephemeral || ''));
     const m = await req('music.control', { action: '__proto__' });
     ok('an unknown player button is refused politely', m.error === 'Unknown action.');
+    const post = async (p, body) => { const res = await fetch(srv.url + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body }); return [res.status, res.headers.get('content-type') || '', await res.text()]; };
+    const [s1, t1, b1] = await post('/api/register', '{"name":');
+    const [s2, t2, b2] = await post('/api/login', JSON.stringify({ name: 'x'.repeat(2e6) }));
+    ok('a broken or huge request gets a short answer, not a web page with the server’s insides',
+      s1 === 400 && s2 === 413 && /json/.test(t1) && /json/.test(t2) && JSON.parse(b1).error && JSON.parse(b2).error && !/\sat \S+ \(|node_modules/.test(b1 + b2));
+    ok('…and doesn’t fill the server log', !/SyntaxError|PayloadTooLarge/.test(srv.log()));
 
     const send = await a.locator('#chatForm button[type=submit]').boundingBox();
     ok('on a phone the Send button fits inside the screen', send && send.x + send.width <= 390);
