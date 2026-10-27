@@ -11,6 +11,7 @@ import { db } from './db.js';
 import { proxyImage, signatureOk } from './preview.js';
 import * as Push from './push.js';
 import * as Gifs from './gifs.js';
+import * as Usage from './usage.js';
 import { attachHub, hub, voiceChannelOf, voiceCount } from './hub.js';
 
 M.ensureDefaultServer();
@@ -158,17 +159,18 @@ const perMinute = (limit, error) => {
     next();
   };
 };
-app.get('/api/gifs', auth, perMinute(30, 'Slow down a little with the GIF searches.'), wrap((req) => Gifs.searchGifs(req.query.q)));
+app.get('/api/gifs', auth, perMinute(30, 'Slow down a little with the GIF searches.'), wrap((req) => { Usage.countOnce(req.user.id, 'gifs'); return Gifs.searchGifs(req.query.q); }));
 app.post('/api/gifs/send', auth, perMinute(20, 'Slow down a little with the GIFs.'), wrap(async (req) => ({ uploadId: await Gifs.saveGif(req.user.id, (req.body || {}).id) })));
 
 /* Push notifications (see push.js). */
 app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey() }));
-app.post('/api/push/subscribe', auth, wrap((req) => { Push.subscribe(req.user.id, req.body.subscription, req.body.device, M.sessionKey(bearer(req))); return { ok: true }; }));
+app.post('/api/push/subscribe', auth, wrap((req) => { Usage.countOnce(req.user.id, 'push', 86_400_000); Push.subscribe(req.user.id, req.body.subscription, req.body.device, M.sessionKey(bearer(req))); return { ok: true }; }));
 app.post('/api/push/unsubscribe', auth, wrap((req) => { Push.unsubscribe(req.user.id, req.body.endpoint); return { ok: true }; }));
 
-app.get('/api/bookmarks', auth, wrap((req) => ({ messages: M.bookmarksOf(req.user.id) })));
+app.get('/api/bookmarks', auth, wrap((req) => { Usage.countOnce(req.user.id, 'bookmarks'); return { messages: M.bookmarksOf(req.user.id) }; }));
 /* Media gallery for a channel (channelId) or a private chat (userId); see M.mediaOf. */
 app.get('/api/media', auth, wrap((req) => {
+  Usage.countOnce(req.user.id, 'gallery');
   if (req.query.channelId) {
     const c = M.getChannel(Number(req.query.channelId));
     if (!c || !M.isMember(req.user.id, c.server_id)) return { items: [], before: null };
@@ -180,6 +182,7 @@ app.get('/api/media', auth, wrap((req) => {
 
 /* Pinned messages in a channel (channelId) or a private chat (userId). */
 app.get('/api/pins', auth, wrap((req) => {
+  Usage.countOnce(req.user.id, 'pins');
   if (req.query.channelId) {
     const c = M.getChannel(Number(req.query.channelId));
     if (!c || !M.isMember(req.user.id, c.server_id)) return { messages: [] };
@@ -190,7 +193,7 @@ app.get('/api/pins', auth, wrap((req) => {
 }));
 
 /* Search messages you can see: in one server (serverId), in your private chats (serverId=-1), or everywhere. */
-app.get('/api/search', auth, wrap((req) => ({ messages: M.search(req.user.id, req.query.q, Number(req.query.serverId) || 0) })));
+app.get('/api/search', auth, wrap((req) => { Usage.countOnce(req.user.id, 'search'); return { messages: M.search(req.user.id, req.query.q, Number(req.query.serverId) || 0) }; }));
 
 /* Uploads: the raw file is the request body. Photos, videos and audio are shown in the chat; any other file
    is offered as a download only, never opened in the page (an uploaded web page or SVG could run code). */

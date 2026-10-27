@@ -228,6 +228,7 @@ Signed in as the admin (Poseidon), click the **Home** button (top left) → **De
 - **Voice check:** try every voice effect without joining a call (friends don't hear it). **Hear myself live** (with headphones), or **Record 5 seconds** and click through the effects to hear the same words each way. **Use … in calls** makes it your voice in calls.
 - **Log:** voice problems and errors from **everyone's** app, so when a friend says "my voice broke" you can see what happened on their side.
 - **Check a friend:** pulls a friend's live voice numbers to your screen. They get a short note that you checked.
+- **Features:** how often friends used each feature in the last 7 days (and the week before), least used first, with where to find each one. Features nobody touched are in red with "never". Every Monday at 9 in the morning (the `TZ` time zone; change it with `REPORT_DAY` and `REPORT_HOUR` in `.env`, or `REPORT_DAY=7` to turn it off) Party Bot sends you last week's report privately: what nobody used, what was hardly used, and what was used most. **Send me the report now** sends this week's so far. Only how many times and by how many people is kept, never what anyone said.
 
 ## If something's wrong
 

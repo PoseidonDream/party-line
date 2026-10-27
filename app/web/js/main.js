@@ -39,7 +39,16 @@ function applyTheme() {
   for (const r of document.querySelectorAll('input[name="accent"]')) r.checked = r.value === (settings.accent || 'amber');
   if (desktop && desktop.setTheme) desktop.setTheme(settings.theme);
 }
-function setTheme(t) { settings.theme = t; saveSettings(); applyTheme(); }
+function setTheme(t) { settings.theme = t; saveSettings(); applyTheme(); track('theme'); }
+/* Features only this app sees (voice effects, pop out…) tell the server they were used, at most once a minute each,
+   for the admins' weekly report of what friends use (see server/src/usage.js). */
+const trackedAt = new Map();
+function track(key) {
+  const t = Date.now();
+  if (t - (trackedAt.get(key) || 0) < 60_000) return;
+  trackedAt.set(key, t);
+  live.send('feature.used', { key });
+}
 darkQuery.addEventListener('change', applyTheme);
 applyTheme();
 $('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
@@ -1787,6 +1796,7 @@ async function watchScreen(userId) {
   }
   renderVoiceView();
 }
+let watchTracked = null;   // whose screen we last counted as watched
 function renderVoiceView() {
   const chId = S.view.channelId;
   const people = voiceIn(chId);
@@ -1808,6 +1818,7 @@ function renderVoiceView() {
   stage.hidden = !S.watching || !inThis;
   $('#viewVoice').classList.toggle('has-stage', !stage.hidden);
   if (!stage.hidden) {
+    if (S.watching !== watchTracked) { watchTracked = S.watching; if (S.watching !== S.me.id) track('watchscreen'); }
     $('#stageTitle').textContent = '';
     $('#stageTitle').append(`${S.watching === S.me.id ? 'Your screen' : `${nameOf(S.watching)}'s screen`}`);
     if (video.srcObject !== stream) video.srcObject = stream || null;
@@ -1820,7 +1831,7 @@ function renderVoiceView() {
       b.addEventListener('click', () => { S.watching = p.userId; renderVoiceView(); });
       sw.appendChild(b);
     }
-  } else if (video.srcObject) video.srcObject = null;
+  } else { watchTracked = null; if (video.srcObject) video.srcObject = null; }
   syncStageExtras();
   for (const p of people) {
     const d = document.createElement('div');
@@ -1942,7 +1953,7 @@ $('#stageClipBtn').addEventListener('click', async () => {
 });
 $('#stagePipBtn').addEventListener('click', () => {
   if (document.pictureInPictureElement) { document.exitPictureInPicture().catch(() => {}); return; }
-  $('#stageVideo').requestPictureInPicture().catch(() => toast('Pop out isn’t available here.', 3000));
+  $('#stageVideo').requestPictureInPicture().then(() => track('popout'), () => toast('Pop out isn’t available here.', 3000));
 });
 $('#stageFull').addEventListener('click', () => { const el = $('#stage'); if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen && el.requestFullscreen().catch(() => {}); });
 
@@ -2530,7 +2541,7 @@ live.on('achievement', (d) => {
     if (a) toast(`🏆 Achievement unlocked: ${a.emoji} ${a.name}`, 5000, { label: 'See all', fn: () => { openTop(); showTopTab('ach'); } });
   }
 });
-function openTop() { closeMenu(); renderTop(); showTopTab('board'); $('#topDlg').showModal(); }
+function openTop() { closeMenu(); renderTop(); showTopTab('board'); $('#topDlg').showModal(); track('levels'); }
 $('#mTop').addEventListener('click', openTop);
 $('#navTop').addEventListener('click', () => { openTop(); $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; });
 
@@ -2905,7 +2916,7 @@ function renderJump() {
   $('#jumpInput').setAttribute('aria-activedescendant', jumpItems.length ? `jump-${jumpSel}` : '');
 }
 function goJump(i) { const x = jumpItems[i]; if (!x) return; $('#jumpDlg').close(); x.go(); $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; }
-function openJump() { if (!S.ready) return; closeMenu(); jumpSel = 0; $('#jumpInput').value = ''; renderJump(); if (!$('#jumpDlg').open) $('#jumpDlg').showModal(); $('#jumpInput').focus(); }
+function openJump() { if (!S.ready) return; closeMenu(); jumpSel = 0; track('switcher'); $('#jumpInput').value = ''; renderJump(); if (!$('#jumpDlg').open) $('#jumpDlg').showModal(); $('#jumpInput').focus(); }
 $('#jumpInput').addEventListener('input', () => { jumpSel = 0; renderJump(); });
 $('#jumpInput').addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown') { e.preventDefault(); jumpSel = Math.min(jumpItems.length - 1, jumpSel + 1); renderJump(); }
@@ -3063,7 +3074,7 @@ $('#mDelete').addEventListener('click', async () => {
 });
 $('#mSettings').addEventListener('click', () => { closeMenu(); openSettings(); });
 $('#mFeedback').addEventListener('click', () => { closeMenu(); openFeedback(); });
-$('#railHome').addEventListener('click', () => setView({ kind: 'home' }));
+$('#railHome').addEventListener('click', () => { setView({ kind: 'home' }); track('home'); });
 $('#navHome').addEventListener('click', () => setView({ kind: 'home' }));
 $('#navFriends').addEventListener('click', () => setView({ kind: 'friends' }));
 for (const b of [$('#railAdd'), $('#homeAdd')]) b.addEventListener('click', () => { $('#asError').hidden = true; $('#asInvite').value = ''; $('#asName').value = ''; $('#addServer').showModal(); });
@@ -3247,7 +3258,7 @@ $('#inVol').addEventListener('input', (e) => { $('#inVolOut').textContent = `${e
 $('#outVol').addEventListener('input', (e) => { $('#outVolOut').textContent = `${e.target.value}%`; settings.outputVol = clampLevel(e.target.value / 100); saveSettings(); Voice.applyAllVolumes(); });
 document.querySelectorAll('input[name="noise"]').forEach((r) => r.addEventListener('change', () => Voice.setNoiseMode(r.value).then(renderUserArea)));
 document.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
-document.querySelectorAll('input[name="accent"]').forEach((r) => r.addEventListener('change', () => { settings.accent = r.value; saveSettings(); applyTheme(); }));
+document.querySelectorAll('input[name="accent"]').forEach((r) => r.addEventListener('change', () => { settings.accent = r.value; saveSettings(); applyTheme(); track('theme'); }));
 document.querySelectorAll('input[name="quality"]').forEach((r) => r.addEventListener('change', () => { settings.quality = r.value; saveSettings(); }));
 $('#setClips').addEventListener('change', (e) => { settings.clips = e.target.checked; saveSettings(); syncStageExtras(); });
 $('#setPtt').addEventListener('change', (e) => { settings.ptt = e.target.checked; saveSettings(); Voice.setPtt(false); Voice.applyMic(); renderUserArea(); });
@@ -4048,6 +4059,7 @@ function playSoundKey(id) {
   if (!V.channelId) return;
   const data = id.startsWith('b:') ? { builtin: id.slice(2) } : { id: Number(id.slice(2)) };
   live.req('sound.play', data).catch((ex) => toast(ex.message, 3000));
+  track('soundkeys');
 }
 $('#soundKeysBtn').addEventListener('click', () => { soundKeysMode = !soundKeysMode; keyCapture = null; renderSoundboard(); });
 document.addEventListener('keydown', (e) => {
@@ -4077,7 +4089,7 @@ const VOICE_FX = [['none', '🙂', 'Normal'], ['robot', '🤖', 'Robot'], ['deep
 for (const box of [$('#fxOpts'), $('#setFx')]) {
   for (const [key, emoji, name] of VOICE_FX) {
     const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.fx = key; b.textContent = `${emoji} ${name}`;
-    b.addEventListener('click', () => { Voice.setVoiceFx(key).then(syncFx); syncFx(); });
+    b.addEventListener('click', () => { Voice.setVoiceFx(key).then(syncFx); syncFx(); if (key !== 'none') track('voicefx'); });
     box.appendChild(b);
   }
 }

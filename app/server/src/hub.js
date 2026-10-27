@@ -9,6 +9,7 @@ import * as Bot from './bot.js';
 import { previewFor, linksIn, imagePath } from './preview.js';
 import * as Push from './push.js';
 import * as P from './progress.js';
+import * as Usage from './usage.js';
 import QRCode from 'qrcode';
 
 const conns = new Map();     // connId -> { id, ws, userId }
@@ -139,6 +140,13 @@ const botHost = {
   },
 };
 Bot.initBot(botHost);
+/* Party Bot's private notes to the admins (the weekly feature report). */
+const tellAdmins = (text, only) => {
+  for (const admin of M.allUsers().filter((u) => u.admin && !u.bot && (!only || u.id === only))) {
+    try { botHost.post({ dmId: M.dmWith(Bot.botUser().id, admin.id, true).id }, text); } catch {}
+  }
+};
+Usage.initUsage(tellAdmins);
 
 const groupText = (serverId) => (M.serverView(serverId, 0).channels.find((x) => x.kind === 'text') || {}).id;
 function sendServerTo(userId, serverId) {
@@ -778,6 +786,8 @@ const handlers = {
   'voice.state'(c, user, d) {
     const v = voice.get(user.id);
     if (!v || v.connId !== c.id) return {};
+    if (d.sharing && !v.sharing) Usage.count(user.id, 'screenshare');
+    if (d.camera && !v.camera) Usage.count(user.id, 'camera');
     v.muted = !!d.muted; v.deafened = !!d.deafened; v.sharing = !!d.sharing;
     v.screenId = d.sharing && typeof d.screenId === 'string' ? d.screenId.slice(0, 80) : null;
     v.camera = !!d.camera;
@@ -1003,6 +1013,10 @@ const handlers = {
     for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'feedback.new', id });
     return { id };
   },
+  /* Features friends use (see usage.js): things only the app sees are counted from this note, in Usage.track. */
+  'feature.used': () => ({}),
+  'usage.stats'(c, user) { if (!user.is_admin) fail('Admins only.'); return Usage.stats(); },
+  'usage.send'(c, user) { if (!user.is_admin) fail('Admins only.'); tellAdmins(Usage.report(M.dayKey(-6), M.dayKey(0)), user.id); return {}; },
   'feedback.list'(c, user) { if (!user.is_admin) fail('Admins only.'); return { items: M.listFeedback() }; },
   'feedback.done'(c, user, d) { if (!user.is_admin) fail('Admins only.'); M.setFeedbackDone(Number(d.id), !!d.done); return {}; },
   'feedback.delete'(c, user, d) { if (!user.is_admin) fail('Admins only.'); M.deleteFeedback(Number(d.id)); return {}; },
@@ -1193,8 +1207,8 @@ export function attachHub(server) {
       try { reply = h ? h(c, fresh, d) : { error: 'unknown' }; }
       catch (e) { reply = failed(e); }
       // Bot commands answer asynchronously (looking up a video's title).
-      if (reply && typeof reply.then === 'function') reply.then(ack, (e) => ack(failed(e)));
-      else ack(reply);
+      if (reply && typeof reply.then === 'function') reply.then((r) => { Usage.track(fresh, d, r); ack(r); }, (e) => ack(failed(e)));
+      else { if (h) Usage.track(fresh, d, reply); ack(reply); }
     });
     ws.on('close', () => {
       conns.delete(c.id);

@@ -344,6 +344,14 @@ CREATE TABLE IF NOT EXISTS lfg_members (
   joined_at INTEGER NOT NULL,
   PRIMARY KEY (lfg_id, user_id)
 );
+-- How often each feature was used, per person per day (for the admins' weekly report; see usage.js).
+CREATE TABLE IF NOT EXISTS feature_use (
+  day TEXT NOT NULL,
+  feature TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, feature, user_id)
+);
 `);
 // Game nights: a vote on the 🎮 list this many minutes before the event.
 if (!columns('events').includes('game_vote')) db.exec('ALTER TABLE events ADD COLUMN game_vote INTEGER; ALTER TABLE events ADD COLUMN vote_started INTEGER NOT NULL DEFAULT 0;');

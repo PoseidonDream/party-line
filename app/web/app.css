@@ -719,6 +719,11 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .dev-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .dev-body { overflow-x: auto; }
 .dev-actions { justify-content: flex-start; }
+.usage-table td:first-child { white-space: normal; min-width: 220px; }
+.usage-table td:first-child b { font: 600 14px var(--font-body); }
+.usage-table td:first-child small { display: block; color: var(--dim); font: 12px var(--font-body); }
+.usage-table .zero { color: var(--danger); font-weight: 700; }
+.usage-table tr.off { opacity: .55; }
 .dev-actions .btn { flex: none; }
 .dev-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .dev-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 13px; }
@@ -937,7 +942,7 @@ body.in-call .watch-btn { display: inline-flex; }
 .group-av .mini-av:first-child { left: 0; top: 0; }
 .group-av .mini-av:nth-child(2) { right: 0; bottom: 0; }
 .group-av .mini-av:only-child { width: 32px; height: 32px; font-size: 13px; }
-.dm-name { min-width: 0; display: grid; }
+.dm-name:has(> .dm-sub) { min-width: 0; display: grid; }   /* a group chat: its name, and who's in it under it */
 .dm-sub { color: var(--dim); font-size: 11px; font-weight: 500; }
 .group-pick { display: flex; flex-wrap: wrap; gap: 6px; max-height: 260px; overflow: auto; }
 .ring-bar { position: fixed; z-index: 60; left: 50%; top: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 14px;

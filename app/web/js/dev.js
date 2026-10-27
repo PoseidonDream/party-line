@@ -61,6 +61,7 @@ function build() {
       <button type="button" class="tab" role="tab" data-tab="log">Log</button>
       <button type="button" class="tab" role="tab" data-tab="audit">Admin log</button>
       <button type="button" class="tab" role="tab" data-tab="people">Check a friend</button>
+      <button type="button" class="tab" role="tab" data-tab="features">Features</button>
     </div>
     <div class="dev-body" id="devBody"></div>`;
   document.body.appendChild(dlg);
@@ -91,6 +92,7 @@ async function render() {
   else if (tab === 'log') renderLog();
   else if (tab === 'audit') renderAudit();
   else if (tab === 'lab') renderLab();
+  else if (tab === 'features') renderFeatures();
   else renderPeople();
 }
 const body = () => dlg.querySelector('#devBody');
@@ -410,6 +412,37 @@ function renderLab() {
   use.appendChild(useBtn);
   b.appendChild(use);
   if (!lab.raf && lab.stream) lab.raf = requestAnimationFrame(labMeters);
+}
+
+/* ---------- Features: how much friends use each one (see server/src/usage.js), least used first ---------- */
+const dayLabel = (k) => new Date(`${k}T12:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' });
+async function renderFeatures() {
+  const b = body(); b.textContent = '';
+  b.appendChild(el('p', 'hint', 'Loading…'));
+  let s;
+  try { s = await live.req('usage.stats', {}); } catch (e) { b.textContent = ''; b.appendChild(el('p', 'error', e.message)); return; }
+  if (!dlg.open || tab !== 'features') return;
+  b.textContent = '';
+  b.appendChild(el('p', 'hint', `How often friends used each feature in the last 7 days, least used first. ${s.people} ${s.people === 1 ? 'person was' : 'people were'} active. `
+    + `${s.since ? `Counting since ${dayLabel(s.since)}.` : 'Nothing counted yet.'} Party Bot sends you this report every Monday morning.`));
+  const row = el('div', 'pop-btns dev-actions');
+  const send = el('button', 'btn small', 'Send me the report now'); send.type = 'button'; send.id = 'usageSend';
+  send.addEventListener('click', () => live.req('usage.send', {}).then(() => toast('Party Bot sent you the report privately.', 3000), (e) => toast(e.message, 3000)));
+  row.appendChild(send); b.appendChild(row);
+  const t = el('table', 'dev-table usage-table'), head = el('tr');
+  for (const h of ['Feature', 'Last 7 days', 'People', 'Week before', 'Last used']) head.appendChild(el('th', null, h));
+  t.appendChild(el('thead')).appendChild(head);
+  const tb = el('tbody'); t.appendChild(tb);
+  for (const f of s.features) {
+    const tr = el('tr', f.off ? 'off' : !f.uses ? 'unused' : null); tr.dataset.key = f.key;
+    const name = el('td'); name.appendChild(el('b', null, f.name)); name.appendChild(el('small', null, f.off ? `Off: ${f.off}` : f.where)); tr.appendChild(name);
+    tr.appendChild(el('td', f.uses || f.off ? null : 'zero', f.off ? '–' : String(f.uses)));
+    tr.appendChild(el('td', null, f.off ? '–' : String(f.people)));
+    tr.appendChild(el('td', null, f.off ? '–' : String(f.before)));
+    tr.appendChild(el('td', null, f.lastDay ? dayLabel(f.lastDay) : 'never'));
+    tb.appendChild(tr);
+  }
+  b.appendChild(t);
 }
 
 /* ---------- Log ---------- */

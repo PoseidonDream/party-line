@@ -22,6 +22,8 @@ services:
       ASK_DAILY_LIMIT: ${ASK_DAILY_LIMIT:-}
       GIPHY_KEY: ${GIPHY_KEY:-}
       TZ: ${TZ:-Europe/Istanbul}
+      REPORT_DAY: ${REPORT_DAY:-}
+      REPORT_HOUR: ${REPORT_HOUR:-}
     volumes:
       - partyline-data:/data
 
