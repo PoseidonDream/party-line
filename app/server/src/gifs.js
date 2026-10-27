@@ -67,7 +67,8 @@ export async function saveGif(userId, id) {
   let r;
   try { r = await get(g.url, MAX_GIF, 'image/*'); } catch { fail('That GIF couldn’t be downloaded. Try another one.'); }
   const type = String(r.type).split(';')[0].trim().toLowerCase();
-  if (r.truncated || !/^image\/(gif|webp)$/.test(type)) fail('That GIF is too big. Try another one.');
+  if (!/^image\/(gif|webp)$/.test(type)) fail('That GIF couldn’t be downloaded. Try another one.');
+  if (r.truncated) fail('That GIF is too big. Try another one.');
   fs.mkdirSync(uploadDir, { recursive: true });
   const up = M.addUpload(userId, `${g.title}.${type === 'image/webp' ? 'webp' : 'gif'}`, type, r.body.length);
   fs.writeFileSync(path.join(uploadDir, up), r.body);

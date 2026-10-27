@@ -193,6 +193,11 @@ function poll(ctx) {
   const emojis = choices.length ? NUMBERS.slice(0, choices.length) : ['👍', '👎'];
   const body = `📊 **${question}**\n` + (choices.length ? choices.map((c, i) => `${emojis[i]} ${c}`).join('\n') + '\n' : '') + `Vote with the reactions below. Poll by ${who(ctx.user.id)}`;
   const msg = post(ctx.where, body);
+  if (!msg) fail('Couldn’t start the poll.');
+  seedReactions(msg, emojis);
+}
+/* Party Bot's own reaction for each choice under a poll, so everyone votes with one click. */
+function seedReactions(msg, emojis) {
   let reactions = [];
   for (const e of emojis) reactions = M.react(bot.id, msg.id, e, true);
   host.broadcastReactions(msg, reactions);
@@ -233,16 +238,16 @@ const minute = () => Number(process.env.POLL_MINUTE_MS) || 60_000;   // tests ma
 export function startGamePoll(user, where, minutes) {
   const open = M.gamesOf(where).filter((g) => !g.playedAt).slice(0, 10);
   if (open.length < 2) fail('Add at least 2 games to the list first (or untick ones you’ve played).');
-  if (one('SELECT 1 AS x FROM game_polls WHERE channel_id IS ? AND dm_id IS ?', where.channelId || null, where.dmId || null)) fail('There’s already a vote running here. Wait for the result first.');
+  const running = one('SELECT message_id FROM game_polls WHERE channel_id IS ? AND dm_id IS ?', where.channelId || null, where.dmId || null);
+  if (running && M.getMessage(running.message_id)) fail('There’s already a vote running here. Wait for the result first.');
+  if (running) run('DELETE FROM game_polls WHERE message_id = ?', running.message_id);   // its message was deleted: that vote is over
   const mins = POLL_MINUTES.includes(Number(minutes)) ? Number(minutes) : 30;
   const ends = Date.now() + mins * minute();
   const emojis = NUMBERS.slice(0, open.length);
   const msg = post(where, `🗳️ **What do we play tonight?** ${who(user.id)} started a vote. Vote for every game you’d play with the reactions below. Result <t:${Math.floor(ends / 1000)}:R>.\n`
     + open.map((g, i) => `${emojis[i]} ${g.name}${g.note ? ` · ${g.note}` : ''}`).join('\n'));
   if (!msg) fail('Couldn’t start the vote.');
-  let reactions = [];
-  for (const e of emojis) reactions = M.react(bot.id, msg.id, e, true);
-  host.broadcastReactions(msg, reactions);
+  seedReactions(msg, emojis);
   run('INSERT INTO game_polls (message_id, channel_id, dm_id, options, ends_at) VALUES (?, ?, ?, ?, ?)', msg.id, where.channelId || null, where.dmId || null,
     JSON.stringify(open.map((g, i) => ({ emoji: emojis[i], name: g.name, url: g.url || null }))), ends);
   return {};
@@ -276,7 +281,7 @@ function games(ctx) {
 function vote(ctx) {
   const m = /^(\d+)\s*(m|min|mins|minutes|h|hour|hours)?$/i.exec(ctx.args);
   const mins = m ? Number(m[1]) * (/^h/i.test(m[2] || '') ? 60 : 1) : 30;
-  if (ctx.args && !POLL_MINUTES.includes(mins)) fail('Votes can last 15m, 30m, 1h or 2h, like: /vote 1h');
+  if (ctx.args && (!m || !POLL_MINUTES.includes(mins))) fail('Votes can last 15m, 30m, 1h or 2h, like: /vote 1h');
   return startGamePoll(ctx.user, ctx.where, mins);
 }
 /* The question shows up right away for everyone, and the answer arrives as a reply to it. */

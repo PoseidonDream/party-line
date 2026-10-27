@@ -38,8 +38,8 @@ function auth(req, res, next) {
   if (!u) return res.status(401).json({ error: 'Sign in again.' });
   req.user = u; next();
 }
-const wrap = (fn) => (req, res) => {
-  try { const r = fn(req, res); if (r !== undefined) res.json(r); }
+const wrap = (fn) => async (req, res) => {
+  try { const r = await fn(req, res); if (r !== undefined) res.json(r); }
   catch (e) {
     if (e instanceof M.UserError) res.status(400).json({ error: e.message });
     else { console.error(e); res.status(500).json({ error: 'Something went wrong on the server.' }); }
@@ -147,19 +147,19 @@ app.get('/api/dev/backup/:token', (req, res) => {
   res.on('close', () => { if (tar.exitCode === null) tar.kill(); });
 });
 
-/* GIF search (see gifs.js): at most 30 searches a minute per person. */
-const gifTimes = new Map();
-app.get('/api/gifs', auth, async (req, res) => {
-  const now = Date.now(), recent = (gifTimes.get(req.user.id) || []).filter((t) => now - t < 60_000);
-  if (recent.length >= 30) return res.status(429).json({ error: 'Slow down a little with the GIF searches.' });
-  recent.push(now); gifTimes.set(req.user.id, recent);
-  try { res.json(await Gifs.searchGifs(req.query.q)); }
-  catch (e) { if (e instanceof M.UserError) res.status(400).json({ error: e.message }); else { console.error(e); res.status(500).json({ error: 'GIF search failed.' }); } }
-});
-app.post('/api/gifs/send', auth, async (req, res) => {
-  try { res.json({ uploadId: await Gifs.saveGif(req.user.id, (req.body || {}).id) }); }
-  catch (e) { if (e instanceof M.UserError) res.status(400).json({ error: e.message }); else { console.error(e); res.status(500).json({ error: 'That GIF couldn’t be saved.' }); } }
-});
+/* GIF search and sending (see gifs.js), limited per person so nobody uses up the group's Giphy allowance (each
+   new GIF sent is a Giphy request and a download too). */
+const perMinute = (limit, error) => {
+  const times = new Map();   // userId -> times of recent requests
+  return (req, res, next) => {
+    const now = Date.now(), recent = (times.get(req.user.id) || []).filter((t) => now - t < 60_000);
+    if (recent.length >= limit) return res.status(429).json({ error });
+    recent.push(now); times.set(req.user.id, recent);
+    next();
+  };
+};
+app.get('/api/gifs', auth, perMinute(30, 'Slow down a little with the GIF searches.'), wrap((req) => Gifs.searchGifs(req.query.q)));
+app.post('/api/gifs/send', auth, perMinute(20, 'Slow down a little with the GIFs.'), wrap(async (req) => ({ uploadId: await Gifs.saveGif(req.user.id, (req.body || {}).id) })));
 
 /* Push notifications (see push.js). */
 app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey() }));

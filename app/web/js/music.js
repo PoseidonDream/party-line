@@ -45,6 +45,8 @@ export function updateMusic(myChannelId, st, serverNow) {
   if (!timer) timer = setInterval(sync, 2000);
 }
 export const listening = () => !!(state && leftSeq == null);
+/* Listening and it's actually playing (a video left paused doesn't count). */
+export const musicPlaying = () => listening() && state.now.startedAt != null;
 export function listenAgain() { leftSeq = null; if (state) { render(); ensurePlayer().then(sync); if (!timer) timer = setInterval(sync, 2000); } }
 
 function render() {

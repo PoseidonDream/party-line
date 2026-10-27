@@ -16,6 +16,9 @@ let cfg = { server: '', pttKey: 'none', closeToTray: true, showGame: true, muteK
 function loadCfg() {
   try { cfg = Object.assign(cfg, JSON.parse(fs.readFileSync(cfgFile(), 'utf8'))); } catch {}
   if (!cfg.server && pkg.partyLine && pkg.partyLine.server) cfg.server = pkg.partyLine.server;
+  // A key that's no longer offered (Pause, from older versions, never registered) goes back to the default.
+  if (!MUTE_KEYS.includes(cfg.muteKey)) cfg.muteKey = MUTE_KEYS[0];
+  if (!DEAFEN_KEYS.includes(cfg.deafenKey)) cfg.deafenKey = DEAFEN_KEYS[0];
 }
 const saveCfg = () => { try { fs.writeFileSync(cfgFile(), JSON.stringify(cfg, null, 2)); } catch {} };
 const origin = () => { try { return new URL(cfg.server).origin; } catch { return ''; } };

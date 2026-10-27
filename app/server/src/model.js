@@ -120,6 +120,9 @@ export function setSessionDevice(key, device) { run('UPDATE sessions SET device 
 /* Signing a device out also stops its push notifications (a lost phone shouldn't keep showing your messages). */
 export function endSessions(userId, keys) {
   for (const k of keys) { run('DELETE FROM sessions WHERE user_id = ? AND token_hash = ?', userId, k); run('DELETE FROM push_subs WHERE user_id = ? AND session = ?', userId, k); }
+  // Subscriptions from before sign-ins were recorded can't be told apart, so they go too. Devices still signed in
+  // add theirs back (with their sign-in) the next time they start.
+  if (keys.length) run('DELETE FROM push_subs WHERE user_id = ? AND session IS NULL', userId);
 }
 const signOutEverywhere = (userId) => { run('DELETE FROM sessions WHERE user_id = ?', userId); run('DELETE FROM push_subs WHERE user_id = ?', userId); };
 function newSession(userId, device) {

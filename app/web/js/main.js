@@ -4,7 +4,7 @@ import { latestNews, unseenNews } from './news.js';
 import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize } from './util.js';
 import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
-import { initMusic, updateMusic, listening, listenAgain } from './music.js';
+import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './music.js';
 import { builtinSounds, playSound, soundLength } from './sounds.js';
 const { V } = Voice;
 
@@ -102,12 +102,12 @@ function paintAv(el, id) {
 }
 function avEl(id, cls = 'mini-av') { const s = document.createElement('span'); s.className = cls; s.setAttribute('aria-hidden', 'true'); paintAv(s, id); return s; }
 function serverInitials(name) { return initials(name).slice(0, 2) || '#'; }
-function confirmBox(title, text, okLabel = 'Delete', input) {
+function confirmBox(title, text, okLabel = 'Delete', input, maxLength = 40) {
   return new Promise((resolve) => {
     const d = $('#confirmDlg');
     $('#cfTitle').textContent = title; $('#cfText').textContent = text; $('#cfOk').textContent = okLabel;
     const inp = $('#cfInput');
-    inp.hidden = input === undefined; inp.value = input || '';
+    inp.hidden = input === undefined; inp.maxLength = maxLength; inp.value = input || '';
     $('#cfOk').classList.toggle('cf-ok', input === undefined);
     d.returnValue = '';
     d.addEventListener('close', () => resolve(d.returnValue === 'ok' ? (input === undefined ? true : inp.value) : false), { once: true });
@@ -1888,10 +1888,13 @@ function afkChannelFor(chId) { const f = findChannel(chId); return f && f.server
 setInterval(() => {
   const bar = $('#afkBar');
   if (V.speaking.has(S.me && S.me.id)) lastSpoke = Date.now();
-  const busy = !!V.channelId && (listening() || !!(S.watching && S.view.kind === 'voice'));
-  if (busy) { lastSpoke = Date.now(); if (S.mutedSince) S.mutedSince = Date.now(); }
+  // Paused: the clocks restart, so coming back from the AFK channel (still muted) or ending a long share or video
+  // doesn't count the paused time and move you away at once.
   const here = V.channelId && findChannel(V.channelId);
-  if (!V.channelId || V.sharing || busy || (here && here.server.afkChannelId === V.channelId)) { bar.hidden = true; return; }
+  const paused = !!V.channelId && (V.sharing || musicPlaying() || !!(S.watching && S.view.kind === 'voice' && S.view.channelId === V.channelId)
+    || !!(here && here.server.afkChannelId === V.channelId));
+  if (paused) { lastSpoke = Date.now(); if (S.mutedSince) S.mutedSince = Date.now(); }
+  if (!V.channelId || paused) { bar.hidden = true; return; }
   const afk = afkChannelFor(V.channelId);
   const mutedLeft = (V.muted || V.deafened) && S.mutedSince ? (window.PL_MUTED_MS || 30 * 60_000) - (Date.now() - S.mutedSince) : Infinity;
   const quietLeft = afk && !(V.muted || V.deafened) ? (window.PL_QUIET_MS || 15 * 60_000) - (Date.now() - Math.max(lastSpoke, lastInput, V.joinedAt || 0)) : Infinity;
@@ -1921,7 +1924,7 @@ $('#afkUnmute').addEventListener('click', () => {
 live.on('voice.status', (d) => { if (d.status) S.voiceStatus.set(d.channelId, d.status); else S.voiceStatus.delete(d.channelId); renderSide(); if (S.view.kind === 'voice') renderVoiceView(); });
 $('#vcStatusEdit').addEventListener('click', async () => {
   const chId = S.view.channelId, cur = S.voiceStatus.get(chId);
-  const text = await confirmBox('Voice channel status', 'A short line everyone sees under the channel’s name, like “ranked Valorant 🔥” or “just chilling”. Leave it empty to clear it. It goes away when everyone leaves.', 'Save', cur ? cur.text : '');
+  const text = await confirmBox('Voice channel status', 'A short line everyone sees under the channel’s name, like “ranked Valorant 🔥” or “just chilling”. Leave it empty to clear it. It goes away when everyone leaves.', 'Save', cur ? cur.text : '', 60);
   if (text === false) return;
   act(() => live.req('voice.status', { channelId: chId, text }));
 });
@@ -2406,7 +2409,7 @@ function emojiInto(el, e) { const m = /^<:(\w+):(\d+)>$/.exec(e); if (m) el.appe
 function isJumbo(body) {
   if (body.length > 400) return false;
   const rest = body.replace(/<:\w{2,32}:\d+>/g, '').replace(/\s+/g, '');
-  return !rest || /^\p{Extended_Pictographic}[‍️\p{Extended_Pictographic}\p{Emoji_Modifier}]*$/u.test(rest);
+  return !rest || /^\p{Extended_Pictographic}[\u200d\ufe0f\p{Extended_Pictographic}\p{Emoji_Modifier}]*$/u.test(rest);
 }
 /* ":bora_laugh:" -> "<:bora_laugh:7>". This server's emoji first, then any you can use. Not inside `code`. */
 function encodeEmoji(text) {
@@ -2477,7 +2480,10 @@ function renderPick() {
     inp.placeholder = 'Search GIFs'; inp.setAttribute('aria-label', 'Search GIFs'); inp.value = gifQuery; inp.autocomplete = 'off';
     const out = document.createElement('div'); out.className = 'gif-results';
     body.append(inp, out);
-    inp.addEventListener('input', () => { gifQuery = inp.value; clearTimeout(gifTimer); gifTimer = setTimeout(() => searchGifs(out), 350); });
+    // Searches use the group's shared Giphy allowance, so wait for a pause in typing and for at least 2 letters.
+    inp.addEventListener('input', () => { gifQuery = inp.value; clearTimeout(gifTimer); gifTimer = setTimeout(() => { if (gifQuery.trim().length !== 1) searchGifs(out); }, 700); });
+    // The picker sits inside the message form: Enter here searches now instead of sending the message being written.
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gifQuery = inp.value; clearTimeout(gifTimer); searchGifs(out); } });
     searchGifs(out);
     setTimeout(() => inp.focus(), 20);
   }
@@ -2485,6 +2491,7 @@ function renderPick() {
 /* GIFs tab: your saved GIFs, then Giphy search (trending when the box is empty). Search goes through our
    server; see gifs.js. */
 let gifQuery = '', gifTimer = null, gifSeq = 0, gifSearchOn = null;
+const gifCache = new Map();   // search text -> { at, res }: going back to an earlier search costs nothing
 function gifGrid(out, items, onPick) {
   const g = document.createElement('div'); g.className = 'pick-grid big gifs'; out.appendChild(g);
   for (const x of items) {
@@ -2494,6 +2501,7 @@ function gifGrid(out, items, onPick) {
   }
 }
 async function searchGifs(out) {
+  if (!out.isConnected) return;   // a search typed before the picker was redrawn: the new one has its own
   const q = gifQuery.trim(), my = ++gifSeq;
   const add = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; e.textContent = text; out.appendChild(e); return e; };
   const paint = (res, err) => {
@@ -2517,9 +2525,15 @@ async function searchGifs(out) {
     add('p', 'giphy-credit', 'Powered by GIPHY');
   };
   if (gifSearchOn === false) { paint({ enabled: false, gifs: [] }); return; }
+  const ck = q.toLowerCase(), hit = gifCache.get(ck);
+  if (hit && Date.now() - hit.at < 10 * 60_000) { paint(hit.res); return; }
   if (!out.childElementCount) add('p', 'hint pick-note', 'Loading GIFs…');
-  try { const r = await api(`/api/gifs?q=${encodeURIComponent(q)}`); gifSearchOn = r.enabled; paint(r); }
-  catch (e) { paint(null, e.message); }
+  try {
+    const r = await api(`/api/gifs?q=${encodeURIComponent(q)}`);
+    gifSearchOn = r.enabled;
+    if (r.enabled) { if (gifCache.size > 60) gifCache.clear(); gifCache.set(ck, { at: Date.now(), res: r }); }
+    paint(r);
+  } catch (e) { paint(null, e.message); }
 }
 function insertText(t) {
   const ta = chatInput, a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
@@ -2733,7 +2747,7 @@ async function renderSessions() {
     li.appendChild(t);
     if (!x.current) {
       const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn small'; btn.textContent = 'Sign out';
-      btn.addEventListener('click', async () => { if (await act(() => live.req('sessions.end', { id: x.id }), `Signed out of ${x.device}.`)) renderSessions(); });
+      btn.addEventListener('click', async () => { if (await act(() => live.req('sessions.end', { id: x.id }), `Signed out of ${x.device}.`)) { renderSessions(); syncPush(); } });
       li.appendChild(btn);
     }
     ul.appendChild(li);
@@ -2743,7 +2757,7 @@ async function renderSessions() {
 $('#devicesBox').addEventListener('toggle', () => { if ($('#devicesBox').open) renderSessions(); });
 $('#sessionsEndOthers').addEventListener('click', async () => {
   if (!await confirmBox('Sign out everywhere else?', 'Every other phone, computer and browser is signed out. This one stays signed in.', 'Sign out')) return;
-  if (await act(() => live.req('sessions.end', { others: true }), 'Signed out everywhere else.')) renderSessions();
+  if (await act(() => live.req('sessions.end', { others: true }), 'Signed out everywhere else.')) { renderSessions(); syncPush(); }   // this device's notifications, tied to its sign-in again
 });
 /* Settings → 2-step sign-in */
 function syncTwoStep() {
