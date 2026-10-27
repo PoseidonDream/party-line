@@ -69,11 +69,11 @@ export default async function (ok) {
     await main((e) => { const w = e.BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Party Line'); w.show(); w.focus(); });
 
     // Screen share through the picker, then a friend's drawing on top of the real screen
-    const pickerP = app.waitForEvent('window', { timeout: 15000 });
     await win.click('#shareBtn');
-    const picker = await pickerP;
+    let picker = null;   // the picker window (not just any new window: the overlay comes and goes too)
+    for (let i = 0; i < 100 && !picker; i++) { picker = app.windows().find((p) => p.url().endsWith('picker.html')) || null; if (!picker) await new Promise((r) => setTimeout(r, 150)); }
     await picker.waitForSelector('#grid .src', { timeout: 10000 });
-    await picker.click('#grid .src');
+    await picker.click('#grid .src', { noWaitAfter: true }).catch(() => {});   // choosing closes the picker, sometimes mid-click
     await win.waitForSelector('#shareBtn.on', { timeout: 15000 });
     ok('sharing a whole screen through the app’s picker works', true);
     await win.evaluate(() => window.partyLineDesktop.drawOnScreen({ from: 9, id: 'abc', color: '#ff3b3b', pts: [[0.2, 0.2], [0.4, 0.3], [0.6, 0.5]], end: true }));
