@@ -1948,6 +1948,7 @@ function renderMicPanel() {
   const issue = V.micIssue && MIC_ISSUES[V.micIssue];
   const panel = $('#micPanel');
   panel.hidden = !micPanelOpen;
+  if (micPanelOpen) startMeter();
   $('#meBtn').setAttribute('aria-expanded', String(micPanelOpen));
   if (panel.hidden) return;
   panel.classList.toggle('bad', !!issue); panel.classList.toggle('ok', !issue);
@@ -2182,12 +2183,17 @@ function peekOn(el, userId) {
 }
 
 /* ---------- meters ---------- */
+/* The mic level bars run only while the mic check or Settings shows them (every frame otherwise keeps the computer
+   from resting). */
+let meterRaf = 0;
 function meterLoop() {
+  meterRaf = 0;
+  if ($('#micPanel').hidden && !$('#settings').open) return;
   const lv = Voice.localMeter.analyser ? Math.min(100, level(Voice.localMeter.analyser) * 400) : 0;
   for (const i of document.querySelectorAll('#micPanel .meter i, #settings .level .meter i')) i.style.width = `${lv}%`;
-  requestAnimationFrame(meterLoop);
+  meterRaf = requestAnimationFrame(meterLoop);
 }
-requestAnimationFrame(meterLoop);
+function startMeter() { if (!meterRaf) meterRaf = requestAnimationFrame(meterLoop); }
 
 /* ================= person pop-up ================= */
 function openUserPop(id, anchor) {
@@ -3176,6 +3182,7 @@ function showSetTab(name) {
 document.querySelectorAll('#settings [role="tab"][data-settab]').forEach((t) => t.addEventListener('click', () => showSetTab(t.dataset.settab)));
 function openSettings(tab) {
   showSetTab(typeof tab === 'string' ? tab : setTab);
+  setTimeout(startMeter, 0);   // once the dialog is open
   syncSettingsForm();
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
   $('#setBio').value = S.me.bio || ''; profileBanner = S.me.banner || ''; renderSwatches();

@@ -37,6 +37,10 @@ export default async function (ok) {
     ok(`Robot: they hear it changed (${Math.round(robot)} Hz)`, Math.abs(robot - normal) > 25);
     const back = await fx('none');
     ok('Normal: back to your own voice', Math.abs(back / normal - 1) < 0.08);
+    await a.click('#meBtn');
+    await a.waitForFunction(() => parseFloat(document.querySelector('#micPanel .meter i').style.width) > 0, null, { timeout: 5000 });
+    ok('the mic check’s level bar moves while it’s open', true);
+    await a.click('#meBtn');
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }
