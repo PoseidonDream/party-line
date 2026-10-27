@@ -2,6 +2,15 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 5, items: [
+    ['🖼️', 'Media gallery', 'The picture button at the top of a chat shows every photo, video and file shared there.'],
+    ['🎬', 'Watch parties', '/watch and a YouTube link plays it on the big screen for everyone in your voice channel.'],
+    ['📅', 'Game night planner', 'In the 🎮 list, press “Plan game night”: friends RSVP and a game vote opens before it starts.'],
+    ['✨', 'Profile flair', 'Settings → Profile: a ring around your picture, a banner effect and your favorite games.'],
+    ['⚡', 'Jump anywhere', 'Press Ctrl+P and type a few letters to jump to any channel or friend.'],
+    ['🔖', 'Saved messages', 'Press the bookmark on any message; find them all under Home → Saved messages.'],
+    ['🕒', 'Send later', 'The clock next to the message box sends your message at the time you pick.'],
+  ] },
   { id: 4, items: [
     ['⚙️', 'Tidier Settings', 'Settings is now split into Profile, Look, Voice, Alerts and Account.'],
     ['👆', 'Cleaner chat on phones', 'Tap a message to react, reply or pin it.'],

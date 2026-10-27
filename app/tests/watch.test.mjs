@@ -42,8 +42,8 @@ export default async function (ok) {
     await b.waitForSelector('#musicCard.is-file:not([hidden]) video');
     await a.waitForSelector('#musicCard.is-file:not([hidden]) video');
     ok('it opens the player for everyone in the voice channel', (await b.textContent('#musicTitle')).includes('clip.webm'));
-    await b.waitForSelector('#messages .msg:has-text("Now playing")');
-    ok('Party Bot says what’s playing', await b.isVisible('#messages .msg:has-text("Now playing"):has-text("clip.webm")'));
+    await b.waitForSelector('#messages .msg:has-text("Now showing")');
+    ok('Party Bot says what’s playing', await b.isVisible('#messages .msg:has-text("Now showing"):has-text("clip.webm")'));
     ok('people not in the voice channel don’t get it', await c.isHidden('#musicCard'));
 
     const time = (p) => p.evaluate(() => { const v = document.querySelector('#musicFrame video'); return v ? { t: v.currentTime, paused: v.paused } : null; });

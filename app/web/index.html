@@ -32,6 +32,9 @@
     <symbol id="i-skip" viewBox="0 0 24 24"><path d="M5 4l10 8-10 8z"/><path d="M19 5v14"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
     <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M17.3 5H6.7a4 4 0 0 0-4 3.6C2.6 9.4 2 14.5 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.4-1.4A2 2 0 0 1 9.8 16h4.4a2 2 0 0 1 1.4.6L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.5-.6-6.6-.7-7.3A4 4 0 0 0 17.3 5z"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
@@ -156,6 +159,8 @@
     <div class="side-main">
       <div class="side-home" id="sideHome">
         <button type="button" class="nav-item" id="navFriends"><svg class="ic"><use href="#i-users"/></svg><span>Friends</span><span class="count-pill" id="pendingCount" hidden></span></button>
+        <button type="button" class="nav-item" id="navSaved"><svg class="ic"><use href="#i-bookmark"/></svg><span>Saved messages</span></button>
+        <button type="button" class="nav-item" id="navJump"><svg class="ic"><use href="#i-search"/></svg><span>Jump to…</span><kbd class="nav-kbd">Ctrl P</kbd></button>
         <button type="button" class="nav-item" id="navDev" hidden><svg class="ic"><use href="#i-code"/></svg><span>Developer</span></button>
         <div class="cat-head dm-head"><span class="cat-label">Private chats</span><button type="button" class="cat-add" id="newGroupBtn" aria-label="New group chat" title="New group chat"><svg class="ic"><use href="#i-plus"/></svg></button></div>
         <ul class="dm-list" id="dmList" aria-label="Private chats"></ul>
@@ -167,6 +172,7 @@
           <button type="button" id="mInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
           <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
           <button type="button" id="mNotify"><svg class="ic"><use href="#i-bell"/></svg>Notifications</button>
+          <button type="button" id="mJump"><svg class="ic"><use href="#i-search"/></svg>Jump to… (Ctrl+P)</button>
           <button type="button" id="mAfk"><svg class="ic"><use href="#i-headphones"/></svg>AFK channel</button>
           <button type="button" id="mEmoji"><svg class="ic"><use href="#i-smile"/></svg>Emoji &amp; stickers</button>
           <button type="button" id="mRoles"><svg class="ic"><use href="#i-shield"/></svg>Roles</button>
@@ -215,6 +221,7 @@
         <button type="button" class="btn small" id="eventsBtn" title="Events" hidden><svg class="ic"><use href="#i-calendar"/></svg><span class="hide-sm">Events</span><span class="count-pill" id="eventsCount" hidden></span></button>
         <button type="button" class="btn small icon-btn" id="notifBtn" title="Notification settings" aria-controls="notifPop" hidden><svg class="ic"><use href="#i-bell"/></svg><span class="sr">Notification settings</span></button>
         <button type="button" class="btn small" id="gamesBtn" title="Games to play (this chat’s list)" hidden><svg class="ic"><use href="#i-gamepad"/></svg><span class="hide-sm">Games</span><span class="count-pill" id="gamesCount" hidden></span></button>
+        <button type="button" class="btn small" id="galleryBtn" title="Photos, videos and files shared here" hidden><svg class="ic"><use href="#i-image"/></svg><span class="hide-sm">Media</span></button>
         <button type="button" class="btn small" id="pinsBtn" title="Pinned messages" hidden><svg class="ic"><use href="#i-pin"/></svg><span class="hide-sm">Pinned</span></button>
         <button type="button" class="btn small" id="searchBtn" title="Search messages (Ctrl+K)"><svg class="ic"><use href="#i-search"/></svg><span class="hide-sm">Search</span></button>
         <button type="button" class="btn small" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
@@ -240,6 +247,7 @@
       <div class="games-actions">
         <button type="button" class="btn small" id="gamesPoll" title="Everyone votes with reactions; Party Bot announces the winner">🗳️ Vote tonight’s game</button>
         <select id="gamesPollMins" aria-label="How long the vote lasts"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">1 hour</option><option value="120">2 hours</option></select>
+        <button type="button" class="btn small" id="gamesPlan" title="Schedule a game night with RSVPs and an automatic game vote">📅 Plan game night</button>
         <button type="button" class="btn small" id="gamesPick" title="Party Bot picks one now (more 👍, better odds)">🎲 Pick one</button>
       </div>
       <form class="games-form" id="gamesForm">
@@ -279,6 +287,13 @@
       <ol class="messages" id="messages"></ol>
       <div class="typing-line" id="typingLine" aria-live="polite"></div>
       <form class="composer" id="chatForm">
+        <div class="later-pop" id="laterPop" role="dialog" aria-label="Send later" hidden>
+          <b>Send this message later</b>
+          <div class="later-presets" id="laterPresets"></div>
+          <div class="row"><input type="datetime-local" id="laterWhen" class="input" aria-label="Pick a time"><button type="button" class="btn primary" id="laterGo">Schedule</button></div>
+          <small class="hint">It’s sent as you, at that time, even if you’re offline. Text only.</small>
+        </div>
+        <ul class="later-bar" id="laterBar" hidden></ul>
         <div class="pick-pop" id="pickPop" role="dialog" aria-label="Emoji, stickers and GIFs" hidden>
           <div class="tabs pick-tabs" role="tablist">
             <button type="button" class="tab" role="tab" data-pick="emoji" aria-selected="true">Emoji</button>
@@ -302,6 +317,7 @@
             <label for="chatInput" class="sr">Message</label>
             <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Message"></textarea>
             <button type="button" class="ub" id="pickBtn" aria-label="Emoji, stickers and GIFs" title="Emoji, stickers and GIFs" aria-expanded="false" aria-controls="pickPop"><svg class="ic"><use href="#i-smile"/></svg></button>
+            <button type="button" class="ub" id="laterBtn" aria-label="Send later" title="Send later" aria-expanded="false" aria-controls="laterPop"><svg class="ic"><use href="#i-clock"/></svg></button>
             <button type="button" class="ub" id="recBtn" aria-label="Record a voice message" title="Record a voice message"><svg class="ic"><use href="#i-mic"/></svg></button>
             <button type="submit" class="ub" aria-label="Send" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
           </div>
@@ -412,6 +428,7 @@
       <button type="button" class="ub" id="musicSkip" title="Skip for everyone" aria-label="Skip for everyone"><svg class="ic"><use href="#i-skip"/></svg></button>
       <button type="button" class="ub" id="musicStop" title="Stop the music for everyone" aria-label="Stop the music for everyone"><svg class="ic"><use href="#i-stop"/></svg></button>
       <label class="music-vol" title="Music volume, only for you"><svg class="ic"><use href="#i-volume"/></svg><span class="sr">Music volume, only for you</span><input type="range" id="musicVol" min="0" max="100" step="1"></label>
+      <button type="button" class="ub" id="musicBig" title="Big screen" aria-label="Big screen" aria-pressed="false"><svg class="ic"><use href="#i-screen"/></svg></button>
       <button type="button" class="ub" id="musicFull" title="Full screen" aria-label="Full screen"><svg class="ic"><use href="#i-max"/></svg></button>
       <button type="button" class="ub" id="musicHide" title="Stop listening (only for you)" aria-label="Stop listening (only for you)"><svg class="ic"><use href="#i-x"/></svg></button>
     </div>
@@ -456,6 +473,30 @@
     <div class="emoji-grid" id="emojiList"></div>
     <div class="flabel" id="stickerCount">Stickers</div>
     <div class="emoji-grid stickers" id="stickerList"></div>
+  </div>
+</dialog>
+
+<!-- ================= QUICK SWITCHER ================= -->
+<dialog id="jumpDlg" class="jump-dlg" aria-label="Jump to a chat">
+  <input type="text" id="jumpInput" class="input" placeholder="Jump to a channel, friend or group…" autocomplete="off" aria-label="Where to" aria-controls="jumpList">
+  <ul class="jump-list" id="jumpList" role="listbox"></ul>
+  <p class="hint jump-hint">↑ ↓ to choose · Enter to go · Esc to close</p>
+</dialog>
+
+<!-- ================= MEDIA GALLERY ================= -->
+<dialog id="galleryDlg" class="wide-dlg" aria-labelledby="galTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="galTitle">Media</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body">
+    <div class="tabs gal-tabs" role="tablist" aria-label="Kind">
+      <button type="button" class="tab" role="tab" data-gal="media" aria-selected="true">Photos &amp; videos</button>
+      <button type="button" class="tab" role="tab" data-gal="files" aria-selected="false">Files</button>
+    </div>
+    <div class="gal-grid" id="galGrid"></div>
+    <ul class="gal-files" id="galFiles" hidden></ul>
+    <p class="hint" id="galNote"></p>
+    <button type="button" class="btn small" id="galMore" hidden>Show older</button>
   </div>
 </dialog>
 
@@ -624,6 +665,8 @@
       <div class="field"><label class="flabel" for="evName">What</label><input class="input" id="evName" maxlength="80" placeholder="e.g. Game night" required></div>
       <div class="field"><label class="flabel" for="evWhen">When</label><input class="input" id="evWhen" type="datetime-local" required></div>
       <div class="field"><label class="flabel" for="evChan">Voice channel (optional)</label><select id="evChan"><option value="">None</option></select></div>
+      <div class="field"><label class="flabel" for="evVote">🎮 Game vote</label><select id="evVote"><option value="">Off</option><option value="15">Open it 15 min before</option><option value="30">Open it 30 min before</option><option value="60">Open it 1 hour before</option><option value="120">Open it 2 hours before</option></select>
+        <p class="hint" id="evVoteHint">Party Bot opens a vote on the chat’s 🎮 game list before it starts, mentioning everyone going.</p></div>
       <div class="field"><label class="flabel" for="evDesc">Details (optional)</label><textarea class="input" id="evDesc" rows="2" maxlength="1000" placeholder="What to bring, which game, …"></textarea></div>
       <div class="row-btns"><button type="button" class="btn" id="evCancelForm">Cancel</button><button type="submit" class="btn primary">Create event</button></div>
     </form>
@@ -664,6 +707,17 @@
           <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
           <div class="flabel-sub">Banner color</div>
           <div class="swatches" id="setBanner" role="radiogroup" aria-label="Banner color"></div>
+          <div class="flabel-sub">Picture ring</div>
+          <div class="flair-pick" id="setFlair" role="radiogroup" aria-label="Picture ring"></div>
+          <div class="flabel-sub">Banner effect</div>
+          <div class="theme-pick fx-pick" role="radiogroup" aria-label="Banner effect">
+            <label class="theme-opt"><input type="radio" name="bannerFx" value=""><span>None</span></label>
+            <label class="theme-opt"><input type="radio" name="bannerFx" value="aurora"><span>Aurora</span></label>
+            <label class="theme-opt"><input type="radio" name="bannerFx" value="stars"><span>Stars</span></label>
+            <label class="theme-opt"><input type="radio" name="bannerFx" value="scan"><span>Scanlines</span></label>
+          </div>
+          <div class="flabel-sub"><label for="setFavGames">Favorite games</label></div>
+          <input type="text" id="setFavGames" class="input" maxlength="220" placeholder="Up to 5, separated by commas: Valorant, Minecraft, Peak">
           <div class="flabel-sub">Birthday</div>
           <div class="bday-row"><select id="setBdayMonth" class="input" aria-label="Birthday month"></select><select id="setBdayDay" class="input" aria-label="Birthday day"></select></div>
           <p class="hint">Friends see 🎂 next to your name on the day, and Party Bot says happy birthday. No year needed.</p>
@@ -829,6 +883,7 @@
   <p class="pop-activity" id="popActivity" hidden></p>
   <div class="pop-bio" id="popBioBox" hidden><b>About me</b><p id="popBio"></p></div>
   <div class="pop-bio" id="popBdayBox" hidden><b>Birthday</b><p id="popBday"></p></div>
+  <div class="pop-bio" id="popGamesBox" hidden><b>Favorite games</b><div class="pop-games" id="popGames"></div></div>
   <div class="pop-roles" id="popRoles" hidden></div>
   <div class="level" id="popVolBox">
     <div class="level-head"><label for="volRange">Volume</label><output id="volOut" for="volRange">100%</output></div>
@@ -867,6 +922,7 @@
     <button type="button" class="btn small icon-btn lb-btn" id="lbClose" aria-label="Close photo"><svg class="ic"><use href="#i-x"/></svg></button>
   </div>
   <img id="lbImg" alt="">
+  <video id="lbVideo" controls playsinline hidden></video>
 </div>
 
 <div class="emoji-pop" id="emojiPop" role="dialog" aria-label="Add a reaction" hidden></div>

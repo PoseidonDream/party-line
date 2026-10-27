@@ -14,6 +14,7 @@ let api = null;          // Promise for window.YT
 let timer = null;
 let reported = null;     // seq already reported as ended or failed
 let leftSeq = null;      // seq this person chose not to listen to
+let smallSeq = null;     // a /watch video this person shrank back to the small card
 
 export function initMusic(c) {
   ctx = c;
@@ -22,6 +23,13 @@ export function initMusic(c) {
   $('#musicStop').addEventListener('click', () => control('stop'));
   $('#musicHide').addEventListener('click', () => { leftSeq = state && state.now ? state.now.seq : null; teardown(); render(); ctx.changed(); });
   $('#musicStart').addEventListener('click', () => { if (player && playerReady) { player.playVideo(); $('#musicStart').hidden = true; } });
+  // Big screen: /watch videos and shared videos open big for everyone; anyone can shrink theirs, and the choice
+  // for /play music is remembered on this device.
+  $('#musicBig').addEventListener('click', () => {
+    if (isBig()) { if (state && state.now.video) smallSeq = state.now.seq; settings.musicBig = false; }
+    else { settings.musicBig = true; smallSeq = null; }
+    saveSettings(); render();
+  });
   $('#musicFull').addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else ($('#musicFrame').requestFullscreen ? $('#musicFrame').requestFullscreen() : Promise.reject()).catch(() => { const v = $('#musicFrame video'); if (v && v.webkitEnterFullscreen) v.webkitEnterFullscreen(); });
@@ -45,6 +53,7 @@ export function updateMusic(myChannelId, st, serverNow) {
   if (!timer) timer = setInterval(sync, 2000);
 }
 export const listening = () => !!(state && leftSeq == null);
+const isBig = () => !!(state && (settings.musicBig || (state.now.video && smallSeq !== state.now.seq)));
 /* Listening and it's actually playing (a video left paused doesn't count). */
 export const musicPlaying = () => listening() && state.now.startedAt != null;
 export function listenAgain() { leftSeq = null; if (state) { render(); ensurePlayer().then(sync); if (!timer) timer = setInterval(sync, 2000); } }
@@ -57,6 +66,11 @@ function render() {
   if (!state) return;
   const n = state.now;
   card.classList.toggle('is-file', !!n.file);
+  const big = isBig();
+  card.classList.toggle('big', big);
+  $('#musicBig').setAttribute('aria-pressed', String(big));
+  $('#musicBig').title = big ? 'Small player' : 'Big screen';
+  $('#musicBig').setAttribute('aria-label', $('#musicBig').title);
   $('#musicTitle').textContent = n.title;
   $('#musicBy').textContent = `Added by ${ctx.nameOf(n.by)} · 🔊 ${ctx.channelName(channelId)}`;
   const paused = n.startedAt == null;

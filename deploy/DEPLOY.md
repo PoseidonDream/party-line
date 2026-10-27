@@ -157,6 +157,13 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **Notifications:** the bell at the top of a chat chooses All messages, Only @mentions or Nothing (the server menu sets the default). In the website, Settings → **Even when Party Line is closed** sends private messages, @mentions and calls to the phone or computer even with the tab closed (on iPhone, Add to Home Screen first).
 - **Desktop app extras** (all in the tray icon's menu): **Ctrl+Shift+M** mutes and **Ctrl+Shift+D** deafens from any app, even mid-game (pick other keys in the menu). An **overlay** in the top-left corner shows who's in your voice channel and who's talking while you're in a game (works in windowed and borderless games, not exclusive full screen). **Start with the computer** can start quietly in the tray.
 - **Games to play:** every chat has a 🎮 button with its own list of games to try later. Vote 👍, tick off what you've played, and press **🎲 Pick one** to let Party Bot choose. `/game Name` adds one from the message box. **🗳️ Vote tonight's game** (or `/vote`, `/vote 1h`) starts a poll of the list, and Party Bot announces the winner when time's up.
+- **Game night planner:** in the 🎮 list, **📅 Plan game night** creates an event; friends RSVP, and a vote on the game list opens 15 minutes to 2 hours before it starts (mentioning everyone going). Any event can have a game vote.
+- **Watch parties:** `/watch` and a YouTube link plays it on the big screen for everyone in your voice channel (`/play` is for background music; the ⛶ button switches either way).
+- **Media gallery:** the picture button at the top of a chat shows every photo, video, GIF and file shared there.
+- **Saved messages:** the bookmark button on a message saves it; Home → **Saved messages** lists them. Only you see them.
+- **Send later:** the clock next to the message box sends your message at a time you pick (up to 30 days ahead), even if you're offline.
+- **Jump anywhere:** Ctrl+P (or Home → Jump to…) and type part of a channel or friend's name.
+- **Profile flair:** Settings → Profile has picture rings (glow, rainbow, fire, ice, gold), banner effects and a favorite games row.
 - **Voice channel status:** in a voice channel, press **Set a status** at the top to show a line like "ranked Valorant 🔥" under the channel's name. It clears when everyone leaves.
 - **Accent color:** Settings → Appearance has six glow colors (amber, cyan, violet, green, pink, white). Each device remembers its own.
 - **Emoji, stickers and GIFs:** server menu → **Emoji & stickers** to add your own. Type `:name:` or use the 🙂 button next to the message box, which also holds stickers and the GIFs you saved (☆ under any picture).

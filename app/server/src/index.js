@@ -166,6 +166,18 @@ app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey() }));
 app.post('/api/push/subscribe', auth, wrap((req) => { Push.subscribe(req.user.id, req.body.subscription, req.body.device, M.sessionKey(bearer(req))); return { ok: true }; }));
 app.post('/api/push/unsubscribe', auth, wrap((req) => { Push.unsubscribe(req.user.id, req.body.endpoint); return { ok: true }; }));
 
+app.get('/api/bookmarks', auth, wrap((req) => ({ messages: M.bookmarksOf(req.user.id) })));
+/* Media gallery for a channel (channelId) or a private chat (userId); see M.mediaOf. */
+app.get('/api/media', auth, wrap((req) => {
+  if (req.query.channelId) {
+    const c = M.getChannel(Number(req.query.channelId));
+    if (!c || !M.isMember(req.user.id, c.server_id)) return { items: [], before: null };
+    return M.mediaOf('channel_id', c.id, req.query.before);
+  }
+  const d = M.dmWith(req.user.id, Number(req.query.userId), false);
+  return d ? M.mediaOf('dm_id', d.id, req.query.before) : { items: [], before: null };
+}));
+
 /* Pinned messages in a channel (channelId) or a private chat (userId). */
 app.get('/api/pins', auth, wrap((req) => {
   if (req.query.channelId) {

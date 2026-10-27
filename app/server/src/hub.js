@@ -166,6 +166,7 @@ function readyFor(user) {
     sounds: [...mine].flatMap((id) => M.soundsOf(id)),
     emoji: [...mine].flatMap((id) => M.emojiOf(id)),
     gifs: M.favGifs(user.id),
+    bookmarks: M.bookmarkIds(user.id),
     commands: Bot.COMMAND_LIST,
     serverNow: Date.now(),
     resets: user.is_admin ? M.pendingResets() : [],
@@ -220,6 +221,30 @@ const handlers = {
     pushMessage(m, user);
     addPreviews(M.getMessage(m.id)).catch(() => {});
     return { msg: m };
+  },
+  'bookmark.set'(c, user, d) {
+    const m = M.getMessage(Number(d.id));
+    if (!m || !canSee(user.id, m)) fail('That message is gone.');
+    M.setBookmark(user.id, m.id, !!d.on);
+    toUser(user.id, { t: 'bookmarks', ids: M.bookmarkIds(user.id) });
+    return {};
+  },
+  /* Send later. Targets like msg.send: { channelId } or { toUserId }. */
+  'later.list'(c, user, d) { return { list: M.scheduledFor(user.id, laterTarget(user, d)) }; },
+  'later.add'(c, user, d) {
+    const t = laterTarget(user, d);
+    if (Bot.isCommand(d.body)) fail('Bot commands can’t be sent later. Send them now instead.');
+    M.addScheduled(user.id, t, d.body, d.sendAt);
+    toUser(user.id, { t: 'later', ...t, list: M.scheduledFor(user.id, t) });
+    return {};
+  },
+  'later.cancel'(c, user, d) {
+    const r = M.getScheduled(Number(d.id));
+    if (!r || r.user_id !== user.id) return {};
+    M.deleteScheduled(r.id);
+    const t = r.channel_id ? { channelId: r.channel_id } : { toUserId: r.to_user_id };
+    toUser(user.id, { t: 'later', ...t, list: M.scheduledFor(user.id, t) });
+    return {};
   },
   'msg.edit'(c, user, d) {
     const m = M.getMessage(Number(d.id));
@@ -884,6 +909,27 @@ function shareGames(w) {
   if (w.channelId) toServer(M.getChannel(w.channelId).server_id, msg);
   else { const dm = M.getDm(w.dmId); toUsers([dm.user_a, dm.user_b], msg); }
 }
+function laterTarget(user, d) {
+  if (d.channelId) {
+    const ch = M.getChannel(Number(d.channelId));
+    if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');
+    return { channelId: ch.id };
+  }
+  const other = M.getUser(Number(d.toUserId));
+  if (!other || other.id === user.id) fail('That person doesn’t exist.');
+  return { toUserId: other.id };
+}
+/* Every 15 s: send the scheduled messages that are due, as their writers, through the normal send path (which
+   checks they may still post there). If it fails, the writer is told and gets the text back. */
+setInterval(() => {
+  for (const r of M.scheduledDue()) {
+    const user = M.getUser(r.user_id);
+    const t = r.channel_id ? { channelId: r.channel_id } : { toUserId: r.to_user_id };
+    try { handlers['msg.send'](null, user, Object.assign({ body: r.body, attachments: [] }, t)); }
+    catch (e) { toUser(r.user_id, { t: 'later.failed', body: r.body, error: e instanceof M.UserError ? e.message : 'Something went wrong.' }); if (!(e instanceof M.UserError)) console.error('send later', e); }
+    toUser(r.user_id, { t: 'later', ...t, list: M.scheduledFor(r.user_id, t) });
+  }
+}, Number(process.env.LATER_TICK_MS) || 15_000).unref();
 function broadcastAbout(m, msg) {
   if (m.channel_id) toServer(M.getChannel(m.channel_id).server_id, msg);
   else if (m.dm_id) { const dm = M.getDm(m.dm_id); toUsers([dm.user_a, dm.user_b], msg); }

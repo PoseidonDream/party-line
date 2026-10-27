@@ -103,7 +103,7 @@ if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLU
 if (!columns('messages').includes('pinned_at')) db.exec('ALTER TABLE messages ADD COLUMN pinned_at INTEGER; ALTER TABLE messages ADD COLUMN pinned_by INTEGER;');
 if (!columns('messages').includes('embeds')) db.exec('ALTER TABLE messages ADD COLUMN embeds TEXT');
 for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom_status', 'TEXT'], ['bio', 'TEXT'], ['banner', 'TEXT'],
-  ['birthday', 'TEXT'], ['news_seen', 'INTEGER NOT NULL DEFAULT 0']]) {
+  ['birthday', 'TEXT'], ['news_seen', 'INTEGER NOT NULL DEFAULT 0'], ['flair', 'TEXT'], ['banner_fx', 'TEXT'], ['fav_games', 'TEXT']]) {
   if (!columns('users').includes(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
 }
 if (!columns('channels').includes('topic')) db.exec('ALTER TABLE channels ADD COLUMN topic TEXT; ALTER TABLE channels ADD COLUMN category_id INTEGER;');
@@ -182,6 +182,22 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS bookmarks (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, message_id)
+);
+CREATE TABLE IF NOT EXISTS scheduled (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+  to_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  send_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS scheduled_due ON scheduled (send_at);
 CREATE TABLE IF NOT EXISTS gif_cache (
   giphy_id TEXT PRIMARY KEY,
   upload_id TEXT NOT NULL
@@ -281,6 +297,8 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 `);
 // Which sign-in a push subscription belongs to, so signing that device out also stops its notifications.
+// Game nights: a vote on the 🎮 list this many minutes before the event.
+if (!columns('events').includes('game_vote')) db.exec('ALTER TABLE events ADD COLUMN game_vote INTEGER; ALTER TABLE events ADD COLUMN vote_started INTEGER NOT NULL DEFAULT 0;');
 if (!columns('push_subs').includes('session')) db.exec('ALTER TABLE push_subs ADD COLUMN session TEXT');
 
 const cache = new Map();

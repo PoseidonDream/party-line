@@ -53,8 +53,8 @@ async function videoTitle(id) {
 /* What every device needs to play in sync. Times are the server's clock (ms). While playing, the position in
    seconds is (serverNow - startedAt) / 1000; while paused it's pausedAt. */
 const view = (st) => st && st.now ? {
-  now: { videoId: st.now.videoId, file: st.now.file || null, title: st.now.title, by: st.now.by, seq: st.now.seq, startedAt: st.now.startedAt, pausedAt: st.now.pausedAt },
-  queue: st.queue.map((x) => ({ videoId: x.videoId, file: x.file || null, title: x.title, by: x.by })),
+  now: { videoId: st.now.videoId, file: st.now.file || null, video: !!st.now.video, title: st.now.title, by: st.now.by, seq: st.now.seq, startedAt: st.now.startedAt, pausedAt: st.now.pausedAt },
+  queue: st.queue.map((x) => ({ videoId: x.videoId, file: x.file || null, video: !!x.video, title: x.title, by: x.by })),
 } : null;
 const share = (channelId) => { const st = music.get(channelId); if (st) host.music(st.serverId, channelId, view(st)); };
 export const musicStates = (serverIds) => [...music].filter(([, st]) => st.now && serverIds.has(st.serverId)).map(([channelId, st]) => ({ channelId, state: view(st) }));
@@ -78,14 +78,17 @@ function myMusic(user) {
 async function play(ctx) {
   const v = host.voiceOf(ctx.user.id);
   if (!v) fail('Join a voice channel first. Music plays for everyone in your voice channel.');
-  if (!ctx.args) fail('Paste a YouTube link after /play, like: /play https://youtu.be/dQw4w9WgXcQ');
+  const cmd = ctx.video ? '/watch' : '/play';
+  if (!ctx.args) fail(`Paste a YouTube link after ${cmd}, like: ${cmd} https://youtu.be/dQw4w9WgXcQ`);
   const id = youtubeId(ctx.args);
-  if (!id) fail('That doesn’t look like a YouTube link. Copy the link from YouTube’s Share button and paste it after /play.');
+  if (!id) fail(`That doesn’t look like a YouTube link. Copy the link from YouTube’s Share button and paste it after ${cmd}.`);
   const { title, blocked } = await videoTitle(id);
   if (blocked) fail('That video’s owner doesn’t allow playing it outside YouTube. Try another one.');
   if (!host.voiceOf(ctx.user.id)) fail('You left voice before the video loaded.');
-  enqueue(ctx, v, { videoId: id, title, by: ctx.user.id });
+  enqueue(ctx, v, { videoId: id, title, by: ctx.user.id, video: !!ctx.video });
 }
+/* /watch: the same, but it opens on the big screen for everyone (a watch party instead of background music). */
+const watch = (ctx) => play(Object.assign(ctx, { video: true }));
 function enqueue(ctx, v, item) {
   const title = item.title;
   let st = music.get(v.channelId);
@@ -96,7 +99,7 @@ function enqueue(ctx, v, item) {
   st.queue.push(item);
   if (!st.now) {
     startNext(st);
-    post(ctx.where, `🎵 Now playing **${title}** in 🔊 ${v.channelName}, added by ${who(ctx.user.id)}`);
+    post(ctx.where, `${item.video || item.file ? '🎬 Now showing' : '🎵 Now playing'} **${title}** in 🔊 ${v.channelName}, added by ${who(ctx.user.id)}`);
   } else post(ctx.where, `➕ ${who(ctx.user.id)} added **${title}** to the queue in 🔊 ${v.channelName} (number ${st.queue.length})`);
   share(v.channelId);
 }
@@ -140,7 +143,7 @@ function queue(ctx) {
 export function watchFile(user, where, att) {
   const v = host.voiceOf(user.id);
   if (!v) fail('Join a voice channel first. The video plays for everyone in your voice channel.');
-  enqueue({ user, where }, v, { videoId: null, file: { url: att.url, type: att.type }, title: `🎬 ${String(att.name || 'Video').slice(0, 110)}`, by: user.id });
+  enqueue({ user, where }, v, { videoId: null, file: { url: att.url, type: att.type }, title: `🎬 ${String(att.name || 'Video').slice(0, 110)}`, by: user.id, video: true });
   return {};
 }
 /* A device finished the video (or YouTube refused to play it). The first report for the current video moves on. */
@@ -155,7 +158,7 @@ export function musicEvent(user, d) {
     post(st.where, `⚠️ Skipped **${was.title}**: ${why}.`);
   } else if (d.kind === 'ended' && position(was) < 5) return {};   // a device that thinks it ended right at the start is wrong
   const next = startNext(st);
-  if (next) post(st.where, `🎵 Now playing **${next.title}** in 🔊 ${st.channelName}, added by ${who(next.by)}`);
+  if (next) post(st.where, `${next.video || next.file ? '🎬 Now showing' : '🎵 Now playing'} **${next.title}** in 🔊 ${st.channelName}, added by ${who(next.by)}`);
   share(v.channelId);
   return {};
 }
@@ -235,7 +238,8 @@ function game(ctx) {
    Everyone votes with reactions, and Party Bot announces the winner when time's up. */
 const POLL_MINUTES = [15, 30, 60, 120];
 const minute = () => Number(process.env.POLL_MINUTE_MS) || 60_000;   // tests make minutes short
-export function startGamePoll(user, where, minutes) {
+/* intro: replaces the "X started a vote" line (game nights use their own). */
+export function startGamePoll(user, where, minutes, intro) {
   const open = M.gamesOf(where).filter((g) => !g.playedAt).slice(0, 10);
   if (open.length < 2) fail('Add at least 2 games to the list first (or untick ones you’ve played).');
   const running = one('SELECT message_id FROM game_polls WHERE channel_id IS ? AND dm_id IS ?', where.channelId || null, where.dmId || null);
@@ -244,7 +248,7 @@ export function startGamePoll(user, where, minutes) {
   const mins = POLL_MINUTES.includes(Number(minutes)) ? Number(minutes) : 30;
   const ends = Date.now() + mins * minute();
   const emojis = NUMBERS.slice(0, open.length);
-  const msg = post(where, `🗳️ **What do we play tonight?** ${who(user.id)} started a vote. Vote for every game you’d play with the reactions below. Result <t:${Math.floor(ends / 1000)}:R>.\n`
+  const msg = post(where, `🗳️ **What do we play tonight?** ${intro || `${who(user.id)} started a vote.`} Vote for every game you’d play with the reactions below. Result <t:${Math.floor(ends / 1000)}:R>.\n`
     + open.map((g, i) => `${emojis[i]} ${g.name}${g.note ? ` · ${g.note}` : ''}`).join('\n'));
   if (!msg) fail('Couldn’t start the vote.');
   seedReactions(msg, emojis);
@@ -252,7 +256,22 @@ export function startGamePoll(user, where, minutes) {
     JSON.stringify(open.map((g, i) => ({ emoji: emojis[i], name: g.name, url: g.url || null }))), ends);
   return {};
 }
+/* Game nights (events with a game vote): the vote opens before the event starts and ends when it starts,
+   mentioning everyone going. Without enough games on the list, Party Bot just says so. */
+function gameNightVotes() {
+  for (const e of M.gameVotesDue(minute())) {
+    if (!e.announce_channel_id || !M.getChannel(e.announce_channel_id)) continue;
+    const where = { channelId: e.announce_channel_id }, ev = M.eventView(e);
+    const going = ev.going.map((id) => `<@${id}>`).join(' ');
+    const intro = `**${e.title}** starts <t:${Math.floor(e.starts_at / 1000)}:R>${going ? ` ${going}` : ''}.`;
+    const left = Math.max(1, Math.round((e.starts_at - Date.now()) / minute()));
+    const mins = POLL_MINUTES.filter((m) => m <= left).pop() || POLL_MINUTES[0];
+    try { startGamePoll(M.getUser(e.creator_id) || bot, where, mins, intro); }
+    catch (err) { post(where, `🎮 ${intro} No game vote this time: ${err instanceof M.UserError ? err.message : 'something went wrong.'}`); }
+  }
+}
 function closeGamePolls() {
+  gameNightVotes();
   for (const p of all('SELECT * FROM game_polls WHERE ends_at <= ?', Date.now())) {
     run('DELETE FROM game_polls WHERE message_id = ?', p.message_id);
     if (!M.getMessage(p.message_id)) continue;   // the poll was deleted
@@ -357,6 +376,7 @@ const HELP = [
   '**Party Bot commands**',
   '🎵 **Listen together** (join a voice channel first; everyone in it hears the same thing at the same moment)',
   '/play <YouTube link>: play it, or add it to the queue',
+  '/watch <YouTube link>: a watch party: the same, on the big screen for everyone',
   '/pause, /resume, /skip, /stop',
   '/queue: what’s playing and what’s next',
   '🎬 **Watch together**: press Watch together under a video someone shared in the chat',
@@ -373,12 +393,12 @@ const HELP = [
 ].join('\n');
 
 export const COMMANDS = {
-  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote,
+  play, watch, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote,
   help: () => ({ ephemeral: HELP }),
 };
 /* For the command hints in the message box. */
 export const COMMAND_LIST = [
-  ['play', '<YouTube link>', 'Play a video for everyone in your voice channel'],
+  ['play', '<YouTube link>', 'Play a video for everyone in your voice channel'], ['watch', '<YouTube link>', 'Watch a YouTube video together on the big screen'],
   ['pause', '', 'Pause the music'], ['resume', '', 'Resume the music'], ['skip', '', 'Skip to the next video'],
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],

@@ -11,7 +11,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(), voiceStatus: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(), voiceStatus: new Map(), bookmarks: new Set(), later: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -97,6 +97,8 @@ function paintAv(el, id) {
   el.style.setProperty('--h', hue(u.name));
   el.textContent = u.bot ? '🤖' : initials(u.name);
   el.classList.toggle('bot', !!u.bot);
+  for (const c of [...el.classList]) if (c.startsWith('flair-')) el.classList.remove(c);
+  if (u.flair) el.classList.add(`flair-${u.flair}`);
   if (u.avatar) { el.classList.add('has-img'); el.style.backgroundImage = `url("${absUrl(u.avatar)}")`; }
   else { el.classList.remove('has-img'); el.style.backgroundImage = ''; }
 }
@@ -247,6 +249,7 @@ live.on('ready', (d) => {
   S.voiceStatus = new Map((d.voiceStatus || []).map((x) => [x.channelId, x.status]));
   S.emoji = new Map((d.emoji || []).map((e) => [e.id, e]));
   S.gifs = d.gifs || [];
+  S.bookmarks = new Set(d.bookmarks || []);
   renderResetBar();
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
@@ -760,6 +763,8 @@ function renderHeader() {
   $('#copyInvite').hidden = !v.serverId;
   $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
   $('#gamesBtn').hidden = $('#pinsBtn').hidden;
+  $('#galleryBtn').hidden = $('#pinsBtn').hidden;
+  if (!$('#pinsBtn').hidden) loadLater(); else renderLater();
   if (!$('#gamesBtn').hidden) loadGames();
   else $('#gamesPanel').hidden = true;
   $('#notifBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
@@ -1019,6 +1024,8 @@ function messageEl(msg, prev) {
   tool('smile', 'Add reaction', (e) => openEmojiPop(msg, e.currentTarget));
   tool('reply', 'Reply', () => startReply(msg));
   if (mine && msg.body) tool('pencil', 'Edit', () => editMessage(li, msg));
+  const saved = S.bookmarks.has(msg.id);
+  tool('bookmark', saved ? 'Remove from saved messages' : 'Save for later (only you see it)', () => act(() => live.req('bookmark.set', { id: msg.id, on: !saved }), saved ? null : 'Saved. Find it under Home → Saved messages.'), saved ? 'on' : '');
   tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
   if (mine || S.me.admin || (srv && can(srv, 'messages'))) {
     tool('trash', 'Delete', async (ev) => {
@@ -1544,8 +1551,18 @@ vt.addEventListener('dragover', (e) => e.preventDefault());
 vt.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; $('#dropzone').hidden = true; addFiles([...(e.dataTransfer.files || [])]); });
 chatInput.addEventListener('paste', (e) => { const files = [...(e.clipboardData && e.clipboardData.files || [])]; if (files.length) { e.preventDefault(); addFiles(files); } });
 
-function openLightbox(url, name) { $('#lbImg').src = url; $('#lbName').textContent = name; $('#lbSave').href = url; $('#lbSave').download = name; $('#lightbox').hidden = false; $('#lbClose').focus(); }
-$('#lbClose').addEventListener('click', () => { $('#lightbox').hidden = true; $('#lbImg').src = ''; });
+let lbFromGallery = false;   // a window (the media gallery) sits above everything else, so it steps aside while a photo is open
+function openLightbox(url, name, video) {
+  lbFromGallery = $('#galleryDlg').open;
+  if (lbFromGallery) $('#galleryDlg').close();
+  $('#lbImg').hidden = !!video; $('#lbVideo').hidden = !video;
+  if (video) { $('#lbVideo').src = url; $('#lbVideo').play().catch(() => {}); } else $('#lbImg').src = url;
+  $('#lbName').textContent = name; $('#lbSave').href = url; $('#lbSave').download = name; $('#lightbox').hidden = false; $('#lbClose').focus();
+}
+$('#lbClose').addEventListener('click', () => {
+  $('#lightbox').hidden = true; $('#lbImg').src = ''; $('#lbVideo').pause(); $('#lbVideo').removeAttribute('src'); $('#lbVideo').load();
+  if (lbFromGallery) { lbFromGallery = false; $('#galleryDlg').showModal(); }
+});
 $('#lightbox').addEventListener('click', (e) => { if (e.target === e.currentTarget || e.target.id === 'lbImg') $('#lbClose').click(); });
 
 /* ================= friends ================= */
@@ -2038,11 +2055,15 @@ function fillUserPop(id) {
   paintAv($('#popAv'), id);
   $('#popDot').className = 'status-dot ' + statusOf(id);
   $('#popBanner').style.background = u.banner || `hsl(${hue(u.name)} 45% 45%)`;
+  $('#popBanner').className = 'pop-banner' + (u.bannerFx ? ` fx-${u.bannerFx}` : '');
   $('#popName').textContent = nameOf(id) + (isMe ? ' (you)' : ''); addCrown($('#popName'), id);
   $('#popPresence').textContent = u.bot ? 'Bot' : STATUS_TEXT[statusOf(id)];
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
   $('#popActivity').hidden = !(u.online && u.activity); $('#popActivity').textContent = u.activity ? `🎮 Playing ${u.activity}` : '';
   $('#popBioBox').hidden = !u.bio; $('#popBio').textContent = u.bio || '';
+  const games = u.favGames || [];
+  $('#popGamesBox').hidden = !games.length; $('#popGames').textContent = '';
+  for (const g of games) { const chip = document.createElement('span'); chip.className = 'game-chip'; chip.textContent = `🎮 ${g}`; $('#popGames').appendChild(chip); }
   $('#popBdayBox').hidden = !u.birthday; $('#popBday').textContent = u.birthday ? `${fmtBirthday(u.birthday)}${isBirthday(u.id) ? ' · today! 🎉' : ''}` : '';
   const srv = S.popServer && S.servers.get(S.popServer), roles = rolesOf(srv, id), box = $('#popRoles');
   box.textContent = ''; box.hidden = !roles.length;
@@ -2123,7 +2144,7 @@ function openSearch() {
   $('#searchPanel').hidden = false;
   $('#searchInput').focus(); $('#searchInput').select();
 }
-function closeSearch() { $('#searchPanel').hidden = true; }
+function closeSearch() { $('#searchPanel').hidden = true; S.savedOpen = false; }
 $('#searchBtn').addEventListener('click', () => ($('#searchPanel').hidden ? openSearch() : closeSearch()));
 $('#searchClose').addEventListener('click', closeSearch);
 $('#searchInput').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeSearch(); } });
@@ -2140,6 +2161,7 @@ $('#searchForm').addEventListener('submit', async (e) => {
   renderHits(res);
 });
 async function openPins() {
+  S.savedOpen = false;
   const target = S.view.kind === 'dm' ? `userId=${S.view.userId}` : `channelId=${S.view.channelId}`;
   $('#searchForm').hidden = true;
   $('#searchNote').textContent = 'Loading pinned messages…';
@@ -2171,6 +2193,211 @@ function renderHits(res) {
     b.addEventListener('click', () => { closeSearch(); jumpTo(key, msg.id); });
     li.appendChild(b); ol.appendChild(li);
   }
+}
+
+/* ================= saved messages (bookmarks) ================= */
+live.on('bookmarks', (d) => { S.bookmarks = new Set(d.ids); rerenderMessagesSoft(); if (S.savedOpen && !$('#searchPanel').hidden) openSaved(); });
+async function openSaved() {
+  S.savedOpen = true;
+  $('#searchForm').hidden = true;
+  $('#searchNote').textContent = 'Loading saved messages…';
+  $('#searchResults').textContent = '';
+  $('#searchPanel').hidden = false;
+  let res;
+  try { res = (await api('/api/bookmarks')).messages; } catch (ex) { $('#searchNote').textContent = ex.message; return; }
+  $('#searchNote').textContent = res.length ? `🔖 ${res.length} saved message${res.length === 1 ? '' : 's'}, newest saved first. Only you see these. Click one to jump to it.` : '🔖 Nothing saved yet. Point at a message (or tap it on a phone) and press the bookmark button.';
+  renderHits(res);
+}
+$('#navSaved').addEventListener('click', () => { if (!$('#searchPanel').hidden && S.savedOpen) { closeSearch(); return; } openSaved(); $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; });
+
+/* ================= send later ================= */
+const laterKey = () => msgKey();
+function loadLater() {
+  const key = laterKey(), target = composeTarget();
+  if (!key || !target) return renderLater();
+  renderLater();
+  live.req('later.list', target).then((r) => { S.later.set(key, r.list); if (laterKey() === key) renderLater(); }).catch(() => {});
+}
+live.on('later', (d) => {
+  const key = d.channelId ? `c:${d.channelId}` : `d:${d.toUserId}`;
+  S.later.set(key, d.list);
+  if (laterKey() === key) renderLater();
+});
+live.on('later.failed', (d) => {
+  toast(`A message you scheduled couldn’t be sent: ${d.error} It’s back in the message box if it was empty.`, 7000);
+  if (!chatInput.value) { chatInput.value = d.body; autosize(); }
+});
+function renderLater() {
+  const ul = $('#laterBar'), list = (laterKey() && S.later.get(laterKey())) || [];
+  ul.textContent = ''; ul.hidden = !list.length;
+  for (const x of list) {
+    const li = document.createElement('li');
+    const t = document.createElement('span'); t.className = 'later-when'; t.textContent = `🕒 ${fmtWhen(x.sendAt)}`;
+    const b = document.createElement('span'); b.className = 'later-body'; b.textContent = decodeMentions(x.body);
+    const c = document.createElement('button'); c.type = 'button'; c.className = 'reply-x'; c.innerHTML = iconSvg('x'); c.title = 'Don’t send it'; c.setAttribute('aria-label', 'Cancel this scheduled message');
+    c.addEventListener('click', () => act(() => live.req('later.cancel', { id: x.id }), 'Cancelled.'));
+    li.append(t, b, c); ul.appendChild(li);
+  }
+}
+const atTime = (daysAhead, h, m = 0) => { const d = new Date(); d.setDate(d.getDate() + daysAhead); d.setHours(h, m, 0, 0); return d.getTime(); };
+function laterPresets() {
+  const now = Date.now(), tonight = atTime(0, 21);
+  return [
+    ['In 1 hour', now + 3600_000],
+    tonight - now > 20 * 60_000 ? ['Tonight at 21:00', tonight] : ['Tomorrow at 21:00', atTime(1, 21)],
+    ['Tomorrow at 09:00', atTime(1, 9)],
+  ];
+}
+const localInput = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+function openLater() {
+  const box = $('#laterPresets'); box.textContent = '';
+  for (const [label, at] of laterPresets()) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = label;
+    b.addEventListener('click', () => scheduleMsg(at));
+    box.appendChild(b);
+  }
+  const d = new Date(Date.now() + 3600_000); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+  $('#laterWhen').value = localInput(d.getTime());
+  $('#laterPop').hidden = false; $('#laterBtn').setAttribute('aria-expanded', 'true');
+}
+function closeLater() { $('#laterPop').hidden = true; $('#laterBtn').setAttribute('aria-expanded', 'false'); }
+async function scheduleMsg(at) {
+  const body = encodeEmoji(encodeMentions(chatInput.value.trim())), target = composeTarget();
+  if (!body) { toast('Write the message first, then pick when to send it.', 3500); chatInput.focus(); return; }
+  if (!target) return;
+  if (await act(() => live.req('later.add', Object.assign({ body, sendAt: at }, target)), `Scheduled for ${fmtWhen(at)}.`)) {
+    chatInput.value = ''; autosize(); closeLater();
+  }
+}
+$('#laterBtn').addEventListener('click', () => ($('#laterPop').hidden ? openLater() : closeLater()));
+$('#laterGo').addEventListener('click', () => { const at = new Date($('#laterWhen').value).getTime(); if (Number.isFinite(at)) scheduleMsg(at); else toast('Pick a day and time.', 3000); });
+document.addEventListener('pointerdown', (e) => { if (!$('#laterPop').hidden && !e.target.closest('#laterPop, #laterBtn')) closeLater(); });
+
+/* ================= quick switcher (Ctrl+P) ================= */
+let jumpSel = 0, jumpItems = [];
+function jumpCandidates() {
+  const out = [];
+  for (const s of S.servers.values()) {
+    if (isPrivate(s)) {
+      if (s.kind === 'group') { const t = groupText(s); if (t) out.push({ label: groupName(s), sub: 'Group chat', icon: 'users', unread: t.unread || 0, at: t.lastAt || 0, go: () => setView({ kind: 'text', serverId: s.id, channelId: t.id }) }); }
+      continue;
+    }
+    for (const c of s.channels) {
+      if (c.kind === 'text') out.push({ label: c.name, prefix: '#', sub: s.name, unread: c.unread || 0, at: c.lastAt || 0, go: () => setView({ kind: 'text', serverId: s.id, channelId: c.id }) });
+      else out.push({ label: c.name, icon: 'volume', sub: `${s.name} · voice`, unread: 0, at: 0, go: () => { setView({ kind: 'voice', serverId: s.id, channelId: c.id }); if (V.channelId !== c.id) joinVoice(c.id); } });
+    }
+  }
+  // Friends, people you've chatted with, and everyone you share a server with (you can message them too).
+  const people = new Set([...S.dms.keys(), ...[...S.friends].filter(([, st]) => st === 'friends').map(([id]) => id),
+    ...[...S.servers.values()].filter((x) => !isPrivate(x)).flatMap((x) => x.members || [])]);
+  for (const id of people) {
+    if (!S.users.has(id) || id === S.me.id || user(id).bot) continue;
+    const dm = S.dms.get(id);
+    out.push({ label: nameOf(id), prefix: '@', sub: 'Private chat', unread: dm ? dm.unread || 0 : 0, at: dm ? dm.lastAt || 0 : 0, user: id, go: () => setView({ kind: 'dm', userId: id }) });
+  }
+  return out;
+}
+function renderJump() {
+  const q = $('#jumpInput').value.trim().toLowerCase().replace(/^[#@]/, '');
+  const all = jumpCandidates();
+  jumpItems = (q ? all.filter((x) => x.label.toLowerCase().includes(q))
+    .sort((a, b) => (b.label.toLowerCase().startsWith(q) - a.label.toLowerCase().startsWith(q)) || (b.unread - a.unread) || (b.at - a.at))
+    : all.sort((a, b) => (!!b.unread - !!a.unread) || (b.at - a.at))).slice(0, 12);
+  jumpSel = Math.min(jumpSel, Math.max(0, jumpItems.length - 1));
+  const ul = $('#jumpList'); ul.textContent = '';
+  jumpItems.forEach((x, i) => {
+    const li = document.createElement('li'); li.className = 'jump-item'; li.setAttribute('role', 'option'); li.setAttribute('aria-selected', String(i === jumpSel)); li.id = `jump-${i}`;
+    if (x.user) li.appendChild(avEl(x.user)); else li.insertAdjacentHTML('beforeend', x.icon ? iconSvg(x.icon) : `<span class="glyph">${x.prefix}</span>`);
+    const t = document.createElement('span'); t.className = 'jump-label'; t.textContent = x.label;
+    const sub = document.createElement('small'); sub.textContent = x.sub;
+    li.append(t, sub);
+    if (x.unread) { const u = document.createElement('span'); u.className = 'count-pill'; u.textContent = x.unread > 99 ? '99+' : x.unread; li.appendChild(u); }
+    li.addEventListener('mousemove', () => { if (jumpSel !== i) { jumpSel = i; renderJump(); } });
+    li.addEventListener('click', () => goJump(i));
+    ul.appendChild(li);
+  });
+  if (!jumpItems.length) { const li = document.createElement('li'); li.className = 'hint jump-empty'; li.textContent = 'Nothing matches.'; ul.appendChild(li); }
+  $('#jumpInput').setAttribute('aria-activedescendant', jumpItems.length ? `jump-${jumpSel}` : '');
+}
+function goJump(i) { const x = jumpItems[i]; if (!x) return; $('#jumpDlg').close(); x.go(); $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; }
+function openJump() { if (!S.ready) return; closeMenu(); jumpSel = 0; $('#jumpInput').value = ''; renderJump(); if (!$('#jumpDlg').open) $('#jumpDlg').showModal(); $('#jumpInput').focus(); }
+$('#jumpInput').addEventListener('input', () => { jumpSel = 0; renderJump(); });
+$('#jumpInput').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); jumpSel = Math.min(jumpItems.length - 1, jumpSel + 1); renderJump(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); jumpSel = Math.max(0, jumpSel - 1); renderJump(); }
+  else if (e.key === 'Enter') { e.preventDefault(); goJump(jumpSel); }
+});
+$('#jumpDlg').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#jumpDlg').close(); });
+document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p' && S.ready) { e.preventDefault(); openJump(); } });
+$('#navJump').addEventListener('click', openJump);
+$('#mJump').addEventListener('click', openJump);
+
+/* ================= media gallery: everything shared in this chat ================= */
+let galTab = 'media', galState = null;   // { key, target, items, before, loading }
+function openGallery() {
+  const target = S.view.kind === 'dm' ? `userId=${S.view.userId}` : `channelId=${S.view.channelId}`;
+  galState = { key: msgKey(), target, items: [], before: null, loading: false };
+  const f = S.view.kind === 'text' && findChannel(S.view.channelId);
+  $('#galTitle').textContent = f ? `Media in #${f.channel.name}` : `Media with ${nameOf(S.view.userId)}`;
+  showGalTab(galTab);
+  $('#galleryDlg').showModal();
+  loadGallery();
+}
+async function loadGallery() {
+  const st = galState;
+  if (!st || st.loading) return;
+  st.loading = true; $('#galMore').disabled = true;
+  if (!st.items.length) $('#galNote').textContent = 'Loading…';
+  try {
+    const r = await api(`/api/media?${st.target}${st.before ? `&before=${st.before}` : ''}`);
+    if (st !== galState) return;
+    st.items.push(...r.items); st.before = r.before;
+    renderGallery();
+  } catch (e) { $('#galNote').textContent = e.message; }
+  finally { st.loading = false; $('#galMore').disabled = false; }
+}
+function showGalTab(tab) {
+  galTab = tab;
+  document.querySelectorAll('[data-gal]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.gal === tab)));
+  $('#galGrid').hidden = tab !== 'media'; $('#galFiles').hidden = tab !== 'files';
+  if (galState) renderGallery();
+}
+document.querySelectorAll('[data-gal]').forEach((t) => t.addEventListener('click', () => showGalTab(t.dataset.gal)));
+$('#galMore').addEventListener('click', loadGallery);
+$('#galleryBtn').addEventListener('click', openGallery);
+function galJump(it) {
+  const key = galState.key;
+  $('#galleryDlg').close();
+  jumpTo(key, it.messageId);
+}
+function renderGallery() {
+  const st = galState, grid = $('#galGrid'), files = $('#galFiles');
+  const media = st.items.filter((x) => x.kind === 'image' || x.kind === 'video' || x.kind === 'gif'), other = st.items.filter((x) => x.kind === 'file' || x.kind === 'audio');
+  grid.textContent = ''; files.textContent = '';
+  for (const it of media) {
+    const cell = document.createElement('div'); cell.className = 'gal-cell';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'gal-open'; b.title = `${it.name} · ${nameOf(it.userId)}, ${fmtDay(it.at)}`;
+    if (it.kind === 'video') {
+      const v = document.createElement('video'); v.src = `${absUrl(it.url)}#t=0.5`; v.preload = 'metadata'; v.muted = true; v.playsInline = true; b.appendChild(v);
+      b.insertAdjacentHTML('beforeend', `<span class="gal-badge">${iconSvg('play')}</span>`);
+    } else { const img = document.createElement('img'); img.src = absUrl(it.thumbUrl || it.url); img.alt = it.name; img.loading = 'lazy'; b.appendChild(img); if (it.kind === 'gif') b.insertAdjacentHTML('beforeend', '<span class="gal-badge">GIF</span>'); }
+    b.addEventListener('click', () => openLightbox(absUrl(it.url), it.name, it.kind === 'video'));
+    const j = document.createElement('button'); j.type = 'button'; j.className = 'gal-jump'; j.textContent = 'Go to message'; j.addEventListener('click', () => galJump(it));
+    cell.append(b, j); grid.appendChild(cell);
+  }
+  for (const it of other) {
+    const li = document.createElement('li'); li.className = 'gal-file';
+    li.innerHTML = iconSvg(it.kind === 'audio' ? 'music' : 'file');
+    const t = document.createElement('div');
+    const a = document.createElement('a'); a.href = absUrl(it.url); a.download = it.name; a.textContent = it.name;
+    const sm = document.createElement('small'); sm.textContent = `${fmtSize(it.size || 0)} · ${nameOf(it.userId)}, ${fmtDay(it.at)}`;
+    t.append(a, sm);
+    const j = document.createElement('button'); j.type = 'button'; j.className = 'btn small'; j.textContent = 'Go to message'; j.addEventListener('click', () => galJump(it));
+    li.append(t, j); files.appendChild(li);
+  }
+  const shown = galTab === 'media' ? media.length : other.length;
+  $('#galNote').textContent = shown ? '' : st.before ? 'Nothing here in the newest messages. Press “Show older” to look further back.' : galTab === 'media' ? 'No photos or videos shared here yet.' : 'No files shared here yet.';
+  $('#galMore').hidden = !st.before;
 }
 
 /* ================= servers ================= */
@@ -2356,7 +2583,26 @@ function fillBirthday(b) {
   ms.onchange = days;
 }
 const birthdayValue = () => ($('#setBdayMonth').value && $('#setBdayDay').value ? `${$('#setBdayMonth').value.padStart(2, '0')}-${$('#setBdayDay').value.padStart(2, '0')}` : '');
-$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, birthday: birthdayValue() }), 'Profile saved.'));
+const FLAIRS = [['', 'None'], ['glow', 'Glow'], ['rainbow', 'Rainbow'], ['fire', 'Fire'], ['ice', 'Ice'], ['gold', 'Gold']];
+let profileFlair = '';
+function renderFlairs() {
+  const box = $('#setFlair'); box.textContent = '';
+  for (const [k, label] of FLAIRS) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'flair-opt'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === profileFlair));
+    const av = avEl(S.me.id); for (const c of [...av.classList]) if (c.startsWith('flair-')) av.classList.remove(c); if (k) av.classList.add(`flair-${k}`);
+    const t = document.createElement('small'); t.textContent = label;
+    b.append(av, t); b.title = label;
+    b.addEventListener('click', () => { profileFlair = k; renderFlairs(); });
+    box.appendChild(b);
+  }
+}
+function fillFlair() {
+  profileFlair = S.me.flair || ''; renderFlairs();
+  for (const r of document.querySelectorAll('input[name="bannerFx"]')) r.checked = r.value === (S.me.bannerFx || '');
+  $('#setFavGames').value = (S.me.favGames || []).join(', ');
+}
+$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, birthday: birthdayValue(),
+  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', favGames: $('#setFavGames').value }), 'Profile saved.'));
 /* Settings is split into tabs: Profile, Look, Voice, Alerts, Account. */
 let setTab = 'profile';
 function showSetTab(name) {
@@ -2371,6 +2617,7 @@ function openSettings(tab) {
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
   $('#setBio').value = S.me.bio || ''; profileBanner = S.me.banner || ''; renderSwatches();
   fillBirthday(S.me.birthday);
+  fillFlair();
   $('#pwNote').hidden = true; $('#pwOld').value = ''; $('#pwNew').value = '';
   $('#devOpen').hidden = !S.me.admin;
   $('#appInfo').textContent = desktop ? `Party Line desktop app ${desktop.version || ''} · Server: ${location.host}` : `Server: ${location.host}`;
@@ -2631,6 +2878,7 @@ function renderGames() {
   const list = S.games.get(msgKey()) || [];
   $('#gamesPick').disabled = !list.some((g) => !g.playedAt);
   $('#gamesPoll').disabled = list.filter((g) => !g.playedAt).length < 2;
+  $('#gamesPlan').hidden = S.view.kind !== 'text' || !curServer() || isPrivate(curServer());   // events belong to servers
   if (!list.length) { const li = document.createElement('li'); li.className = 'hint games-empty'; li.textContent = 'No games yet. Add the ones you want to try together, so you remember them on game night.'; ul.appendChild(li); return; }
   const srv = curServer(), mod = S.view.kind === 'text' && can(srv, 'messages');
   for (const g of list) {
@@ -2667,6 +2915,11 @@ $('#gamesForm').addEventListener('submit', async (e) => {
   if (r) { $('#gameName').value = ''; $('#gameUrl').value = ''; $('#gameNote').value = ''; loadGames(true); $('#gameName').focus(); }
 });
 $('#gamesPick').addEventListener('click', () => act(() => live.req('games.pick', gameTarget())));
+$('#gamesPlan').addEventListener('click', () => {
+  $('#gamesPanel').hidden = true;
+  openEvents();
+  newEventForm({ title: 'Game night', gameVote: 30, textChannelId: S.view.channelId });
+});
 $('#gamesPoll').addEventListener('click', async () => {
   if (await act(() => live.req('games.poll', Object.assign({ minutes: Number($('#gamesPollMins').value) }, gameTarget())))) $('#gamesPanel').hidden = true;
 });
@@ -3214,7 +3467,9 @@ function renderEvents() {
     main.appendChild(t);
     const when = document.createElement('div'); when.className = 'ev-when';
     const ch = e.channelId && findChannel(e.channelId);
-    when.textContent = `${fmtWhen(e.startsAt)} · ${fmtRelative(e.startsAt)}` + (ch ? ` · 🔊 ${ch.channel.name}` : '');
+    const tc = e.gameVote && e.textChannelId && findChannel(e.textChannelId);
+    when.textContent = `${fmtWhen(e.startsAt)} · ${fmtRelative(e.startsAt)}` + (ch ? ` · 🔊 ${ch.channel.name}` : '')
+      + (e.gameVote ? ` · 🎮 game vote ${e.gameVote >= 60 ? `${e.gameVote / 60} h` : `${e.gameVote} min`} before${tc ? ` in #${tc.channel.name}` : ''}` : '');
     main.appendChild(when);
     if (e.description) { const p = document.createElement('p'); p.className = 'ev-desc'; p.textContent = e.description; main.appendChild(p); }
     const who = document.createElement('div'); who.className = 'ev-who';
@@ -3241,20 +3496,25 @@ function renderEvents() {
   }
 }
 $('#eventsBtn').addEventListener('click', openEvents);
-$('#evNewBtn').addEventListener('click', () => {
+let evFromChannel = null;   // a game night planned from a chat's 🎮 list is announced (and voted on) there
+$('#evNewBtn').addEventListener('click', () => newEventForm());
+function newEventForm(preset) {
   const s = curServer();
+  evFromChannel = preset && preset.textChannelId || null;
+  $('#evVote').value = preset && preset.gameVote ? String(preset.gameVote) : '';
   const sel = $('#evChan'); sel.length = 1;
   for (const c of s.channels.filter((x) => x.kind === 'voice')) sel.add(new Option(c.name, c.id));
   const t = new Date(Date.now() + 86_400_000); t.setMinutes(0, 0, 0); t.setHours(21);
   $('#evWhen').value = new Date(t - t.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-  $('#evName').value = ''; $('#evDesc').value = '';
+  $('#evName').value = preset && preset.title || ''; $('#evDesc').value = '';
   $('#evForm').hidden = false; $('#evNewBtn').hidden = true; $('#evName').focus();
-});
+}
 $('#evCancelForm').addEventListener('click', () => { $('#evForm').hidden = true; $('#evNewBtn').hidden = false; });
 $('#evForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const startsAt = new Date($('#evWhen').value).getTime();
-  const r = await act(() => live.req('event.create', { serverId: curServer().id, title: $('#evName').value, startsAt, channelId: $('#evChan').value || null, description: $('#evDesc').value }), 'Event created. Party Bot told the server.');
+  const r = await act(() => live.req('event.create', { serverId: curServer().id, title: $('#evName').value, startsAt, channelId: $('#evChan').value || null, description: $('#evDesc').value,
+    gameVote: Number($('#evVote').value) || null, textChannelId: evFromChannel }), 'Event created. Party Bot told the server.');
   if (r) { $('#evForm').hidden = true; $('#evNewBtn').hidden = false; }
 });
 

@@ -3,7 +3,7 @@
 import { startServer, launchBrowser, signUp, joinVoice, RESULTS } from './lib.mjs';
 
 /* Just enough of YouTube's IFrame Player API: a clock that plays, pauses, seeks and can be told to end or fail. */
-const FAKE_YT = `
+export const FAKE_YT = `
 window.YT = { Player: function (id, o) {
   const el = document.getElementById(id), box = document.createElement('div');
   box.className = 'fake-yt'; el.replaceWith(box);

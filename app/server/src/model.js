@@ -40,7 +40,11 @@ const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-
 
 /* ---------- users and sessions ---------- */
 export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
-  custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null });
+  custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null,
+  flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [] });
+/* Profile flair: an animated ring around your picture and an effect on your profile banner. */
+export const FLAIRS = ['glow', 'rainbow', 'fire', 'ice', 'gold'];
+export const BANNER_FX = ['aurora', 'stars', 'scan'];
 /* What only you see about yourself. */
 export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
@@ -267,6 +271,13 @@ export function setProfile(userId, d) {
     const m = /^(\d{2})-(\d{2})$/.exec(b);
     if (b && !(m && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= new Date(2024, +m[1], 0).getDate())) fail('Pick a month and day.');
     run('UPDATE users SET birthday = ? WHERE id = ?', b || null, userId);
+  }
+  if (d.flair !== undefined) { if (d.flair && !FLAIRS.includes(d.flair)) fail('Pick one of the rings.'); run('UPDATE users SET flair = ? WHERE id = ?', d.flair || null, userId); }
+  if (d.bannerFx !== undefined) { if (d.bannerFx && !BANNER_FX.includes(d.bannerFx)) fail('Pick one of the banner effects.'); run('UPDATE users SET banner_fx = ? WHERE id = ?', d.bannerFx || null, userId); }
+  if (d.favGames !== undefined) {
+    const list = [...new Set((Array.isArray(d.favGames) ? d.favGames : String(d.favGames || '').split(','))
+      .map((g) => String(g).replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40)).filter(Boolean))].slice(0, 5);
+    run('UPDATE users SET fav_games = ? WHERE id = ?', list.length ? JSON.stringify(list) : null, userId);
   }
   if (d.newsSeen !== undefined) run('UPDATE users SET news_seen = ? WHERE id = ?', Math.max(0, Math.min(1e6, Math.floor(Number(d.newsSeen) || 0))), userId);
   if (d.banner !== undefined) {
@@ -600,7 +611,8 @@ export function eventsOf(serverId) {
 export function eventView(e) {
   const rsvps = all('SELECT user_id, state FROM event_rsvps WHERE event_id = ?', e.id);
   return { id: e.id, serverId: e.server_id, creatorId: e.creator_id, title: e.title, description: e.description || '', startsAt: e.starts_at,
-    channelId: e.channel_id, going: rsvps.filter((r) => r.state === 'going').map((r) => r.user_id), maybe: rsvps.filter((r) => r.state === 'maybe').map((r) => r.user_id) };
+    channelId: e.channel_id, gameVote: e.game_vote || 0, textChannelId: e.announce_channel_id,
+    going: rsvps.filter((r) => r.state === 'going').map((r) => r.user_id), maybe: rsvps.filter((r) => r.state === 'maybe').map((r) => r.user_id) };
 }
 export const getEvent = (id) => one('SELECT * FROM events WHERE id = ?', id);
 export function createEvent(userId, serverId, d) {
@@ -611,9 +623,13 @@ export function createEvent(userId, serverId, d) {
   if (startsAt > now() + 366 * 86400_000) fail('Events can be up to a year ahead.');
   if (one('SELECT COUNT(*) AS n FROM events WHERE server_id = ? AND starts_at > ?', serverId, now()).n >= 50) fail('This server already has 50 upcoming events.');
   const ch = d.channelId ? getChannel(Number(d.channelId)) : null;
-  const announce = one("SELECT id FROM channels WHERE server_id = ? AND kind = 'text' ORDER BY position, id LIMIT 1", serverId);
-  const id = Number(run('INSERT INTO events (server_id, creator_id, title, description, starts_at, channel_id, announce_channel_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    serverId, userId, title, String(d.description || '').trim().slice(0, 1000) || null, startsAt, ch && ch.server_id === serverId && ch.kind === 'voice' ? ch.id : null, announce ? announce.id : null, now()).lastInsertRowid);
+  // Announced (and its game vote held) in the chat it was planned from, or the server's first text channel.
+  const from = d.textChannelId ? getChannel(Number(d.textChannelId)) : null;
+  const announce = from && from.server_id === serverId && from.kind === 'text' ? from : one("SELECT id FROM channels WHERE server_id = ? AND kind = 'text' ORDER BY position, id LIMIT 1", serverId);
+  // Game night: a vote on the chat's 🎮 list opens this many minutes before it starts.
+  const gameVote = [15, 30, 60, 120].includes(Number(d.gameVote)) ? Number(d.gameVote) : null;
+  const id = Number(run('INSERT INTO events (server_id, creator_id, title, description, starts_at, channel_id, announce_channel_id, created_at, game_vote) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    serverId, userId, title, String(d.description || '').trim().slice(0, 1000) || null, startsAt, ch && ch.server_id === serverId && ch.kind === 'voice' ? ch.id : null, announce ? announce.id : null, now(), gameVote).lastInsertRowid);
   run("INSERT INTO event_rsvps (event_id, user_id, state) VALUES (?, ?, 'going')", id, userId);
   return getEvent(id);
 }
@@ -626,6 +642,68 @@ export const deleteEvent = (id) => run('DELETE FROM events WHERE id = ?', id);
 export function eventsToRemind() {
   const rows = all('SELECT * FROM events WHERE reminded = 0 AND starts_at <= ? AND starts_at > ?', now() + 15 * 60_000, now() - 5 * 60_000);
   for (const e of rows) run('UPDATE events SET reminded = 1 WHERE id = ?', e.id);
+  return rows;
+}
+/* Media gallery: every photo, video, GIF and file shared in a channel or private chat, newest first, 60
+   messages at a time. col: 'channel_id' or 'dm_id'. */
+export function mediaOf(col, targetId, before) {
+  const rows = all(`SELECT id, user_id, body, attachments, created_at FROM messages WHERE ${col} = ? AND id < ? AND (attachments IS NOT NULL OR body LIKE '<g:%') ORDER BY id DESC LIMIT 60`,
+    targetId, Number(before) || Number.MAX_SAFE_INTEGER);
+  const items = [];
+  for (const m of rows) {
+    const base = { messageId: m.id, userId: m.user_id, at: m.created_at };
+    const g = /^<g:([\w-]+)>$/.exec(m.body || '');
+    if (g) { const up = getUpload(g[1]); if (up) items.push({ ...base, kind: 'gif', url: `/uploads/${up.id}`, name: up.name, type: up.type, size: up.size }); }
+    for (const a of m.attachments ? JSON.parse(m.attachments) : []) {
+      const kind = /^image\//.test(a.type) ? 'image' : /^video\//.test(a.type) ? 'video' : /^audio\//.test(a.type) ? 'audio' : 'file';
+      items.push({ ...base, kind, url: a.url, thumbUrl: a.thumbUrl || null, name: a.name, type: a.type, size: a.size });
+    }
+  }
+  return { items, before: rows.length === 60 ? rows[rows.length - 1].id : null };
+}
+/* Bookmarks: messages you saved for later. Only you see them, and only while you can still see the message. */
+export const bookmarkIds = (userId) => all('SELECT message_id FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', userId).map((r) => r.message_id);
+export function setBookmark(userId, messageId, on) {
+  if (!on) { run('DELETE FROM bookmarks WHERE user_id = ? AND message_id = ?', userId, messageId); return; }
+  if (one('SELECT COUNT(*) AS n FROM bookmarks WHERE user_id = ?', userId).n >= 500) fail('You have 500 saved messages. Remove some first.');
+  run('INSERT OR IGNORE INTO bookmarks (user_id, message_id, created_at) VALUES (?, ?, ?)', userId, messageId, now());
+}
+export function bookmarksOf(userId) {
+  const rows = all(`SELECT m.* FROM bookmarks b JOIN messages m ON m.id = b.message_id
+    LEFT JOIN channels c ON c.id = m.channel_id LEFT JOIN dms d ON d.id = m.dm_id
+    WHERE b.user_id = ? AND ((c.id IS NOT NULL AND EXISTS (SELECT 1 FROM members WHERE server_id = c.server_id AND user_id = ?)) OR d.user_a = ? OR d.user_b = ?)
+    ORDER BY b.created_at DESC LIMIT 200`, userId, userId, userId, userId);
+  return decorate(rows);
+}
+
+/* Send later: messages written now and sent at a chosen time (text only, no bot commands). */
+const scheduledView = (r) => ({ id: r.id, channelId: r.channel_id, toUserId: r.to_user_id, body: r.body, sendAt: r.send_at });
+export function scheduledFor(userId, target) {
+  const rows = target.channelId ? all('SELECT * FROM scheduled WHERE user_id = ? AND channel_id = ? ORDER BY send_at', userId, target.channelId)
+    : all('SELECT * FROM scheduled WHERE user_id = ? AND to_user_id = ? ORDER BY send_at', userId, target.toUserId);
+  return rows.map(scheduledView);
+}
+export function addScheduled(userId, target, body, sendAt) {
+  body = cleanBody(body);
+  if (!body) fail('Write the message first.');
+  sendAt = Number(sendAt);
+  if (!Number.isFinite(sendAt) || sendAt < now() + Number(process.env.LATER_MIN_MS ?? 30_000)) fail('Pick a time at least a minute from now.');   // tests shorten it
+  if (sendAt > now() + 30 * 86400_000) fail('Messages can be scheduled up to 30 days ahead.');
+  if (one('SELECT COUNT(*) AS n FROM scheduled WHERE user_id = ?', userId).n >= 25) fail('You already have 25 messages waiting to be sent.');
+  run('INSERT INTO scheduled (user_id, channel_id, to_user_id, body, send_at, created_at) VALUES (?, ?, ?, ?, ?, ?)', userId, target.channelId || null, target.toUserId || null, body, sendAt, now());
+}
+export const getScheduled = (id) => one('SELECT * FROM scheduled WHERE id = ?', id);
+export const deleteScheduled = (id) => run('DELETE FROM scheduled WHERE id = ?', id);
+export function scheduledDue() {
+  const rows = all('SELECT * FROM scheduled WHERE send_at <= ? ORDER BY send_at LIMIT 50', now());
+  for (const r of rows) run('DELETE FROM scheduled WHERE id = ?', r.id);
+  return rows;
+}
+
+/* Game nights whose vote should open now (minute: ms per minute, shorter in tests). Marks them as started. */
+export function gameVotesDue(minute) {
+  const rows = all('SELECT * FROM events WHERE game_vote > 0 AND vote_started = 0 AND starts_at > ? AND starts_at - game_vote * ? <= ?', now(), minute, now());
+  for (const e of rows) run('UPDATE events SET vote_started = 1 WHERE id = ?', e.id);
   return rows;
 }
 /* ---------- soundboard: each server's uploaded sounds (up to 30, 1 MB each) ---------- */

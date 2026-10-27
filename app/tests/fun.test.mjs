@@ -21,7 +21,7 @@ export default async function (ok) {
     db.close();
     await b.reload();
     await b.waitForSelector('#newsDlg[open] .news-list li');
-    ok('after an update, friends see what’s new', (await b.textContent('#newsList')).includes('Watch together'));
+    ok('after an update, friends see what’s new (newest first)', (await b.textContent('#newsList')).includes('Media gallery'));
     await b.screenshot({ path: `${RESULTS}/whats-new.png` });
     await b.click('#newsOk');
     await b.reload(); await b.waitForSelector('#room:not([hidden])'); await b.waitForTimeout(800);
