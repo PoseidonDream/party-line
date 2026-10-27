@@ -170,6 +170,12 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **Birthdays:** add yours in Settings. Friends see 🎂 next to your name on the day and Party Bot says happy birthday in #general.
 - **Voice extras:** server menu → **AFK channel** moves people who are quiet for 15 minutes (or muted for 30) there instead of disconnecting them. Point at a **LIVE** badge to peek at someone's screen before joining.
 - **Safety:** Settings → **Devices you're signed in on** (sign out a lost phone) and **2-step sign-in** (a code from an authenticator app). If someone loses their phone, an approved password reset turns 2-step off.
+- **Polls:** the **+** next to the message box → **Poll**: up to 10 choices, one or several picks, anonymous if you like, and an end time (1 hour, 1 day, 1 week or when you end it). Votes show live as bars; Party Bot posts the winner when it ends.
+- **Levels:** chatting earns 10 XP (at most once a minute) and time in voice with someone else 5 XP a minute, per server. Click someone to see their level; server menu → **Leaderboard**, or `/rank` and `/top`. Party Bot cheers each level from 2 up.
+- **Chat in voice channels:** every voice channel has its own chat (the **Chat** button at the top of the voice view) for links and invites during a call. New messages show as 💬 next to the channel.
+- **Voice effects:** the ✨ button while in voice: Robot, Deep, Chipmunk, Cave echo or Radio. Friends hear you through it. **Hear myself** lets you try them (with headphones).
+- **Remind me about this:** the clock on any message. Party Bot sends it back to you privately at the time you pick, with a button that jumps to it.
+- **Disappearing messages:** the ⏳ button at the top of a private chat or group chat: new messages delete themselves for everyone after 24 hours or 7 days.
 - **What's new:** after an update, everyone sees a short list of new features once.
 - **Organising a server:** channel topics, **categories** (server menu), drag and drop to reorder channels, and **roles** with colors and permissions (server menu, Roles).
 
@@ -179,7 +185,7 @@ Type these in any text channel or private chat. Type **/** to see the list.
 
 - **Listen together:** join a voice channel, then type `/play` and a YouTube link. Everyone in that voice channel hears it at the same moment, in a small YouTube player at the top right. `/pause`, `/resume`, `/skip`, `/stop` and `/queue` control it, and so do the player's buttons. The volume slider and the ✕ only affect you. The music stops when everyone leaves the channel.
 - **Watch together:** while you're in a voice channel, press **Watch together** under any video shared in the chat. It plays for everyone in that voice channel at the same moment, in the same player and queue as `/play` (with a full-screen button).
-- **Fun:** `/roll` (or `/roll 20`, `/roll 2d6`), `/coinflip`, `/poll Question | Choice | Choice` (everyone votes with reactions) and `/remind 10m take the pizza out`.
+- **Fun:** `/roll` (or `/roll 20`, `/roll 2d6`), `/coinflip`, `/poll Question | Choice | Choice` (a quick poll), `/remind 10m take the pizza out`, and `/rank` and `/top` for levels.
 - `/help` lists everything.
 
 Each device plays the video in YouTube's own player, so it follows YouTube's rules. A few videos can't be played outside YouTube, and the bot skips those.

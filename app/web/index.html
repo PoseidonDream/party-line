@@ -35,6 +35,8 @@
     <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></symbol>
+    <symbol id="i-poll" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
@@ -173,6 +175,7 @@
           <button type="button" id="mRename"><svg class="ic"><use href="#i-pencil"/></svg>Rename server</button>
           <button type="button" id="mNotify"><svg class="ic"><use href="#i-bell"/></svg>Notifications</button>
           <button type="button" id="mJump"><svg class="ic"><use href="#i-search"/></svg>Jump to… (Ctrl+P)</button>
+          <button type="button" id="mTop"><svg class="ic"><use href="#i-trophy"/></svg>Leaderboard</button>
           <button type="button" id="mAfk"><svg class="ic"><use href="#i-headphones"/></svg>AFK channel</button>
           <button type="button" id="mEmoji"><svg class="ic"><use href="#i-smile"/></svg>Emoji &amp; stickers</button>
           <button type="button" id="mRoles"><svg class="ic"><use href="#i-shield"/></svg>Roles</button>
@@ -218,7 +221,9 @@
         <button type="button" class="btn small primary" id="callBtn" title="Start a call" hidden><svg class="ic"><use href="#i-phone"/></svg><span class="hide-sm">Call</span></button>
         <button type="button" class="btn small" id="groupAddBtn" title="Add people" hidden><svg class="ic"><use href="#i-user-plus"/></svg><span class="hide-sm">Add people</span></button>
         <button type="button" class="btn small" id="groupLeaveBtn" title="Leave group" hidden><svg class="ic"><use href="#i-leave"/></svg><span class="sr">Leave group</span></button>
+        <button type="button" class="btn small primary" id="vcChatBtn" hidden><svg class="ic"><use href="#i-chat"/></svg><span id="vcChatLabel">Chat</span><span class="count-pill" id="vcChatCount" hidden></span></button>
         <button type="button" class="btn small" id="eventsBtn" title="Events" hidden><svg class="ic"><use href="#i-calendar"/></svg><span class="hide-sm">Events</span><span class="count-pill" id="eventsCount" hidden></span></button>
+        <button type="button" class="btn small icon-btn" id="disappearBtn" title="Disappearing messages" aria-controls="disappearPop" hidden><svg class="ic"><use href="#i-clock"/></svg><span class="sr">Disappearing messages</span></button>
         <button type="button" class="btn small icon-btn" id="notifBtn" title="Notification settings" aria-controls="notifPop" hidden><svg class="ic"><use href="#i-bell"/></svg><span class="sr">Notification settings</span></button>
         <button type="button" class="btn small" id="gamesBtn" title="Games to play (this chat’s list)" hidden><svg class="ic"><use href="#i-gamepad"/></svg><span class="hide-sm">Games</span><span class="count-pill" id="gamesCount" hidden></span></button>
         <button type="button" class="btn small" id="galleryBtn" title="Photos, videos and files shared here" hidden><svg class="ic"><use href="#i-image"/></svg><span class="hide-sm">Media</span></button>
@@ -287,6 +292,10 @@
       <ol class="messages" id="messages"></ol>
       <div class="typing-line" id="typingLine" aria-live="polite"></div>
       <form class="composer" id="chatForm">
+        <div class="menu attach-menu" id="attachMenu" hidden>
+          <button type="button" id="attachFiles"><svg class="ic"><use href="#i-file"/></svg>Photos, videos or files</button>
+          <button type="button" id="attachPoll"><svg class="ic"><use href="#i-poll"/></svg>Poll</button>
+        </div>
         <div class="later-pop" id="laterPop" role="dialog" aria-label="Send later" hidden>
           <b>Send this message later</b>
           <div class="later-presets" id="laterPresets"></div>
@@ -312,7 +321,7 @@
           <div class="reply-bar" id="replyBar" hidden><svg class="ic"><use href="#i-reply"/></svg><span id="replyText"></span><button type="button" class="reply-x" id="replyX" aria-label="Cancel reply" title="Cancel reply"><svg class="ic"><use href="#i-x"/></svg></button></div>
           <div class="tray" id="tray" hidden></div>
           <div class="composer-row">
-            <button type="button" class="ub" id="attachBtn" aria-label="Add photos, videos or files" title="Add photos, videos or files"><svg class="ic"><use href="#i-plus-circle"/></svg></button>
+            <button type="button" class="ub" id="attachBtn" aria-label="Add files or a poll" title="Add files or a poll" aria-expanded="false" aria-controls="attachMenu"><svg class="ic"><use href="#i-plus-circle"/></svg></button>
             <input type="file" id="fileInput" multiple hidden>
             <label for="chatInput" class="sr">Message</label>
             <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Message"></textarea>
@@ -396,6 +405,7 @@
         <button type="button" class="ub" id="camBtn"><svg class="ic"><use href="#i-video"/></svg><span class="sr lbl">Turn on camera</span></button>
         <button type="button" class="ub" id="shareBtn"><svg class="ic"><use href="#i-screen"/></svg><span class="sr lbl">Share screen</span></button>
         <button type="button" class="ub" id="soundBtn" title="Soundboard" aria-controls="soundPop" aria-expanded="false"><svg class="ic"><use href="#i-soundboard"/></svg><span class="sr">Soundboard</span></button>
+        <button type="button" class="ub" id="fxBtn" title="Voice effects" aria-controls="fxPop" aria-expanded="false"><svg class="ic"><use href="#i-sparkle"/></svg><span class="sr">Voice effects</span></button>
         <button type="button" class="ub" id="musicBack" hidden title="Listen to the music again"><svg class="ic"><use href="#i-music"/></svg><span class="sr">Listen to the music again</span></button>
         <button type="button" class="ub" id="noiseBtn"><svg class="ic"><use href="#i-wave"/></svg><span class="sr lbl">Noise filter</span></button>
         <button type="button" class="ub danger" id="vcLeaveBtn" title="Disconnect from voice"><svg class="ic"><use href="#i-phone-off"/></svg><span class="sr">Disconnect from voice</span></button>
@@ -474,6 +484,56 @@
     <div class="flabel" id="stickerCount">Stickers</div>
     <div class="emoji-grid stickers" id="stickerList"></div>
   </div>
+</dialog>
+
+<div class="popover small-pop" id="remindPop" role="dialog" aria-label="Remind me about this message" hidden>
+  <b>Remind me about this</b>
+  <div class="later-presets" id="remindPresets"></div>
+  <div class="row"><input type="datetime-local" id="remindWhen" class="input" aria-label="Pick a time"><button type="button" class="btn primary" id="remindGo">Remind me</button></div>
+  <small class="hint">Party Bot sends it back to you privately at that time.</small>
+</div>
+<div class="popover small-pop" id="disappearPop" role="dialog" aria-label="Disappearing messages" hidden>
+  <b>Disappearing messages</b>
+  <small class="hint">New messages here delete themselves for everyone after:</small>
+  <div class="dis-opts" id="disappearOpts" role="radiogroup">
+    <button type="button" role="radio" data-secs="0">Off</button>
+    <button type="button" role="radio" data-secs="86400">24 hours</button>
+    <button type="button" role="radio" data-secs="604800">7 days</button>
+  </div>
+</div>
+
+<div class="popover small-pop" id="fxPop" role="dialog" aria-label="Voice effects" hidden>
+  <b>Voice effects</b>
+  <small class="hint">Everyone in your voice channel hears you like this.</small>
+  <div class="dis-opts fx-opts" id="fxOpts" role="radiogroup" aria-label="Voice effect"></div>
+  <label class="check"><input type="checkbox" id="fxHear"><span><b>Hear myself</b><small>Wear headphones, or it echoes.</small></span></label>
+</div>
+
+<!-- ================= LEADERBOARD ================= -->
+<dialog id="topDlg" aria-labelledby="topTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="topTitle">Leaderboard</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <div class="set-body">
+    <p class="hint">Chatting earns 10 XP (once a minute) and hanging out in voice with friends earns 5 XP a minute. Type <b>/rank</b> in a channel to show off your level.</p>
+    <ol class="top-list" id="topList"></ol>
+  </div>
+</dialog>
+
+<!-- ================= POLL BUILDER ================= -->
+<dialog id="pollDlg" aria-labelledby="pollTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="pollTitle">New poll</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </form>
+  <form class="set-body" id="pollForm">
+    <div class="field"><label class="flabel" for="pollQ">Question</label><input class="input" id="pollQ" maxlength="200" placeholder="e.g. What should we play on Friday?" required></div>
+    <div class="field"><div class="flabel">Choices</div><div class="poll-opts" id="pollOpts"></div>
+      <button type="button" class="link-btn" id="pollAddOpt">+ Add a choice</button></div>
+    <label class="check"><input type="checkbox" id="pollMulti"><span><b>Allow picking several</b><small>Everyone can vote for more than one choice.</small></span></label>
+    <label class="check"><input type="checkbox" id="pollAnon"><span><b>Anonymous</b><small>Nobody sees who voted for what, only the numbers.</small></span></label>
+    <div class="field"><label class="flabel" for="pollEnds">Ends</label><select id="pollEnds"><option value="0">When I end it</option><option value="60">In 1 hour</option><option value="1440" selected>In 1 day</option><option value="10080">In 1 week</option></select></div>
+    <div class="row-btns"><button type="submit" class="btn primary">Post poll</button></div>
+  </form>
 </dialog>
 
 <!-- ================= QUICK SWITCHER ================= -->
@@ -778,6 +838,11 @@
           <label class="radio"><input type="radio" name="noise" value="standard"><span><b>Standard</b><small>The built-in filter only. Use this if your voice sounds choppy on Strong.</small></span></label>
           <label class="radio"><input type="radio" name="noise" value="off"><span><b>Off</b><small>Raw microphone. Best for music.</small></span></label>
         </fieldset>
+        <fieldset class="field">
+          <legend class="flabel">Voice effect</legend>
+          <div class="dis-opts fx-opts" id="setFx" role="radiogroup" aria-label="Voice effect"></div>
+          <p class="hint">Just for fun: your friends hear you through it. Also under the ✨ button while you’re in voice.</p>
+        </fieldset>
         <label class="check"><input type="checkbox" id="setPtt"><span><b>Push to talk</b><small id="pttHint">Hold Space (or the Hold to talk button) to talk.</small></span></label>
         <fieldset class="field">
           <legend class="flabel">Screen share quality</legend>
@@ -885,6 +950,7 @@
   <div class="pop-bio" id="popBdayBox" hidden><b>Birthday</b><p id="popBday"></p></div>
   <div class="pop-bio" id="popGamesBox" hidden><b>Favorite games</b><div class="pop-games" id="popGames"></div></div>
   <div class="pop-roles" id="popRoles" hidden></div>
+  <div class="pop-level" id="popLevel" hidden><div class="pop-level-head"><b id="popLevelText">Level 0</b><small id="popLevelXp"></small></div><div class="xp-bar"><span id="popLevelBar"></span></div></div>
   <div class="level" id="popVolBox">
     <div class="level-head"><label for="volRange">Volume</label><output id="volOut" for="volRange">100%</output></div>
     <input type="range" id="volRange" min="0" max="150" step="1" list="volTicks">

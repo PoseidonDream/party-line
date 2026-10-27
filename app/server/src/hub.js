@@ -85,7 +85,7 @@ function pushMessage(m, author) {
     const prefs = M.notifyPrefs(id);
     const level = prefs[`c:${ch.id}`] || prefs[`s:${srv.id}`] || (hidden ? 'all' : 'mentions');
     if (level === 'mute' || (level === 'mentions' && !mentioned.has(id))) continue;
-    pushIfAway(id, { title: hidden ? `${author.name} · ${srv.name || 'group chat'}` : `${author.name} in #${ch.name} · ${srv.name}`, body: what, url: `/?channel=${ch.id}`, tag: `c:${ch.id}` });
+    pushIfAway(id, { title: hidden ? `${author.name} · ${srv.name || 'group chat'}` : `${author.name} in ${ch.kind === 'voice' ? '🔊 ' : '#'}${ch.name} · ${srv.name}`, body: what, url: `/?channel=${ch.id}`, tag: `c:${ch.id}` });
   }
 }
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
@@ -104,7 +104,7 @@ export const hub = {
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
 };
 
-/* What Party Bot (bot.js) may do: post messages, react, and see who's in voice. */
+/* What Party Bot (bot.js) may do: post messages, react, start polls, and see who's in voice. */
 const botHost = {
   games: (where) => shareGames(where),
   post(where, body, replyTo) {
@@ -115,6 +115,12 @@ const botHost = {
       else { const dm = M.getDm(where.dmId); toUser(dm.user_a, { t: 'dm', msg: m, withUserId: dm.user_b, user: userView(b.id) }); toUser(dm.user_b, { t: 'dm', msg: m, withUserId: dm.user_a, user: userView(b.id) }); }
       return m;
     } catch (e) { console.error('bot post', e); return null; }   // e.g. the channel was deleted
+  },
+  /* /poll: a poll card posted by whoever typed it. */
+  poll(user, where, question, options) {
+    const dm = where.dmId && M.getDm(where.dmId);
+    const t = dm ? { toUserId: dm.user_a === user.id ? dm.user_b : dm.user_a } : { channelId: where.channelId };
+    return handlers['poll.create'](null, user, Object.assign({ question, options }, t));
   },
   broadcastReactions(m, reactions) { if (m) broadcastAbout(M.getMessage(m.id), { t: 'reactions', id: m.id, channelId: m.channelId || null, dmId: m.dmId || null, reactions }); },
   voiceOf(userId) {
@@ -201,10 +207,11 @@ const handlers = {
     }
     if (d.channelId) {
       const ch = M.getChannel(Number(d.channelId));
-      if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');
+      if (!ch || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');   // text channels, and voice channels' own chat
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
+      gainXp(ch.server_id, user.id, 10, true, { channelId: ch.id });
       pushMessage(m, user);
       addPreviews(M.getMessage(m.id)).catch(() => {});
       return { msg: m };
@@ -221,6 +228,57 @@ const handlers = {
     pushMessage(m, user);
     addPreviews(M.getMessage(m.id)).catch(() => {});
     return { msg: m };
+  },
+  /* Polls (see M.createPoll). Targets like msg.send: { channelId } or { toUserId }. */
+  'poll.create'(c, user, d) {
+    const id = M.createPoll(user.id, d);
+    try { return handlers['msg.send'](c, user, { channelId: d.channelId, toUserId: d.toUserId, body: `<poll:${id}>`, attachments: [] }); }
+    catch (e) { M.closePoll(id); throw e; }
+  },
+  'poll.vote'(c, user, d) {
+    const p = M.getPoll(Number(d.id)), m = p && p.message_id && M.getMessage(p.message_id);
+    if (!m || !canSee(user.id, m)) fail('That poll is gone.');
+    M.votePoll(p.id, user.id, d.option, !!d.on);
+    sharePoll(p.id);
+    return { mine: M.myPollVotes(p.id, user.id) };
+  },
+  'poll.end'(c, user, d) {
+    const p = M.getPoll(Number(d.id)), m = p && p.message_id && M.getMessage(p.message_id);
+    if (!m || !canSee(user.id, m)) fail('That poll is gone.');
+    const mod = m.channel_id && M.can(user, M.getServer(M.getChannel(m.channel_id).server_id), 'messages');
+    if (p.created_by !== user.id && !mod) fail('Only whoever made the poll (or a moderator) can end it.');
+    if (!p.closed) finishPoll(p);
+    return {};
+  },
+  'remind.set'(c, user, d) {
+    const m = M.getMessage(Number(d.id));
+    if (!m || !canSee(user.id, m)) fail('That message is gone.');
+    let jump = `c:${m.channel_id}`;
+    if (m.dm_id) { const dm = M.getDm(m.dm_id); jump = `d:${dm.user_a === user.id ? dm.user_b : dm.user_a}`; }
+    M.addMsgReminder(user.id, m.id, jump, d.at);
+    return {};
+  },
+  /* Disappearing messages: either person in a private chat (or anyone in a group chat) can change it. */
+  'disappear.set'(c, user, d) {
+    let where, target, tell;
+    if (d.serverId) {
+      const srv = M.getServer(Number(d.serverId));
+      if (!srv || srv.kind !== 'group' || !M.isMember(user.id, srv.id)) fail('Only group chats can do that.');
+      target = { serverId: srv.id }; where = { channelId: groupText(srv.id) };
+      tell = () => refreshServer(srv.id);
+    } else {
+      const other = M.getUser(Number(d.userId));
+      if (!other || other.id === user.id) fail('That person doesn’t exist.');
+      if (M.friendState(user.id, other.id) !== 'friends' && !M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s))) fail(`Add ${other.name} as a friend first.`);
+      const dm = M.dmWith(user.id, other.id, true);
+      target = { dmId: dm.id }; where = { dmId: dm.id };
+      tell = () => toUsers([dm.user_a, dm.user_b], { t: 'disappear', dmId: dm.id, users: [dm.user_a, dm.user_b], seconds: M.getDm(dm.id).disappear || 0 });
+    }
+    const secs = M.setDisappear(target, d.seconds);
+    tell();
+    const len = secs >= 86400 ? `${Math.round(secs / 86400)} day${secs >= 172800 ? 's' : ''}`.replace('1 day', '24 hours') : `${secs} seconds`;
+    botHost.post(where, secs ? `⏳ **${user.name}** turned on disappearing messages: new messages here delete themselves after ${len}.` : `⏳ **${user.name}** turned off disappearing messages. New messages stay.`);
+    return {};
   },
   'bookmark.set'(c, user, d) {
     const m = M.getMessage(Number(d.id));
@@ -912,13 +970,55 @@ function shareGames(w) {
 function laterTarget(user, d) {
   if (d.channelId) {
     const ch = M.getChannel(Number(d.channelId));
-    if (!ch || ch.kind !== 'text' || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');
+    if (!ch || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');
     return { channelId: ch.id };
   }
   const other = M.getUser(Number(d.toUserId));
   if (!other || other.id === user.id) fail('That person doesn’t exist.');
   return { toUserId: other.id };
 }
+/* A poll changed: everyone in its chat gets the new results, each with their own picks. */
+/* XP (see M.addXp). Everyone in the server sees the new total; from level 2 up Party Bot cheers in the chat it
+   happened in (a voice channel's own chat for time in voice). */
+function gainXp(serverId, userId, amount, fromMessage, where) {
+  const r = M.addXp(serverId, userId, amount, fromMessage);
+  if (!r) return;
+  toServer(serverId, { t: 'xp', serverId, userId, xp: r.xp });
+  if (r.up >= 2) botHost.post(where, `🎉 **${M.getUser(userId).name}** reached **level ${r.up}**!`);
+}
+/* Every minute in a voice channel with at least one other person (not deafened, not in the AFK channel): 5 XP. */
+setInterval(() => {
+  const byChannel = new Map();
+  for (const [userId, v] of voice) if (!v.deafened) (byChannel.get(v.channelId) || byChannel.set(v.channelId, []).get(v.channelId)).push(userId);
+  for (const [channelId, ids] of byChannel) {
+    const ch = M.getChannel(channelId), srv = ch && M.getServer(ch.server_id);
+    if (!srv || ids.length < 2 || srv.afk_channel_id === ch.id) continue;
+    for (const id of ids) gainXp(srv.id, id, 5, false, { channelId: ch.id });
+  }
+}, Number(process.env.XP_VOICE_MS) || 60_000).unref();
+function sharePoll(pollId) {
+  const p = M.getPoll(pollId), m = p && M.getMessage(p.message_id);
+  if (!m) return;
+  const view = M.pollView(pollId), ids = m.channel_id ? M.memberIds(M.getChannel(m.channel_id).server_id) : (({ user_a, user_b }) => [user_a, user_b])(M.getDm(m.dm_id));
+  for (const id of ids) if (online(id)) toUser(id, { t: 'poll', messageId: m.id, channelId: m.channel_id, dmId: m.dm_id, poll: Object.assign({}, view, { mine: M.myPollVotes(pollId, id) }) });
+}
+function finishPoll(p) {
+  M.closePoll(p.id);
+  sharePoll(p.id);
+  const v = M.pollView(p.id), m = M.getMessage(p.message_id);
+  if (!m) return;
+  const top = Math.max(...v.options.map((o) => o.votes));
+  const best = v.options.filter((o) => o.votes === top);
+  const text = !top ? `📊 The poll “${v.question}” ended with no votes.`
+    : best.length > 1 ? `📊 The poll “${v.question}” ended in a tie: ${best.map((o) => `**${o.text}**`).join(' and ')} (${top} each).`
+    : `📊 The poll “${v.question}” ended: **${best[0].text}** won with ${top} vote${top === 1 ? '' : 's'}.`;
+  botHost.post(m.channel_id ? { channelId: m.channel_id } : { dmId: m.dm_id }, text, m.id);
+}
+setInterval(() => { for (const p of M.pollsDue()) finishPoll(p); }, Number(process.env.POLL_TICK_MS) || 15_000).unref();
+/* Disappearing messages whose time is up are deleted for everyone. */
+setInterval(() => {
+  for (const m of M.expiredMessages()) { M.deleteMessage(m.id); broadcastAbout(m, { t: 'msg.del', id: m.id, channelId: m.channel_id, dmId: m.dm_id }); }
+}, Number(process.env.DISAPPEAR_TICK_MS) || 30_000).unref();
 /* Every 15 s: send the scheduled messages that are due, as their writers, through the normal send path (which
    checks they may still post there). If it fails, the writer is told and gets the text back. */
 setInterval(() => {

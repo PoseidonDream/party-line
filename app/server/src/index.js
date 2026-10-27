@@ -111,12 +111,12 @@ app.get('/vendor/livekit-client.js', (req, res) => {
 
 app.get('/api/channels/:id/messages', auth, wrap((req) => {
   const c = M.getChannel(Number(req.params.id));
-  if (!c || !M.isMember(req.user.id, c.server_id) || c.kind !== 'text') return { messages: [] };
-  return { messages: M.history('channel_id', c.id, Number(req.query.before) || 0) };
+  if (!c || !M.isMember(req.user.id, c.server_id)) return { messages: [] };   // voice channels have a chat too
+  return { messages: M.addMyVotes(M.history('channel_id', c.id, Number(req.query.before) || 0), req.user.id) };
 }));
 app.get('/api/dms/:userId/messages', auth, wrap((req) => {
   const d = M.dmWith(req.user.id, Number(req.params.userId), false);
-  return { dmId: d ? d.id : null, messages: d ? M.history('dm_id', d.id, Number(req.query.before) || 0) : [], seenId: d ? M.seenBy(d.id, Number(req.params.userId)) : 0 };
+  return { dmId: d ? d.id : null, messages: d ? M.addMyVotes(M.history('dm_id', d.id, Number(req.query.before) || 0), req.user.id) : [], seenId: d ? M.seenBy(d.id, Number(req.params.userId)) : 0 };
 }));
 
 /* Backups an admin can download from the developer panel, in the same format as deploy/backup.sh (so

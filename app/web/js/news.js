@@ -2,6 +2,14 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 6, items: [
+    ['📊', 'Better polls', 'Press + next to the message box → Poll. Pick several, keep it anonymous, set an end time, and watch the votes come in live.'],
+    ['🏅', 'Levels', 'Chatting and hanging out in voice earn XP. Click someone to see their level, or server menu → Leaderboard (/rank, /top).'],
+    ['💬', 'Chat in voice channels', 'Every voice channel has its own chat for links and invites during a call: the Chat button at the top.'],
+    ['✨', 'Voice effects', 'In voice, press ✨: Robot, Deep, Chipmunk, Cave echo or Radio. Turn on “Hear myself” to try them.'],
+    ['⏰', 'Remind me about this', 'The clock on any message: Party Bot reminds you about it later, privately.'],
+    ['⏳', 'Disappearing messages', 'The ⏳ button in a private or group chat: new messages delete themselves after 24 hours or 7 days.'],
+  ] },
   { id: 5, items: [
     ['🖼️', 'Media gallery', 'The picture button at the top of a chat shows every photo, video and file shared there.'],
     ['🎬', 'Watch parties', '/watch and a YouTube link plays it on the big screen for everyone in your voice channel.'],

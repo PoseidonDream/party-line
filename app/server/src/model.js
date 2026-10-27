@@ -450,8 +450,7 @@ export function serverView(serverId, viewerId) {
   const s = getServer(serverId);
   if (!s) return null;
   const channels = all('SELECT * FROM channels WHERE server_id = ? ORDER BY position, id', serverId).map(publicChannel);
-  for (const c of channels) {
-    if (c.kind !== 'text') continue;
+  for (const c of channels) {   // voice channels have a chat too
     const last = one('SELECT MAX(id) AS m, MAX(created_at) AS t FROM messages WHERE channel_id = ?', c.id);
     c.lastId = last.m || 0; c.lastAt = last.t || 0;
     c.unread = unreadCount(viewerId, `c:${c.id}`, 'channel_id', c.id);
@@ -462,8 +461,26 @@ export function serverView(serverId, viewerId) {
   for (const r of all('SELECT user_id, role_id FROM member_roles WHERE server_id = ?', serverId)) (memberRoles[r.user_id] ||= []).push(r.role_id);
   const categories = all('SELECT id, name, position FROM categories WHERE server_id = ? ORDER BY position, id', serverId);
   const afk = channels.some((c) => c.id === s.afk_channel_id && c.kind === 'voice') ? s.afk_channel_id : null;
-  return { id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories, afkChannelId: afk };
+  return { xp: (s.kind || 'server') === 'server' ? xpOf(serverId) : {}, disappear: s.disappear || 0, id: s.id, kind: s.kind || 'server', name: s.name, ownerId: s.owner_id, invite: s.invite, isDefault: !!s.is_default, channels, members: memberIds(serverId), roles, memberRoles, categories, afkChannelId: afk };
 }
+
+/* ---------- XP and levels (servers only, not group chats) ----------
+   10 XP for chatting (at most once a minute), 5 XP a minute in voice with someone else (see hub.js).
+   Level n needs 30 * n² XP: level 1 after 3 messages, level 5 at 750, level 10 at 3000. */
+const XP_GAP = Number(process.env.XP_GAP_MS) || 60_000;
+export const levelOf = (xp) => Math.floor(Math.sqrt(xp / 30));
+/* Returns the new total and the level reached (0 if no new level), or null if nothing was added. */
+export function addXp(serverId, userId, amount, fromMessage) {
+  const s = getServer(serverId), u = getUser(userId);
+  if (!s || (s.kind || 'server') !== 'server' || !u || u.is_bot) return null;
+  const row = one('SELECT xp, msg_at FROM xp WHERE server_id = ? AND user_id = ?', serverId, userId) || { xp: 0, msg_at: 0 };
+  if (fromMessage && now() - row.msg_at < XP_GAP) return null;
+  const xp = row.xp + amount;
+  run('INSERT INTO xp (server_id, user_id, xp, msg_at) VALUES (?, ?, ?, ?) ON CONFLICT (server_id, user_id) DO UPDATE SET xp = excluded.xp, msg_at = excluded.msg_at',
+    serverId, userId, xp, fromMessage ? now() : row.msg_at);
+  return { xp, up: levelOf(xp) > levelOf(row.xp) ? levelOf(xp) : 0 };
+}
+export const xpOf = (serverId) => Object.fromEntries(all('SELECT user_id, xp FROM xp WHERE server_id = ?', serverId).map((r) => [r.user_id, r.xp]));
 
 /* ---------- messages ---------- */
 function attachmentsFrom(userId, list) {
@@ -485,7 +502,7 @@ const basicMessage = (m) => ({
   id: m.id, channelId: m.channel_id, dmId: m.dm_id, userId: m.user_id, body: m.body,
   attachments: m.attachments ? JSON.parse(m.attachments) : [], at: m.created_at, editedAt: m.edited_at,
   replyTo: m.reply_to || null, reply: null, reactions: [], pinned: m.pinned_at ? { at: m.pinned_at, by: m.pinned_by } : null,
-  embeds: m.embeds ? JSON.parse(m.embeds) : [],
+  embeds: m.embeds ? JSON.parse(m.embeds) : [], expiresAt: m.expires_at || null,
 });
 const placeholders = (n) => Array(n).fill('?').join(',');
 /* Adds each message's reactions and a short preview of the message it replies to. */
@@ -499,6 +516,7 @@ function decorate(rows) {
     if (!e) { e = { emoji: r.emoji, users: [] }; msg.reactions.push(e); }
     e.users.push(r.user_id);
   }
+  for (const m of out) { const pl = /^<poll:(\d+)>$/.exec(m.body || ''); if (pl) m.poll = pollView(Number(pl[1])); }
   const replyIds = [...new Set(out.filter((m) => m.replyTo).map((m) => m.replyTo))];
   if (replyIds.length) {
     const found = new Map(all(`SELECT id, user_id, body, attachments FROM messages WHERE id IN (${placeholders(replyIds.length)})`, ...replyIds).map((r) => [r.id, r]));
@@ -523,10 +541,15 @@ export function postMessage(userId, where, body, attachments, replyTo) {
   const att = attachmentsFrom(userId, attachments);
   if (!body && !att.length) fail('Empty message.');
   checkSpecial(body);
+  // A poll message (<poll:id>) is posted once, by whoever made the poll (see createPoll).
+  const pl = /^<poll:(\d+)>$/.exec(body), poll = pl && getPoll(Number(pl[1]));
+  if (pl && (!poll || poll.created_by !== userId || poll.message_id)) fail('That poll is gone.');
   const parent = replyTo ? getMessage(Number(replyTo)) : null;
   const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
-  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null).lastInsertRowid);
+  const ttl = disappearOf(where);
+  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null, ttl ? now() + ttl * 1000 : null).lastInsertRowid);
+  if (poll) run('UPDATE polls SET message_id = ? WHERE id = ?', id, poll.id);
   markRead(userId, where.channelId ? `c:${where.channelId}` : `d:${where.dmId}`, id);
   return publicMessage(one('SELECT * FROM messages WHERE id = ?', id));
 }
@@ -535,7 +558,8 @@ export function postMessage(userId, where, body, attachments, replyTo) {
 export const readableBody = (body) => String(body || '')
   .replace(/<@(\d+)>/g, (_, id) => '@' + ((getUser(Number(id)) || {}).name || 'someone'))
   .replace(/<t:(\d+)(?::\w)?>/g, (_, t) => new Date(Number(t) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')
-  .replace(/<:(\w+):\d+>/g, ':$1:').replace(/^<s:\d+>$/, '[sticker]').replace(/^<g:[\w-]+>$/, '[GIF]');
+  .replace(/<:(\w+):\d+>/g, ':$1:').replace(/^<s:\d+>$/, '[sticker]').replace(/^<g:[\w-]+>$/, '[GIF]').replace(/\s*<m:[cd]:\d+:\d+>/g, '')
+  .replace(/^<poll:(\d+)>$/, (_, id) => `📊 Poll: ${(getPoll(Number(id)) || { question: '' }).question}`);
 /* Mentions are written in messages as <@userId>. */
 export const mentionedIds = (body) => [...new Set([...String(body || '').matchAll(/<@(\d+)>/g)].map((x) => Number(x[1])))];
 const EMOJI = /^(?=.*(?:\p{Extended_Pictographic}|\u20e3))[^\s]{1,16}$/u;   // \u20e3: keycap numbers like 1️⃣
@@ -584,6 +608,7 @@ export function editMessage(id, body) {
   body = cleanBody(body);
   if (!body) fail('Empty message.');
   checkSpecial(body);
+  if (/<poll:\d+>/.test(body) || /^<poll:\d+>$/.test((getMessage(id) || {}).body || '')) fail('Polls can’t be edited. Make a new one instead.');
   run('UPDATE messages SET body = ?, edited_at = ? WHERE id = ?', body, now(), id);
   return publicMessage(getMessage(id));
 }
@@ -661,6 +686,83 @@ export function mediaOf(col, targetId, before) {
   }
   return { items, before: rows.length === 60 ? rows[rows.length - 1].id : null };
 }
+/* Polls: a question with 2 to 10 choices, one or several picks each, optionally anonymous and with an end time.
+   The poll is made first, then posted as a message <poll:id> (whose card shows live results). */
+export const getPoll = (id) => one('SELECT * FROM polls WHERE id = ?', id);
+export const pollOfMessage = (messageId) => one('SELECT * FROM polls WHERE message_id = ?', messageId);
+export function createPoll(userId, d) {
+  const question = String(d.question || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!question) fail('Write the question.');
+  const options = [...new Set((Array.isArray(d.options) ? d.options : []).map((o) => String(o || '').replace(/\s+/g, ' ').trim().slice(0, 80)).filter(Boolean))];
+  if (options.length < 2) fail('Give at least 2 different choices.');
+  if (options.length > 10) fail('Polls can have up to 10 choices.');
+  const minutes = Number(d.minutes) || 0;
+  if (minutes && ![60, 1440, 10080].includes(minutes) && !(process.env.POLL_TEST && minutes > 0)) fail('Pick how long the poll lasts.');
+  const ends = minutes ? now() + minutes * (Number(process.env.POLL_MINUTE_MS) || 60_000) : null;
+  return Number(run('INSERT INTO polls (created_by, question, options, multi, anon, ends_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    userId, question, JSON.stringify(options), d.multi ? 1 : 0, d.anon ? 1 : 0, ends, now()).lastInsertRowid);
+}
+/* What everyone sees. Who voted for what only when the poll isn't anonymous. */
+export function pollView(id) {
+  const p = getPoll(id);
+  if (!p) return null;
+  const votes = all('SELECT user_id, option FROM poll_votes WHERE poll_id = ?', id);
+  const options = JSON.parse(p.options).map((text, i) => {
+    const who = votes.filter((v) => v.option === i).map((v) => v.user_id);
+    return { text, votes: who.length, voters: p.anon ? null : who };
+  });
+  return { id: p.id, question: p.question, options, multi: !!p.multi, anon: !!p.anon, endsAt: p.ends_at, closed: !!p.closed, by: p.created_by, people: new Set(votes.map((v) => v.user_id)).size };
+}
+export const myPollVotes = (pollId, userId) => all('SELECT option FROM poll_votes WHERE poll_id = ? AND user_id = ?', pollId, userId).map((r) => r.option);
+export function votePoll(pollId, userId, option, on) {
+  const p = getPoll(pollId);
+  if (!p || !p.message_id) fail('That poll is gone.');
+  if (p.closed) fail('This poll has ended.');
+  option = Number(option);
+  if (!Number.isInteger(option) || option < 0 || option >= JSON.parse(p.options).length) fail('Unknown choice.');
+  if (on && !p.multi) run('DELETE FROM poll_votes WHERE poll_id = ? AND user_id = ?', pollId, userId);
+  if (on) run('INSERT OR IGNORE INTO poll_votes (poll_id, user_id, option) VALUES (?, ?, ?)', pollId, userId, option);
+  else run('DELETE FROM poll_votes WHERE poll_id = ? AND user_id = ? AND option = ?', pollId, userId, option);
+}
+export const closePoll = (pollId) => run('UPDATE polls SET closed = 1 WHERE id = ?', pollId);
+export const pollsDue = () => all('SELECT * FROM polls WHERE closed = 0 AND ends_at IS NOT NULL AND ends_at <= ? AND message_id IS NOT NULL', now());
+/* Each person's own picks, added to messages they load. */
+export function addMyVotes(messages, userId) {
+  for (const m of messages) if (m.poll) m.poll.mine = myPollVotes(m.poll.id, userId);
+  return messages;
+}
+
+/* Disappearing messages, for private chats and group chats: off, 24 hours or 7 days (in seconds). */
+export const DISAPPEAR = [0, 86400, 604800];
+function disappearOf(where) {
+  if (where.dmId) return (getDm(where.dmId) || {}).disappear || 0;
+  const ch = getChannel(where.channelId), srv = ch && getServer(ch.server_id);
+  return srv && srv.kind === 'group' ? srv.disappear || 0 : 0;
+}
+export function setDisappear(target, seconds) {
+  seconds = Number(seconds) || 0;
+  if (!DISAPPEAR.includes(seconds) && !(process.env.DISAPPEAR_TEST && seconds > 0 && seconds < 3600)) fail('Pick off, 24 hours or 7 days.');
+  if (target.dmId) run('UPDATE dms SET disappear = ? WHERE id = ?', seconds || null, target.dmId);
+  else run('UPDATE servers SET disappear = ? WHERE id = ?', seconds || null, target.serverId);
+  return seconds;
+}
+/* Messages whose time is up (at most 200 at a time); the caller deletes them and tells the chat. */
+export const expiredMessages = () => all('SELECT * FROM messages WHERE expires_at IS NOT NULL AND expires_at <= ? LIMIT 200', now());
+
+/* "Remind me about this": Party Bot brings a message back to you privately later. jump: c:<channel> or d:<person>. */
+export function addMsgReminder(userId, messageId, jump, at) {
+  at = Number(at);
+  if (!Number.isFinite(at) || at < now() + Number(process.env.LATER_MIN_MS ?? 30_000)) fail('Pick a time at least a minute from now.');
+  if (at > now() + 366 * 86400_000) fail('Reminders can be up to a year ahead.');
+  if (one('SELECT COUNT(*) AS n FROM msg_reminders WHERE user_id = ?', userId).n >= 50) fail('You already have 50 reminders waiting.');
+  run('INSERT INTO msg_reminders (user_id, message_id, jump, due_at) VALUES (?, ?, ?, ?)', userId, messageId, jump, at);
+}
+export function dueMsgReminders() {
+  const rows = all('SELECT * FROM msg_reminders WHERE due_at <= ? ORDER BY due_at LIMIT 50', now());
+  for (const r of rows) run('DELETE FROM msg_reminders WHERE id = ?', r.id);
+  return rows;
+}
+
 /* Bookmarks: messages you saved for later. Only you see them, and only while you can still see the message. */
 export const bookmarkIds = (userId) => all('SELECT message_id FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC LIMIT 500', userId).map((r) => r.message_id);
 export function setBookmark(userId, messageId, on) {
@@ -793,9 +895,10 @@ export function setFavGif(userId, uploadId, on) {
 }
 export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
 export function history(col, targetId, before, limit = 50) {
+  const live = '(expires_at IS NULL OR expires_at > ?)';   // disappeared messages that the cleanup hasn't removed yet
   const rows = before
-    ? all(`SELECT * FROM messages WHERE ${col} = ? AND id < ? ORDER BY id DESC LIMIT ?`, targetId, before, limit)
-    : all(`SELECT * FROM messages WHERE ${col} = ? ORDER BY id DESC LIMIT ?`, targetId, limit);
+    ? all(`SELECT * FROM messages WHERE ${col} = ? AND id < ? AND ${live} ORDER BY id DESC LIMIT ?`, targetId, before, now(), limit)
+    : all(`SELECT * FROM messages WHERE ${col} = ? AND ${live} ORDER BY id DESC LIMIT ?`, targetId, now(), limit);
   return decorate(rows.reverse());
 }
 export function markRead(userId, target, lastId) {
@@ -859,7 +962,7 @@ export function dmsOf(userId) {
                      (SELECT MAX(created_at) FROM messages WHERE dm_id = d.id) AS last_at
               FROM dms d WHERE user_a = ? OR user_b = ?`, userId, userId)
     .filter((d) => d.last_id)
-    .map((d) => ({ id: d.id, userId: d.user_a === userId ? d.user_b : d.user_a, lastId: d.last_id, lastAt: d.last_at, unread: unreadCount(userId, `d:${d.id}`, 'dm_id', d.id) }));
+    .map((d) => ({ id: d.id, userId: d.user_a === userId ? d.user_b : d.user_a, lastId: d.last_id, lastAt: d.last_at, unread: unreadCount(userId, `d:${d.id}`, 'dm_id', d.id), disappear: d.disappear || 0 }));
 }
 
 /* ---------- uploads ---------- */

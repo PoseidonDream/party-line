@@ -510,7 +510,7 @@ function onMessage(key, msg) {
     if (f) {
       f.channel.lastId = msg.id;
       if (!mine && !viewing) f.channel.unread = (f.channel.unread || 0) + 1;
-      const level = levelFor(key), where = isPrivate(f.server) ? groupName(f.server) : `#${f.channel.name}`;
+      const level = levelFor(key), where = isPrivate(f.server) ? groupName(f.server) : `${f.channel.kind === 'voice' ? '🔊 ' : '#'}${f.channel.name}`;
       if (!mine && !viewing && mentionsMe(msg)) f.channel.mentions = (f.channel.mentions || 0) + 1;
       if (!mine && !viewing && level !== 'mute' && (level === 'all' || mentionsMe(msg))) {
         if (!quiet()) chime('msg', V.deafened);
@@ -527,6 +527,7 @@ function onMessage(key, msg) {
   }
   if (msgKey() === key) { appendMessage(msg); if (viewing) markViewedRead(); }
   renderRail(); renderSide(); updateBadge();
+  if (S.view.kind === 'voice') renderHeader();   // the Chat button's count
 }
 function notify(title, body, onClick) {
   if (!document.hidden || quiet() || !settings.notify || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
@@ -639,7 +640,13 @@ function renderSide() {
       if (people.some((p) => p.sharing)) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; b.appendChild(l); }
       const tune = S.music && S.music.get(c.id);
       if (tune) { const l = document.createElement('span'); l.className = 'chan-music'; l.title = `Playing: ${tune.now.title}`; l.innerHTML = iconSvg('music'); b.appendChild(l); }
-      b.addEventListener('click', () => { setView({ kind: 'voice', serverId: s.id, channelId: c.id }); if (V.channelId !== c.id) joinVoice(c.id); });
+      // The voice channel's own chat: a 💬 count when there's something new (clicking it opens the chat without joining)
+      const chatMuted = levelFor(`c:${c.id}`) === 'mute';
+      if (c.unread && !(current && S.view.kind === 'text') && !chatMuted) { const cb = document.createElement('span'); cb.className = 'chan-chat'; cb.title = 'New messages in this voice channel’s chat'; cb.textContent = `💬 ${c.unread > 99 ? '99+' : c.unread}`; b.appendChild(cb); }
+      b.addEventListener('click', (e) => {
+        if (e.target.closest('.chan-chat')) { setView({ kind: 'text', serverId: s.id, channelId: c.id }); return; }
+        setView({ kind: 'voice', serverId: s.id, channelId: c.id }); if (V.channelId !== c.id) joinVoice(c.id);
+      });
       li.appendChild(b);
       const vst = S.voiceStatus.get(c.id);
       if (vst) { const st = document.createElement('div'); st.className = 'chan-status'; st.textContent = vst.text; st.title = `Status set by ${nameOf(vst.by)}`; li.appendChild(st); }
@@ -684,6 +691,7 @@ function renderSide() {
     }
   }
   $('#mRename').hidden = !can(s, 'server');
+  $('#mTop').hidden = s.kind !== 'server';
   $('#mAfk').hidden = !can(s, 'server') || s.kind !== 'server' || !s.channels.some((c) => c.kind === 'voice');
   $('#mRoles').hidden = !can(s, 'server') && !(s.roles || []).length;
   $('#mCategory').hidden = !manage;
@@ -764,6 +772,11 @@ function renderHeader() {
   $('#pinsBtn').hidden = v.kind !== 'text' && v.kind !== 'dm';
   $('#gamesBtn').hidden = $('#pinsBtn').hidden;
   $('#galleryBtn').hidden = $('#pinsBtn').hidden;
+  const dsrv = v.kind === 'text' && S.servers.get(v.serverId);
+  const disSecs = v.kind === 'dm' && !user(v.userId).bot ? (S.dms.get(v.userId) || {}).disappear || 0 : dsrv && dsrv.kind === 'group' ? dsrv.disappear || 0 : null;
+  $('#disappearBtn').hidden = disSecs === null;
+  $('#disappearBtn').classList.toggle('on', !!disSecs);
+  $('#disappearBtn').title = disSecs ? `Disappearing messages: on (${disSecs >= 604800 ? '7 days' : disSecs >= 86400 ? '24 hours' : `${disSecs} s`})` : 'Disappearing messages: off';
   if (!$('#pinsBtn').hidden) loadLater(); else renderLater();
   if (!$('#gamesBtn').hidden) loadGames();
   else $('#gamesPanel').hidden = true;
@@ -774,6 +787,17 @@ function renderHeader() {
     $('#notifBtn').classList.toggle('on', lv === 'mute');
   }
   const priv = isPrivate(S.servers.get(v.serverId)), grp = priv && S.servers.get(v.serverId).kind === 'group';
+  // Voice channels: Chat opens their text chat; from the chat, back to the voice view.
+  const vf = (v.kind === 'voice' || v.kind === 'text') && !priv && findChannel(v.channelId);
+  const isVoiceCh = !!(vf && vf.channel.kind === 'voice');
+  $('#vcChatBtn').hidden = !isVoiceCh;
+  if (isVoiceCh) {
+    const inChat = v.kind === 'text';
+    $('#vcChatLabel').textContent = inChat ? (V.channelId === v.channelId ? 'Back to voice' : 'Join voice') : 'Chat';
+    $('#vcChatBtn').querySelector('use').setAttribute('href', inChat ? '#i-volume' : '#i-chat');
+    const n = inChat ? 0 : vf.channel.unread || 0;
+    $('#vcChatCount').hidden = !n; $('#vcChatCount').textContent = n > 99 ? '99+' : n;
+  }
   $('#eventsBtn').hidden = !v.serverId || priv;
   if (priv) $('#copyInvite').hidden = true;
   $('#callBtn').hidden = !((v.kind === 'dm' && !user(v.userId).bot) || (grp && v.kind === 'text'));
@@ -787,9 +811,10 @@ function renderHeader() {
   } else {
     const f = findChannel(v.channelId);
     if (!f) return;
-    if (v.kind === 'text') icon.textContent = '#'; else icon.innerHTML = iconSvg('volume');
+    const vchat = v.kind === 'text' && f.channel.kind === 'voice';   // a voice channel's own chat
+    if (v.kind === 'text' && !vchat) icon.textContent = '#'; else icon.innerHTML = iconSvg('volume');
     $('#viewTitle').textContent = f.channel.name;
-    $('#viewSub').textContent = f.channel.topic || f.server.name;
+    $('#viewSub').textContent = vchat ? `Chat · ${f.server.name}` : f.channel.topic || f.server.name;
     $('#viewSub').title = f.channel.topic || '';
     if (isPrivate(f.server)) {
       icon.innerHTML = iconSvg(v.kind === 'voice' ? 'phone' : 'users');
@@ -798,6 +823,11 @@ function renderHeader() {
     }
   }
 }
+$('#vcChatBtn').addEventListener('click', () => {
+  const v = S.view;
+  if (v.kind === 'voice') setView({ kind: 'text', serverId: v.serverId, channelId: v.channelId });
+  else { setView({ kind: 'voice', serverId: v.serverId, channelId: v.channelId }); if (V.channelId !== v.channelId) joinVoice(v.channelId); }
+});
 function renderMainView() {
   const k = S.view.kind;
   $('#viewText').hidden = k !== 'text' && k !== 'dm';
@@ -807,7 +837,7 @@ function renderMainView() {
   if (k === 'voice') renderVoiceView();
   if (k === 'text' || k === 'dm') {
     const f = k === 'text' && findChannel(S.view.channelId);
-    $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message #${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
+    $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message ${f.channel.kind === 'voice' ? '🔊 ' : '#'}${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
   }
 }
 function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); syncPhoneCall(); syncMusic(); sendOverlay(); syncPreview(); }
@@ -888,6 +918,7 @@ const INLINE_RE = new RegExp([
   '(?<![\\w*])\\*([^*\\s](?:[^*\\n]*?[^*\\s])?)\\*(?![\\w*])', // 9 *italic*
   '(?<![\\w_])_([^_\\s](?:[^_\\n]*?[^_\\s])?)_(?![\\w_])',         // 10 _italic_
   '<:(\\w{2,32}):(\\d+)>',                                  // 11, 12 custom emoji
+  '<m:([cd]):(\\d+):(\\d+)>',                               // 13, 14, 15 a link to a message (Party Bot's reminders)
 ].join('|'), 'g');
 /* <t:unix> shows a moment in each person's own time zone; <t:unix:R> as "in 15 minutes". */
 const fmtWhen = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -949,6 +980,12 @@ function inlineText(el, text) {
     else if (m[8]) add('s', null, m[8]);
     else if (m[9] || m[10]) add('em', null, m[9] || m[10]);
     else if (m[11]) el.appendChild(customEmojiEl(m[11], Number(m[12])));
+    else if (m[13]) {
+      const key = `${m[13]}:${m[14]}`, id = Number(m[15]);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small jump-msg'; b.textContent = '↗ Go to message';
+      b.addEventListener('click', () => jumpTo(key, id));
+      el.appendChild(b);
+    }
     else {
       const a = document.createElement('a'); a.href = m[0]; a.textContent = m[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
       el.appendChild(a);
@@ -966,7 +1003,7 @@ function encodeMentions(text) {
   for (const u of people) text = text.replace(new RegExp(`(^|[^\\p{L}\\p{N}_])@${escapeRe(u.name)}(?![\\p{L}\\p{N}_])`, 'giu'), `$1<@${u.id}>`);
   return text;
 }
-const decodeMentions = (text) => String(text || '').replace(/^<s:\d+>$/, 'Sent a sticker').replace(/^<g:[\w-]+>$/, 'Sent a GIF').replace(/<:(\w+):\d+>/g, ':$1:')
+const decodeMentions = (text) => String(text || '').replace(/^<poll:\d+>$/, '📊 Started a poll').replace(/^<s:\d+>$/, 'Sent a sticker').replace(/^<g:[\w-]+>$/, 'Sent a GIF').replace(/<:(\w+):\d+>/g, ':$1:').replace(/\s*<m:[cd]:\d+:\d+>/g, '')
   .replace(/<@(\d+)>/g, (x, id) => `@${nameOf(Number(id))}`).replace(/\*\*/g, '')
   .replace(/\|\|[^\n]*?\|\|/g, '[spoiler]').replace(/```[\w+-]*\n?|~~|__|`/g, '')
   .replace(/<t:(\d{9,11})(?::R)?>/g, (x, t) => fmtWhen(Number(t) * 1000));
@@ -997,13 +1034,15 @@ function messageEl(msg, prev) {
   if (rc) nm.style.color = rc;
   addCrown(nm, msg.userId);
   head.appendChild(nm);
+  if (msg.expiresAt) { const x = document.createElement('span'); x.className = 'msg-expires'; x.textContent = '⏳'; x.title = `Disappears ${fmtRelative(msg.expiresAt)}`; head.appendChild(x); }
   if (msg.pinned) { const p = document.createElement('span'); p.className = 'msg-pinned'; p.title = `Pinned by ${nameOf(msg.pinned.by)}`; p.innerHTML = iconSvg('pin'); head.appendChild(p); }
   const tm = document.createElement('time'); tm.className = 'msg-time'; tm.dateTime = new Date(msg.at).toISOString();
   tm.textContent = `${fmtDay(msg.at)} ${fmtTime(msg.at)}`; tm.title = new Date(msg.at).toLocaleString();
   head.appendChild(tm);
   li.appendChild(head);
   const special = msg.body && /^<([sg]):([\w-]+)>$/.exec(msg.body);
-  if (special) li.appendChild(special[1] === 's' ? stickerEl(Number(special[2])) : gifEl(special[2]));
+  if (/^<poll:\d+>$/.test(msg.body || '')) li.appendChild(pollEl(msg));
+  else if (special) li.appendChild(special[1] === 's' ? stickerEl(Number(special[2])) : gifEl(special[2]));
   else if (msg.body) {
     const body = document.createElement('div'); body.className = 'msg-body';
     if (isJumbo(msg.body)) body.classList.add('jumbo');
@@ -1024,6 +1063,7 @@ function messageEl(msg, prev) {
   tool('smile', 'Add reaction', (e) => openEmojiPop(msg, e.currentTarget));
   tool('reply', 'Reply', () => startReply(msg));
   if (mine && msg.body) tool('pencil', 'Edit', () => editMessage(li, msg));
+  tool('clock', 'Remind me about this', (e) => openRemind(msg, e.currentTarget));
   const saved = S.bookmarks.has(msg.id);
   tool('bookmark', saved ? 'Remove from saved messages' : 'Save for later (only you see it)', () => act(() => live.req('bookmark.set', { id: msg.id, on: !saved }), saved ? null : 'Saved. Find it under Home → Saved messages.'), saved ? 'on' : '');
   tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
@@ -1213,7 +1253,11 @@ function introEl() {
       li.appendChild(h); li.appendChild(p);
       return li;
     }
-    p.textContent = 'This is the start of the channel. Messages, photos, videos and files posted here are saved for everyone in the server.';
+    if (f && f.channel.kind === 'voice') {
+      g.innerHTML = iconSvg('volume');
+      h.textContent = `${f.channel.name} chat`;
+      p.textContent = 'Share links, clips and game invites with whoever’s in the call. Everyone in the server can read it, even when they’re not in voice.';
+    } else p.textContent = 'This is the start of the channel. Messages, photos, videos and files posted here are saved for everyone in the server.';
   }
   li.appendChild(h); li.appendChild(p);
   return li;
@@ -1446,7 +1490,10 @@ $('#chatForm').addEventListener('submit', async (e) => {
   } catch (ex) { toast(ex.message, 5000); }
   finally { S.sending = false; renderTray(); }
 });
-$('#attachBtn').addEventListener('click', () => $('#fileInput').click());
+$('#attachBtn').addEventListener('click', () => { const m = $('#attachMenu'); m.hidden = !m.hidden; $('#attachBtn').setAttribute('aria-expanded', String(!m.hidden)); });
+$('#attachFiles').addEventListener('click', () => { $('#attachMenu').hidden = true; $('#fileInput').click(); });
+$('#attachPoll').addEventListener('click', () => { $('#attachMenu').hidden = true; openPollBuilder(); });
+document.addEventListener('pointerdown', (e) => { if (!$('#attachMenu').hidden && !e.target.closest('#attachMenu, #attachBtn')) { $('#attachMenu').hidden = true; $('#attachBtn').setAttribute('aria-expanded', 'false'); } });
 
 /* ---------- voice messages: record with the mic, up to 2 minutes ---------- */
 let rec = null;   // { recorder, stream, chunks, started, timer, cancelled }
@@ -1836,10 +1883,12 @@ function renderUserArea() {
     sh.classList.toggle('on', V.sharing);
     sh.querySelector('use').setAttribute('href', V.sharing ? '#i-screen-off' : '#i-screen');
     sh.querySelector('.lbl').textContent = V.sharing ? 'Stop sharing' : 'Share screen'; sh.title = V.sharing ? 'Stop sharing' : 'Share your screen';
+    syncFx();
     const nb = $('#noiseBtn');
     nb.classList.toggle('active', settings.noiseMode === 'strong');
     nb.title = `Noise filter: ${{ strong: 'Strong', standard: 'Standard', off: 'Off' }[settings.noiseMode]} (N)`;
   }
+  if (!V.channelId && !$('#fxPop').hidden) closeFx();
   $('#pttBtn').hidden = !(settings.ptt && V.channelId);
   $('#pttBtn').classList.toggle('held', V.pttHeld);
   renderMicPanel();
@@ -2068,6 +2117,13 @@ function fillUserPop(id) {
   const srv = S.popServer && S.servers.get(S.popServer), roles = rolesOf(srv, id), box = $('#popRoles');
   box.textContent = ''; box.hidden = !roles.length;
   for (const r of roles) { const chip = document.createElement('span'); chip.className = 'role-chip'; chip.style.setProperty('--rc', r.color || 'var(--dim)'); chip.textContent = r.name; box.appendChild(chip); }
+  const xp = srv && srv.kind === 'server' && !u.bot ? (srv.xp || {})[id] || 0 : null;
+  $('#popLevel').hidden = xp == null;
+  if (xp != null) {
+    const b = levelBits(xp);
+    $('#popLevelText').textContent = `Level ${b.level}`; $('#popLevelXp').textContent = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
+    $('#popLevelBar').style.width = `${b.pct}%`;
+  }
   const pop = $('#userPop');   // keep it on screen if it grew
   if (!pop.hidden) { const r = pop.getBoundingClientRect(); if (r.bottom > innerHeight - 8) pop.style.top = `${Math.max(8, innerHeight - r.height - 8)}px`; }
 }
@@ -2194,6 +2250,161 @@ function renderHits(res) {
     li.appendChild(b); ol.appendChild(li);
   }
 }
+
+/* ================= XP and levels (per server; the server adds the XP, see M.addXp) ================= */
+const xpLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 30));
+function levelBits(xp) {
+  const level = xpLevel(xp), from = 30 * level ** 2, to = 30 * (level + 1) ** 2;
+  return { level, into: xp - from, need: to - from, pct: Math.round(((xp - from) / (to - from)) * 100) };
+}
+live.on('xp', (d) => {
+  const s = S.servers.get(d.serverId);
+  if (!s) return;
+  s.xp ||= {};
+  const before = xpLevel(s.xp[d.userId]);
+  s.xp[d.userId] = d.xp;
+  if (d.userId === S.me.id && xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)} in ${s.name}!`, 4000);
+  if (S.popUser === d.userId && S.popServer === d.serverId) fillUserPop(d.userId);
+  if ($('#topDlg').open && S.topServer === d.serverId) renderTop();
+});
+function renderTop() {
+  const s = S.servers.get(S.topServer), list = $('#topList');
+  list.textContent = '';
+  if (!s) return;
+  $('#topTitle').textContent = `Leaderboard: ${s.name}`;
+  const medals = ['🥇', '🥈', '🥉'];
+  const rows = s.members.filter((id) => !user(id).bot).map((id) => [id, (s.xp || {})[id] || 0])
+    .sort((a, b) => b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0])));
+  rows.forEach(([id, xp], i) => {
+    const b = levelBits(xp), li = document.createElement('li');
+    li.className = 'top-row' + (id === S.me.id ? ' me' : '');
+    const place = document.createElement('span'); place.className = 'top-place'; place.textContent = xp && medals[i] ? medals[i] : String(i + 1);
+    const who = document.createElement('div'); who.className = 'top-who';
+    const nm = document.createElement('b'); nm.textContent = nameOf(id) + (id === S.me.id ? ' (you)' : '');
+    const bar = document.createElement('div'); bar.className = 'xp-bar'; bar.title = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
+    const fill = document.createElement('span'); fill.style.width = `${b.pct}%`; bar.appendChild(fill);
+    who.append(nm, bar);
+    const lv = document.createElement('span'); lv.className = 'top-level';
+    const n = document.createElement('b'); n.textContent = `Lv ${b.level}`;
+    const x = document.createElement('small'); x.textContent = `${xp} XP`;
+    lv.append(n, x);
+    li.append(place, avEl(id), who, lv);
+    list.appendChild(li);
+  });
+}
+$('#mTop').addEventListener('click', () => { closeMenu(); S.topServer = S.view.serverId; renderTop(); $('#topDlg').showModal(); });
+
+/* ================= polls ================= */
+function pollEl(msg) {
+  const p = msg.poll, card = document.createElement('div'); card.className = 'poll-card';
+  if (!p) { card.textContent = '(this poll was removed)'; card.classList.add('gone'); return card; }
+  const q = document.createElement('div'); q.className = 'poll-q'; q.innerHTML = iconSvg('poll'); q.appendChild(document.createTextNode(p.question)); card.appendChild(q);
+  const total = p.options.reduce((n, o) => n + o.votes, 0), mine = p.mine || [], top = Math.max(...p.options.map((o) => o.votes));
+  p.options.forEach((o, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'poll-opt' + (mine.includes(i) ? ' mine' : '') + (p.closed && o.votes === top && top ? ' won' : '');
+    b.disabled = p.closed;
+    const pct = total ? Math.round((o.votes / total) * 100) : 0;
+    b.style.setProperty('--pct', `${pct}%`);
+    const t = document.createElement('span'); t.className = 'poll-text'; t.textContent = `${mine.includes(i) ? '✓ ' : ''}${o.text}`;
+    const n = document.createElement('span'); n.className = 'poll-num'; n.textContent = `${o.votes} · ${pct}%`;
+    b.append(t, n);
+    b.title = o.voters && o.voters.length ? `${o.voters.map(nameOf).join(', ')}` : p.anon ? 'Anonymous poll' : 'No votes yet';
+    b.setAttribute('aria-pressed', String(mine.includes(i)));
+    b.addEventListener('click', async () => {
+      const r = await act(() => live.req('poll.vote', { id: p.id, option: i, on: !mine.includes(i) }));
+      if (r) { p.mine = r.mine; }
+    });
+    card.appendChild(b);
+  });
+  const foot = document.createElement('div'); foot.className = 'poll-foot';
+  foot.textContent = [`${p.people} ${p.people === 1 ? 'person' : 'people'} voted`, p.multi ? 'pick several' : null, p.anon ? 'anonymous' : null,
+    p.closed ? 'final results' : p.endsAt ? `ends ${fmtRelative(p.endsAt)}` : null].filter(Boolean).join(' · ');
+  const f = msg.channelId && findChannel(msg.channelId);
+  if (!p.closed && (p.by === S.me.id || (f && can(f.server, 'messages')))) {
+    const end = document.createElement('button'); end.type = 'button'; end.className = 'link-btn'; end.textContent = 'End poll';
+    end.addEventListener('click', async () => { if (await confirmBox('End this poll now?', 'Voting stops and Party Bot posts the result.', 'End poll')) act(() => live.req('poll.end', { id: p.id })); });
+    foot.appendChild(end);
+  }
+  card.appendChild(foot);
+  return card;
+}
+live.on('poll', (d) => {
+  const key = d.channelId ? `c:${d.channelId}` : dmKeyById(d.dmId);
+  const m = key && S.msgs.get(key), msg = m && m.list.find((x) => x.id === d.messageId);
+  if (!msg) return;
+  msg.poll = d.poll;
+  if (msgKey() === key) renderMessages(true);
+});
+function pollOptRow(value = '') {
+  const row = document.createElement('div'); row.className = 'row poll-opt-row';
+  const inp = document.createElement('input'); inp.className = 'input'; inp.maxLength = 80; inp.value = value; inp.placeholder = `Choice ${$('#pollOpts').children.length + 1}`;
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'btn icon-btn'; x.innerHTML = iconSvg('x'); x.setAttribute('aria-label', 'Remove this choice');
+  x.addEventListener('click', () => { if ($('#pollOpts').children.length > 2) row.remove(); });
+  row.append(inp, x);
+  $('#pollOpts').appendChild(row);
+  return inp;
+}
+function openPollBuilder() {
+  if (!composeTarget()) return;
+  $('#pollQ').value = ''; $('#pollOpts').textContent = ''; pollOptRow(); pollOptRow();
+  $('#pollMulti').checked = false; $('#pollAnon').checked = false; $('#pollEnds').value = '1440';
+  $('#pollDlg').showModal(); $('#pollQ').focus();
+}
+$('#pollAddOpt').addEventListener('click', () => { if ($('#pollOpts').children.length < 10) pollOptRow().focus(); else toast('Polls can have up to 10 choices.', 3000); });
+$('#pollForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const options = [...$('#pollOpts').querySelectorAll('input')].map((i) => i.value.trim()).filter(Boolean);
+  const r = await act(() => live.req('poll.create', Object.assign({ question: $('#pollQ').value, options, multi: $('#pollMulti').checked, anon: $('#pollAnon').checked, minutes: Number($('#pollEnds').value) }, composeTarget())));
+  if (r) $('#pollDlg').close();
+});
+
+/* ================= remind me about this (a message) ================= */
+let remindFor = null;
+function placePop(pop, anchor) {
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth))}px`;
+  pop.style.top = `${r.bottom + 6 + pop.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - pop.offsetHeight - 6) : r.bottom + 6}px`;
+}
+function openRemind(msg, anchor) {
+  remindFor = msg.id;
+  const box = $('#remindPresets'); box.textContent = '';
+  for (const [label, at] of laterPresets()) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = label;
+    b.addEventListener('click', () => setRemind(at)); box.appendChild(b);
+  }
+  const d = new Date(Date.now() + 3600_000); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+  $('#remindWhen').value = localInput(d.getTime());
+  placePop($('#remindPop'), anchor);
+}
+async function setRemind(at) {
+  if (await act(() => live.req('remind.set', { id: remindFor, at }), `Okay! Party Bot will remind you ${fmtWhen(at)}.`)) $('#remindPop').hidden = true;
+}
+$('#remindGo').addEventListener('click', () => { const at = new Date($('#remindWhen').value).getTime(); if (Number.isFinite(at)) setRemind(at); else toast('Pick a day and time.', 3000); });
+document.addEventListener('pointerdown', (e) => {
+  if (!$('#remindPop').hidden && !e.target.closest('#remindPop, .msg-tool')) $('#remindPop').hidden = true;
+  if (!$('#disappearPop').hidden && !e.target.closest('#disappearPop, #disappearBtn')) $('#disappearPop').hidden = true;
+});
+
+/* ================= disappearing messages (private chats and group chats) ================= */
+live.on('disappear', (d) => {
+  const other = d.users.find((id) => id !== S.me.id);
+  const x = S.dms.get(other) || { id: d.dmId, userId: other, unread: 0 };
+  x.disappear = d.seconds; S.dms.set(other, x);
+  renderHeader();
+});
+$('#disappearBtn').addEventListener('click', (e) => {
+  const pop = $('#disappearPop');
+  if (!pop.hidden) { pop.hidden = true; return; }
+  const v = S.view, srv = v.kind === 'text' && S.servers.get(v.serverId);
+  const cur = v.kind === 'dm' ? (S.dms.get(v.userId) || {}).disappear || 0 : (srv && srv.disappear) || 0;
+  for (const b of pop.querySelectorAll('[data-secs]')) b.setAttribute('aria-checked', String(Number(b.dataset.secs) === cur));
+  placePop(pop, e.currentTarget);
+});
+document.querySelectorAll('#disappearOpts [data-secs]').forEach((b) => b.addEventListener('click', async () => {
+  const v = S.view, target = v.kind === 'dm' ? { userId: v.userId } : { serverId: v.serverId };
+  if (await act(() => live.req('disappear.set', Object.assign({ seconds: Number(b.dataset.secs) }, target)))) $('#disappearPop').hidden = true;
+}));
 
 /* ================= saved messages (bookmarks) ================= */
 live.on('bookmarks', (d) => { S.bookmarks = new Set(d.ids); rerenderMessagesSoft(); if (S.savedOpen && !$('#searchPanel').hidden) openSaved(); });
@@ -2549,6 +2760,7 @@ function syncSettingsForm() {
   paintAv($('#setAv'), S.me.id);
   $('#setAvRemove').hidden = !S.me.avatar;
   for (const r of document.querySelectorAll('input[name="noise"]')) r.checked = r.value === settings.noiseMode;
+  syncFx();
   for (const r of document.querySelectorAll('input[name="quality"]')) r.checked = r.value === settings.quality;
   for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
   $('#setPtt').checked = settings.ptt;
@@ -2984,7 +3196,7 @@ function openFromPush(q) {
   const p = q instanceof URLSearchParams ? q : new URLSearchParams(q);
   if (p.get('dm') && S.users.has(Number(p.get('dm')))) return setView({ kind: 'dm', userId: Number(p.get('dm')) });
   const f = findChannel(Number(p.get('channel') || p.get('call')));
-  if (f && f.channel.kind === 'text') return setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id });
+  if (f && (f.channel.kind === 'text' || p.get('channel'))) return setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id });
   if (f) return openServer(f.server.id);
   if (p.get('friends')) { S.friendTab = 'pending'; setView({ kind: 'friends' }); }
 }
@@ -3404,6 +3616,34 @@ function renderSoundboard() {
     btn(s.emoji, s.name, () => play({ id: s.id }), mayDelete ? async () => { if (await confirmBox(`Remove ${s.name}?`, 'It’s removed from the soundboard for everyone in this server.', 'Remove')) act(() => live.req('sound.delete', { id: s.id })); } : null);
   }
 }
+/* ---------- voice effects (see Voice.setVoiceFx) ---------- */
+const VOICE_FX = [['none', '🙂', 'Normal'], ['robot', '🤖', 'Robot'], ['deep', '🐻', 'Deep'], ['chipmunk', '🐿️', 'Chipmunk'], ['cave', '🏔️', 'Cave echo'], ['radio', '📻', 'Radio']];
+for (const box of [$('#fxOpts'), $('#setFx')]) {
+  for (const [key, emoji, name] of VOICE_FX) {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.fx = key; b.textContent = `${emoji} ${name}`;
+    b.addEventListener('click', () => { Voice.setVoiceFx(key).then(syncFx); syncFx(); });
+    box.appendChild(b);
+  }
+}
+function syncFx() {
+  for (const b of document.querySelectorAll('[data-fx]')) b.setAttribute('aria-checked', String(b.dataset.fx === settings.voiceFx));
+  const on = VOICE_FX.find(([k]) => k === settings.voiceFx && k !== 'none');
+  $('#fxBtn').classList.toggle('active', !!on);
+  $('#fxBtn').title = on ? `Voice effect: ${on[2]}` : 'Voice effects';
+}
+function closeFx() { $('#fxPop').hidden = true; $('#fxBtn').setAttribute('aria-expanded', 'false'); $('#fxHear').checked = false; Voice.setMonitor(false); }
+$('#fxBtn').addEventListener('click', () => {
+  if (!$('#fxPop').hidden) { closeFx(); return; }
+  syncFx();
+  const pop = $('#fxPop'); pop.hidden = false;
+  const r = $('#fxBtn').getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left))}px`;
+  pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+  $('#fxBtn').setAttribute('aria-expanded', 'true');
+});
+$('#fxHear').addEventListener('change', () => Voice.setMonitor($('#fxHear').checked));
+document.addEventListener('pointerdown', (e) => { if (!$('#fxPop').hidden && !e.target.closest('#fxPop, #fxBtn')) closeFx(); });
+
 function openSoundboard() {
   if (!V.channelId) return;
   renderSoundboard();

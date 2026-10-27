@@ -2,7 +2,7 @@
    - Listen together: /play <YouTube link> plays it for everyone in your voice channel at the same moment.
      Each device plays it in YouTube's own player; the server only keeps the shared queue and the clock,
      so nothing is downloaded or re-streamed. /pause, /resume, /skip, /stop, /queue.
-   - Fun: /roll, /coinflip, /poll, /remind, /help.
+   - Fun: /roll, /coinflip, /poll, /remind, /help. Levels: /rank, /top.
    - /ask: answers a question with Claude (see ask.js).
    Problems with a command (no voice channel, a bad link) are answered privately to whoever typed it. */
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ let seq = 0;
 export function initBot(h) {
   host = h;
   bot = M.ensureBot();
-  setInterval(fireReminders, 15_000).unref();
+  setInterval(fireReminders, Number(process.env.REMIND_TICK_MS) || 15_000).unref();
   setInterval(closeGamePolls, process.env.POLL_MINUTE_MS ? 1000 : 15_000).unref();
   setInterval(birthdays, 10 * 60_000).unref(); setTimeout(birthdays, 20_000).unref();
   setInterval(health, Number(process.env.HEALTH_EVERY) || 10 * 60_000).unref(); setTimeout(health, 60_000).unref();
@@ -192,18 +192,33 @@ function poll(ctx) {
   const parts = ctx.args.split('|').map((x) => x.trim()).filter(Boolean);
   if (!parts.length) fail('Write a question, then the choices separated by |, like: /poll Pizza or burgers? | Pizza | Burgers');
   const [question, ...choices] = parts;
-  if (choices.length > 10) fail('A poll can have up to 10 choices.');
-  const emojis = choices.length ? NUMBERS.slice(0, choices.length) : ['👍', '👎'];
-  const body = `📊 **${question}**\n` + (choices.length ? choices.map((c, i) => `${emojis[i]} ${c}`).join('\n') + '\n' : '') + `Vote with the reactions below. Poll by ${who(ctx.user.id)}`;
-  const msg = post(ctx.where, body);
-  if (!msg) fail('Couldn’t start the poll.');
-  seedReactions(msg, emojis);
+  host.poll(ctx.user, ctx.where, question, choices.length ? choices : ['Yes', 'No']);   // the same poll card as the + button makes
 }
 /* Party Bot's own reaction for each choice under a poll, so everyone votes with one click. */
 function seedReactions(msg, emojis) {
   let reactions = [];
   for (const e of emojis) reactions = M.react(bot.id, msg.id, e, true);
   host.broadcastReactions(msg, reactions);
+}
+/* ---------- XP and levels (see M.addXp) ---------- */
+function levelServer(where) {
+  const ch = where.channelId && M.getChannel(where.channelId), srv = ch && M.getServer(ch.server_id);
+  if (!srv || srv.kind !== 'server') fail('Levels are per server: try this in a server channel.');
+  const xp = M.xpOf(srv.id), members = new Set(M.memberIds(srv.id));
+  const board = Object.entries(xp).map(([id, n]) => [Number(id), n]).filter(([id, n]) => members.has(id) && n > 0).sort((a, b) => b[1] - a[1]);
+  return { srv, xp, board };
+}
+function rank(ctx) {
+  const { xp, board } = levelServer(ctx.where);
+  const m = /<@(\d+)>/.exec(ctx.args), id = m ? Number(m[1]) : ctx.user.id, n = xp[id] || 0, lvl = M.levelOf(n);
+  const place = board.findIndex(([x]) => x === id) + 1, next = 30 * (lvl + 1) ** 2;
+  post(ctx.where, `🏅 ${who(id)} is **level ${lvl}** (${n} XP${place ? `, #${place} here` : ''}). ${next - n} XP to level ${lvl + 1}.`);
+}
+function top(ctx) {
+  const { srv, board } = levelServer(ctx.where);
+  if (!board.length) return { ephemeral: 'Nobody has any XP here yet. Chat or hang out in voice to earn some!' };
+  const medals = ['🥇', '🥈', '🥉'];
+  post(ctx.where, `🏆 **Top of ${srv.name}**\n` + board.slice(0, 10).map(([id, n], i) => `${medals[i] || `${i + 1}.`} ${who(id)}: level ${M.levelOf(n)} (${n} XP)`).join('\n'));
 }
 const UNITS = { s: 1, sec: 1, second: 1, seconds: 1, m: 60, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400 };
 function remind(ctx) {
@@ -220,7 +235,19 @@ function remind(ctx) {
   const when = secs < 60 ? `${secs} seconds` : secs < 3600 ? `${Math.round(secs / 60)} minutes` : secs < 86400 ? `${+(secs / 3600).toFixed(1)} hours` : `${+(secs / 86400).toFixed(1)} days`;
   return { ephemeral: `⏰ Okay, I’ll remind you here in ${when}: ${text}` };
 }
+/* "Remind me about this" (a message): Party Bot sends it back to you privately, with a link to the message. */
+function fireMsgReminders() {
+  for (const r of M.dueMsgReminders()) {
+    const m = M.getMessage(r.message_id);
+    const dm = M.dmWith(bot.id, r.user_id, true);
+    if (!m) { post({ dmId: dm.id }, '⏰ Reminder: the message you asked me to remind you about has been deleted.'); continue; }
+    const where = r.jump.startsWith('c:') ? ` in ${(M.getChannel(m.channel_id) || {}).kind === 'voice' ? '🔊 ' : '#'}${(M.getChannel(m.channel_id) || { name: '?' }).name}` : ' in your private chat';
+    const quote = M.readableBody(m.body).replace(/\s+/g, ' ').slice(0, 200) || (m.attachments ? '(a file)' : '');
+    post({ dmId: dm.id }, `⏰ You asked me to remind you about this message from ${who(m.user_id)}${where}:\n> ${quote}\n<m:${r.jump}:${m.id}>`);
+  }
+}
 function fireReminders() {
+  fireMsgReminders();
   for (const r of all('SELECT * FROM reminders WHERE due_at <= ? ORDER BY due_at LIMIT 50', Date.now())) {
     run('DELETE FROM reminders WHERE id = ?', r.id);
     try { post(r.channel_id ? { channelId: r.channel_id } : { dmId: r.dm_id }, `⏰ ${at(r.user_id)} reminder: ${r.body}`); } catch {}
@@ -383,8 +410,10 @@ const HELP = [
   '🎲 **Fun**',
   '/roll: a 6-sided die. /roll 20 or /roll 2d6 for others',
   '/coinflip: heads or tails',
-  '/poll Question | Choice 1 | Choice 2: everyone votes with reactions',
+  '/poll Question | Choice 1 | Choice 2: a poll (or press + then Poll for more options)',
   '/remind 10m take the pizza out: a reminder in this chat (s, m, h or d)',
+  '🏅 **Levels** (chatting and time in voice earn XP)',
+  '/rank: your level here (or /rank @someone). /top: the leaderboard',
   '🎮 **Games**',
   '/game Name: add a game to this chat’s list for later (or use the 🎮 button). /games: the list',
   '/vote: everyone votes on tonight’s game from the list (/vote 1h for a longer vote)',
@@ -393,7 +422,7 @@ const HELP = [
 ].join('\n');
 
 export const COMMANDS = {
-  play, watch, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote,
+  play, watch, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote, rank, top, leaderboard: top,
   help: () => ({ ephemeral: HELP }),
 };
 /* For the command hints in the message box. */
@@ -402,8 +431,8 @@ export const COMMAND_LIST = [
   ['pause', '', 'Pause the music'], ['resume', '', 'Resume the music'], ['skip', '', 'Skip to the next video'],
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],
-  ['poll', 'Question | Choice | Choice', 'Start a poll with reaction votes'],
-  ['remind', '10m what', 'Get a reminder in this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['help', '', 'All bot commands'],
+  ['poll', 'Question | Choice | Choice', 'Start a poll'],
+  ['remind', '10m what', 'Get a reminder in this chat'], ['rank', '[@someone]', 'Level and XP in this server'], ['top', '', 'The server’s XP leaderboard'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['help', '', 'All bot commands'],
 ];
 
 export const isCommand = (body) => { const m = /^\/([a-z]+)(?:\s|$)/i.exec(String(body || '').trim()); return !!(m && Object.hasOwn(COMMANDS, m[1].toLowerCase())); };

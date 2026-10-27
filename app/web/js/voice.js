@@ -48,10 +48,66 @@ function loadDenoiser() {
 function teardownFx() {
   const fx = V.fx; V.fx = null;
   if (!fx) return;
-  for (const n of [fx.source, fx.node, fx.gain]) { try { n && n.disconnect(); } catch {} }
+  for (const n of [fx.source, fx.node, fx.gain, ...(fx.effect ? fx.effect.nodes : [])]) { try { n && n.stop && n.stop(); } catch {} try { n && n.disconnect(); } catch {} }
 }
-// The mic goes through the audio engine when the Strong filter is on or your mic volume isn't 100%.
-const needsFx = () => settings.noiseMode === 'strong' || Math.abs(settings.inputVol - 1) > 0.004;
+// The mic goes through the audio engine when the Strong filter is on, your mic volume isn't 100% or there's a voice effect.
+const needsFx = () => settings.noiseMode === 'strong' || Math.abs(settings.inputVol - 1) > 0.004 || settings.voiceFx !== 'none';
+
+/* ================= voice effects (for fun: your friends hear you through them) ================= */
+export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio'];
+let pitchReady = null;
+function loadPitch() {
+  const c = audioCtx();
+  if (!c.audioWorklet || typeof AudioWorkletNode !== 'function') return Promise.reject(new Error('no worklet'));
+  if (!pitchReady) pitchReady = c.audioWorklet.addModule('/voice-fx-worklet.js').catch((e) => { pitchReady = null; throw e; });
+  return pitchReady;
+}
+const softClip = (k) => { const n = 1024, curve = new Float32Array(n); for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; curve[i] = Math.tanh(k * x) / Math.tanh(k); } return curve; };
+/* Nodes for one effect: sound goes into `input` and comes out of `output`. */
+async function effectChain(c, kind) {
+  const gain = (v) => { const g = c.createGain(); g.gain.value = v; return g; };
+  const filter = (type, f, q = 0.7) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  if (kind === 'deep' || kind === 'chipmunk') {
+    await loadPitch();
+    const n = new AudioWorkletNode(c, 'pl-pitch', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { ratio: kind === 'deep' ? 0.72 : 1.6 } });
+    return { input: n, output: n, nodes: [n] };
+  }
+  if (kind === 'robot') {
+    // A ring modulator (the voice times a 50 Hz tone) and a short metallic ring.
+    const ring = gain(0), osc = c.createOscillator(), comb = c.createDelay(0.05), fb = gain(0.55), out = gain(0.9);
+    osc.frequency.value = 50; osc.connect(ring.gain); osc.start();
+    comb.delayTime.value = 0.009;
+    ring.connect(out); ring.connect(comb); comb.connect(fb); fb.connect(comb); comb.connect(out);
+    return { input: ring, output: out, nodes: [ring, osc, comb, fb, out] };
+  }
+  if (kind === 'cave') {
+    const input = gain(1), d = c.createDelay(1), fb = gain(0.45), lp = filter('lowpass', 2200), wet = gain(0.55), out = gain(1);
+    d.delayTime.value = 0.24;
+    input.connect(out); input.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(wet); wet.connect(out);
+    return { input, output: out, nodes: [input, d, fb, lp, wet, out] };
+  }
+  if (kind === 'radio') {
+    const hp = filter('highpass', 450), lp = filter('lowpass', 3000), mid = filter('peaking', 1500, 1), shaper = c.createWaveShaper(), out = gain(0.7);
+    mid.gain.value = 6; shaper.curve = softClip(6);
+    hp.connect(lp); lp.connect(mid); mid.connect(shaper); shaper.connect(out);
+    return { input: hp, output: out, nodes: [hp, lp, mid, shaper, out] };
+  }
+  return null;
+}
+export async function setVoiceFx(kind) {
+  if (!VOICE_FX.includes(kind) || settings.voiceFx === kind) return;
+  settings.voiceFx = kind; saveSettings();
+  if (V.rawStream && !V.noMic) { await installMic(V.rawStream, true); applyMic(); }
+  hooks.change();
+}
+/* "Hear myself": your own mic, as your friends hear it, through your speakers or headphones. */
+let monitor = null;
+export function setMonitor(on) {
+  try { monitor && monitor.disconnect(); } catch {}
+  monitor = null;
+  if (on && V.micStream && !V.noMic) { const c = audioCtx(); monitor = c.createMediaStreamSource(V.micStream); monitor.connect(c.destination); }
+}
+export const monitoring = () => !!monitor;
 async function buildSend(raw) {
   if (!needsFx()) { teardownFx(); return raw; }
   let c, source;
@@ -66,14 +122,22 @@ async function buildSend(raw) {
       toast("The Strong noise filter can't run here, so the Standard filter is on instead.", 6000);
     }
   }
+  let effect = null;
+  if (settings.voiceFx !== 'none') {
+    try { effect = await effectChain(c, settings.voiceFx); }
+    catch { settings.voiceFx = 'none'; saveSettings(); toast("Voice effects can't run here.", 5000); }
+  }
   const gain = c.createGain();
   gain.gain.value = settings.inputVol;
   const dest = c.createMediaStreamDestination();
   try { dest.channelCount = 1; } catch {}
-  if (node) { source.connect(node); node.connect(gain); } else source.connect(gain);
+  let last = source;   // mic → noise filter → effect → volume
+  if (node) { last.connect(node); last = node; }
+  if (effect) { last.connect(effect.input); last = effect.output; }
+  last.connect(gain);
   gain.connect(dest);
   teardownFx();
-  V.fx = { source, node, gain, dest };
+  V.fx = { source, node, gain, dest, effect };
   return dest.stream;
 }
 export let localMeter = { source: null, analyser: null };
@@ -88,6 +152,7 @@ async function installMic(raw, real) {
   for (const st of [oldRaw, oldSend]) if (st) st.getTracks().forEach((t) => { if (!keep.has(t)) t.stop(); });
   try { localMeter.source && localMeter.source.disconnect(); } catch {}
   localMeter = makeAnalyser(send);
+  if (monitor) setMonitor(true);
   const track = raw.getAudioTracks()[0];
   if (!track || !real) return;
   track.addEventListener('ended', () => { log('voice', `Microphone stopped (${track.label || 'mic'})`); if (V.rawStream === raw) { V.noMic = true; applyMic(); setIssue('disconnected'); } });
@@ -119,6 +184,7 @@ export async function setupMic(deviceId = settings.micId) {
 }
 export async function chooseMic(id) { settings.micId = id; saveSettings(); if (V.rawStream) return setupMic(id); return null; }
 export function stopMic() {
+  setMonitor(false);
   for (const st of [V.rawStream, V.micStream]) if (st) st.getTracks().forEach((t) => t.stop());
   teardownFx();
   V.rawStream = V.micStream = V.sendTrack = null; V.noMic = true;

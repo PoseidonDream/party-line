@@ -11,6 +11,7 @@ export const settings = Object.assign(
   store.get('settings', {}) || {},
 );
 if (!['off', 'standard', 'strong'].includes(settings.noiseMode)) settings.noiseMode = 'strong';
+if (!['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio'].includes(settings.voiceFx)) settings.voiceFx = 'none';
 if (!['system', 'dark', 'light'].includes(settings.theme)) settings.theme = 'dark';
 if (!['amber', 'cyan', 'violet', 'green', 'pink', 'white'].includes(settings.accent)) settings.accent = 'amber';
 // Party Line went black: "match my device" from before becomes dark once (people can switch back in Settings).

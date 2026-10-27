@@ -107,12 +107,11 @@ export default async function (ok) {
     await botMsg(a, 'flipped a coin');
     ok('/roll and /coinflip post their results', true);
     await say(a, '/poll Pizza or burgers? | Pizza | Burgers');
-    await botMsg(b, 'Pizza or burgers?');
-    await b.waitForSelector('#messages .msg:has-text("Pizza or burgers?") .reaction:has-text("2️⃣")');
-    const poll = '#messages .msg:has-text("Pizza or burgers?")';
-    ok('/poll adds a button for each choice, starting at 0 votes', (await b.textContent(`${poll} .reaction:has-text("1️⃣")`)).trim() === '1️⃣ 0');
-    await b.click(`${poll} .reaction:has-text("1️⃣")`);
-    await a.waitForSelector(`${poll} .reaction:text-is("1️⃣ 1")`);
+    const poll = '#messages .poll-card:has-text("Pizza or burgers?")';
+    await b.waitForSelector(`${poll} .poll-opt:has-text("Burgers")`);
+    ok('/poll posts a poll with a button for each choice, starting at 0 votes', (await b.textContent(`${poll} .poll-opt:has-text("Pizza") .poll-num`)) === '0 · 0%');
+    await b.click(`${poll} .poll-opt:has-text("Pizza")`);
+    await a.waitForSelector(`${poll} .poll-opt:has-text("Pizza") .poll-num:text-is("1 · 100%")`);
     ok('voting counts for everyone', true);
     await say(b, '/remind 5s stretch your legs');
     await b.waitForSelector('#botNote:not([hidden]):has-text("remind you here in 5 seconds")');

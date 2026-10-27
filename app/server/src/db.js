@@ -182,6 +182,31 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS polls (
+  id INTEGER PRIMARY KEY,
+  message_id INTEGER,
+  created_by INTEGER NOT NULL,
+  question TEXT NOT NULL,
+  options TEXT NOT NULL,
+  multi INTEGER NOT NULL DEFAULT 0,
+  anon INTEGER NOT NULL DEFAULT 0,
+  ends_at INTEGER,
+  closed INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS poll_votes (
+  poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL,
+  option INTEGER NOT NULL,
+  PRIMARY KEY (poll_id, user_id, option)
+);
+CREATE TABLE IF NOT EXISTS msg_reminders (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message_id INTEGER NOT NULL,
+  jump TEXT NOT NULL,
+  due_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS bookmarks (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -295,10 +320,21 @@ CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS xp (
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  xp INTEGER NOT NULL DEFAULT 0,
+  msg_at INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (server_id, user_id)
+);
 `);
-// Which sign-in a push subscription belongs to, so signing that device out also stops its notifications.
 // Game nights: a vote on the 🎮 list this many minutes before the event.
 if (!columns('events').includes('game_vote')) db.exec('ALTER TABLE events ADD COLUMN game_vote INTEGER; ALTER TABLE events ADD COLUMN vote_started INTEGER NOT NULL DEFAULT 0;');
+// Disappearing messages: a private chat's (or group chat's) setting, and when each message goes.
+if (!columns('dms').includes('disappear')) db.exec('ALTER TABLE dms ADD COLUMN disappear INTEGER');
+if (!columns('servers').includes('disappear')) db.exec('ALTER TABLE servers ADD COLUMN disappear INTEGER');
+if (!columns('messages').includes('expires_at')) db.exec('ALTER TABLE messages ADD COLUMN expires_at INTEGER; CREATE INDEX IF NOT EXISTS messages_expiry ON messages (expires_at) WHERE expires_at IS NOT NULL;');
+// Which sign-in a push subscription belongs to, so signing that device out also stops its notifications.
 if (!columns('push_subs').includes('session')) db.exec('ALTER TABLE push_subs ADD COLUMN session TEXT');
 
 const cache = new Map();
