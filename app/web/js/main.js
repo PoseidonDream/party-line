@@ -4208,3 +4208,25 @@ if (location.search) {
 }
 if ('serviceWorker' in navigator && window.isSecureContext && !desktop && !phoneApp) navigator.serviceWorker.register('/sw.js').catch(() => {});
 if (hasToken()) start(); else showJoinScreen();
+
+/* Esc closes whatever small pop-up, menu or drawer is open (dialogs close themselves; boxes that use Esc themselves,
+   like the message box cancelling a reply, mark it handled). */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
+  let closed = false;
+  const shut = (sel, fn) => { const el = $(sel); if (el && !el.hidden) { fn(); closed = true; } };
+  shut('#serverMenu', closeMenu);
+  shut('#attachMenu', () => { $('#attachMenu').hidden = true; $('#attachBtn').setAttribute('aria-expanded', 'false'); });
+  shut('#moreMenu', closeMore);
+  shut('#laterPop', closeLater);
+  shut('#statusPop', closeStatusPop);
+  shut('#emojiPop', closeEmojiPop);
+  shut('#remindPop', () => { $('#remindPop').hidden = true; });
+  shut('#disappearPop', () => { $('#disappearPop').hidden = true; });
+  shut('#notifPop', () => { $('#notifPop').hidden = true; });
+  shut('#micPanel', () => { micPanelOpen = false; renderMicPanel(); });
+  shut('#soundPop', closeSoundboard);
+  shut('#fxPop', closeFx);
+  if (!closed && $('#room').classList.contains('drawer-open')) { $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; closed = true; }
+  if (closed) e.preventDefault();
+});

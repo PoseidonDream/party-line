@@ -39,6 +39,16 @@ export default async function (ok) {
       await a.click('#attachBtn'); await a.click('#attachPoll'); await audit('new poll'); await a.keyboard.press('Escape');
       await a.click('#voiceList .chan:has-text("Lobby")'); await a.waitForSelector('#voiceStatus:not([hidden])', { timeout: 10000 }); await audit('voice');
       ok(`${theme} look: no accessibility problems${found.length ? ': ' + [...new Set(found)].slice(0, 6).join(' | ') : ''}`, !found.length);
+      if (theme === 'dark') {
+        const stays = [];
+        for (const [open, pop] of [['#soundBtn', '#soundPop'], ['#fxBtn', '#fxPop'], ['#meBtn', '#micPanel'], ['general'], ['#serverBtn', '#serverMenu'], ['#attachBtn', '#attachMenu'], ['#statusBtn', '#statusPop'], ['#laterBtn', '#laterPop']]) {
+          if (open === 'general') { await a.click('#textList .chan:has-text("general")'); continue; }
+          await a.click(open); await a.waitForSelector(pop, { state: 'visible' });
+          await a.keyboard.press('Escape');
+          if (await a.isVisible(pop)) { stays.push(pop); await a.click(open); }
+        }
+        ok(`Esc closes menus and pop-ups${stays.length ? ` (stays open: ${stays.join(', ')})` : ''}`, !stays.length);
+      }
       await a.click('#vcLeaveBtn');
       await a.context().close();
     }
