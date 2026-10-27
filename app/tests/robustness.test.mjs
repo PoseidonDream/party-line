@@ -1,5 +1,7 @@
 /* Things found by poking at the app: odd words that used to reach inside the server's lookup tables, and the phone
    layout of the message box and the header. */
+import { DatabaseSync } from 'node:sqlite';
+import path from 'node:path';
 import { startServer, launchBrowser, signUp } from './lib.mjs';
 
 export default async function (ok) {
@@ -24,6 +26,25 @@ export default async function (ok) {
     await a.click('#moreMenu [data-proxy="galleryBtn"]');
     await a.waitForSelector('#galleryDlg[open]');
     ok('⋯ opens what moved into it', true);
-    ok(`no JavaScript errors${a.errors.length ? ': ' + a.errors.join(' | ') : ''}`, !a.errors.length);
+
+    // A long chat: after scrolling back through 1,000 messages, a reaction or vote updates just that message
+    const db = new DatabaseSync(path.join(srv.dataDir, 'party-line.db'));
+    const ins = db.prepare('INSERT INTO messages (channel_id, user_id, body, created_at) VALUES (?, 1, ?, ?)');
+    db.exec('BEGIN'); for (let i = 0; i < 1200; i++) ins.run(general, `old message ${i} with **bold** and https://example.com/${i}`, Date.now() - (1200 - i) * 60_000); db.exec('COMMIT'); db.close();
+    const d = await signUp(browser, srv.url, 'Bora');
+    await d.waitForSelector('#messages .msg');
+    for (let i = 0; i < 40 && await d.evaluate(() => document.querySelectorAll('#messages .msg').length) < 1000; i++) {
+      await d.evaluate(() => { const m = document.querySelector('#messages'); m.scrollTop = 0; m.dispatchEvent(new Event('scroll')); });
+      await d.waitForTimeout(150);
+    }
+    const loaded = await d.evaluate(() => document.querySelectorAll('#messages .msg').length);
+    const last = await d.evaluate(() => Number([...document.querySelectorAll('#messages .msg')].pop().dataset.id));
+    await d.evaluate(() => { window.__lt = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(e.duration); }).observe({ type: 'longtask' }); });
+    await req('react', { id: last, emoji: '🔥', on: true });
+    await d.waitForSelector('#messages .msg:last-child .reaction');
+    await d.waitForTimeout(300);
+    const stall = Math.max(0, ...await d.evaluate(() => window.__lt));
+    ok(`with ${loaded} messages loaded, a reaction shows without the app stalling (longest pause ${Math.round(stall)} ms)`, loaded >= 1000 && stall < 400);
+    ok(`no JavaScript errors${[...a.errors, ...d.errors].length ? ': ' + [...a.errors, ...d.errors].join(' | ') : ''}`, ![...a.errors, ...d.errors].length);
   } finally { await browser.close(); await srv.stop(); }
 }

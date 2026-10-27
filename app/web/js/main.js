@@ -288,10 +288,14 @@ live.on('ready', (d) => {
   if (first) syncPush();
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
+/* What a person's messages show of them: only a change here redraws the chat (not their XP or streak). */
+const looks = (u) => u ? [u.name, u.avatar, u.flair, u.nameColor, u.admin, u.bot, u.birthday, xpLevel(u.xp) >= S.perks.unlocks.legend].join('|') : '';
 live.on('user', (d) => {
+  const before = looks(S.users.get(d.user.id));
   S.users.set(d.user.id, d.user);
   if (S.me && d.user.id === S.me.id) S.me = Object.assign(S.me, d.user);
-  renderAll(); rerenderMessagesSoft();
+  renderAll();
+  if (looks(d.user) !== before) rerenderMessagesSoft();
   if (S.popUser === d.user.id && !$('#userPop').hidden) fillUserPop(d.user.id);
 });
 live.on('presence', (d) => {
@@ -415,14 +419,21 @@ live.on('msg.edit', (d) => {
   const m = key && S.msgs.get(key);
   if (!m) return;
   const i = m.list.findIndex((x) => x.id === d.msg.id);
-  if (i >= 0) { m.list[i] = d.msg; if (msgKey() === key) renderMessages(true); }
+  if (i >= 0) { m.list[i] = d.msg; rerenderOne(key, d.msg.id); }
 });
 live.on('msg.del', (d) => {
   const key = d.channelId ? `c:${d.channelId}` : dmKeyById(d.dmId);
   const m = key && S.msgs.get(key);
   if (!m) return;
-  m.list = m.list.filter((x) => x.id !== d.id);
-  if (msgKey() === key) renderMessages(true);
+  const i = m.list.findIndex((x) => x.id === d.id);
+  if (i < 0) return;
+  m.list.splice(i, 1);
+  if (msgKey() !== key) return;
+  const li = $(`#messages .msg[data-id="${d.id}"]`);
+  if (!li) { renderMessages(true); return; }
+  li.remove();
+  if (m.list[i]) rerenderOne(key, m.list[i].id);   // the next one may now need its name shown
+  renderSeen();
 });
 live.on('read', (d) => {
   if (d.target.startsWith('c:')) { const f = findChannel(Number(d.target.slice(2))); if (f && f.channel.lastId <= d.id) { f.channel.unread = 0; f.channel.mentions = 0; } }
@@ -447,7 +458,9 @@ const openDms = new Set(store.get('openDms', []) || []), closedDms = new Set(sto
 const saveDmList = () => { store.set('openDms', [...openDms]); store.set('closedDms', [...closedDms]); };
 function setView(v) {
   noteUnread(v);
+  const leaving = msgKey();
   S.view = v;
+  if (leaving && leaving !== msgKey()) trimHistory(leaving);
   if (v.kind === 'dm' && (!openDms.has(v.userId) || closedDms.has(v.userId))) { openDms.add(v.userId); closedDms.delete(v.userId); saveDmList(); }
   cancelReply(); closeMentionPop(); closeSearch(); $('#gamesPanel').hidden = true;
   if (v.serverId) S.lastChan[v.serverId] = { kind: v.kind, channelId: v.channelId };
@@ -480,11 +493,12 @@ async function loadHistory(key, older) {
   m.loading = true;
   if (!older) renderMessages();
   const before = older && m.list.length ? m.list[0].id : 0;
+  let got = [];
   try {
     const path = key.startsWith('c:') ? `/api/channels/${key.slice(2)}/messages` : `/api/dms/${key.slice(2)}/messages`;
     const r = await api(`${path}${before ? `?before=${before}` : ''}`);
     const ids = new Set(m.list.map((x) => x.id));
-    const got = r.messages.filter((x) => !ids.has(x.id));
+    got = r.messages.filter((x) => !ids.has(x.id));
     m.list = older ? got.concat(m.list) : got.concat(m.list.filter((x) => x.id > (got.length ? got[got.length - 1].id : 0)));
     if (m.early) { const have = new Set(m.list.map((x) => x.id)); m.list.push(...m.early.filter((x) => !have.has(x.id))); m.list.sort((x, y) => x.id - y.id); m.early = null; }
     m.hasMore = r.messages.length >= 50;
@@ -494,10 +508,24 @@ async function loadHistory(key, older) {
   m.loading = false;
   if (msgKey() === key) {
     const box = $('#messages'), fromBottom = box.scrollHeight - box.scrollTop;
-    renderMessages();
+    const shown = older && box.querySelector('.msg') && m.list[got.length] && $(`#messages .msg[data-id="${m.list[got.length].id}"]`);
+    if (shown) {
+      // Older messages: add just them at the top (redrawing a long chat each time would stall).
+      const frag = document.createDocumentFragment();
+      frag.appendChild(chatTop(m, key));
+      got.forEach((msg, i) => frag.appendChild(messageEl(msg, got[i - 1] || null)));
+      box.firstElementChild.replaceWith(frag);
+      shown.replaceWith(messageEl(m.list[got.length], got[got.length - 1] || null));   // it may now continue the one above
+    } else renderMessages();
     if (older) box.scrollTop = box.scrollHeight - fromBottom;
     markViewedRead();
   }
+}
+/* A chat you scrolled far back in keeps only its newest 100 messages when you leave it (older ones load again when you
+   scroll up), so opening it again is quick. */
+function trimHistory(key) {
+  const m = key && S.msgs.get(key);
+  if (m && m.loaded && !m.loading && m.list.length > 150) { m.list = m.list.slice(-100); m.hasMore = true; }
 }
 function markViewedRead() {
   if (document.hidden) return;
@@ -1144,7 +1172,7 @@ live.on('reactions', (d) => {
   const msg = m && m.list.find((x) => x.id === d.id);
   if (!msg) return;
   msg.reactions = d.reactions;
-  if (msgKey() === key) renderMessages(true);
+  rerenderOne(key, msg.id);
 });
 
 /* ---------- jumping to a message (replies and search) ---------- */
@@ -1285,12 +1313,7 @@ function renderMessages(keepScroll) {
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
   const top = box.scrollTop;
   box.textContent = '';
-  if (m.hasMore && m.loaded) {
-    const more = document.createElement('button'); more.type = 'button'; more.className = 'btn small load-more'; more.textContent = m.loading ? 'Loading…' : 'Load older messages';
-    more.addEventListener('click', () => loadHistory(key, true));
-    box.appendChild(more);
-  } else if (m.loaded) box.appendChild(introEl());
-  if (!m.loaded) { const li = document.createElement('li'); li.className = 'sys'; li.textContent = 'Loading messages…'; box.appendChild(li); }
+  box.appendChild(chatTop(m, key));
   let prev = null;
   const mark = S.newMark && S.newMark.key === key && m.loaded ? m.list[Math.max(0, m.list.length - S.newMark.count)] : null;
   for (const msg of m.list) {
@@ -1304,6 +1327,17 @@ function renderMessages(keepScroll) {
   const div = box.querySelector('.new-divider');
   if (!keepScroll && div && S.newMark.count > 6) box.scrollTop = Math.max(0, div.offsetTop - 40);
   renderNewBar();
+}
+/* The top of a chat: "Load older messages", the channel's welcome, or "Loading messages…". */
+function chatTop(m, key) {
+  if (m.hasMore && m.loaded) {
+    const more = document.createElement('button'); more.type = 'button'; more.className = 'btn small load-more'; more.textContent = m.loading ? 'Loading…' : 'Load older messages';
+    more.addEventListener('click', () => loadHistory(key, true));
+    return more;
+  }
+  if (m.loaded) return introEl();
+  const li = document.createElement('li'); li.className = 'sys'; li.textContent = 'Loading messages…';
+  return li;
 }
 function appendMessage(msg) {
   const box = $('#messages');
@@ -1327,6 +1361,18 @@ function renderSeen() {
   $('#messages').appendChild(li);
 }
 function rerenderMessagesSoft() { if (S.view.kind === 'text' || S.view.kind === 'dm') renderMessages(true); }
+/* One message changed (a reaction, a vote, an edit): redraw just it, so a long chat doesn't stall. */
+function rerenderOne(key, id) {
+  if (msgKey() !== key) return;
+  const m = S.msgs.get(key), i = m ? m.list.findIndex((x) => x.id === id) : -1, li = $(`#messages .msg[data-id="${id}"]`);
+  if (i < 0) return;   // not in this chat
+  if (!li) { renderMessages(true); return; }
+  const box = $('#messages'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  const fresh = messageEl(m.list[i], m.list[i - 1] || null);
+  if (li.classList.contains('flash')) fresh.classList.add('flash');
+  li.replaceWith(fresh);
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
 $('#messages').addEventListener('scroll', () => {
   const box = $('#messages'), key = msgKey(), m = key && S.msgs.get(key);
   if (box.scrollTop < 80 && m && m.loaded && m.hasMore && !m.loading) loadHistory(key, true);
@@ -1340,7 +1386,7 @@ function editMessage(li, msg) {
   box.appendChild(ta); box.appendChild(hint);
   if (body) body.replaceWith(box); else li.appendChild(box);
   ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
-  const done = () => renderMessages(true);
+  const done = () => rerenderOne(msgKey(), msg.id);
   ta.addEventListener('keydown', async (e) => {
     if (e.key === 'Escape') { e.preventDefault(); done(); }
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -2460,7 +2506,7 @@ function lfgEl(msg) {
 }
 live.on('lfg', (d) => {
   const key = `c:${d.channelId}`, m = S.msgs.get(key), msg = m && m.list.find((x) => x.id === d.messageId);
-  if (msg) { msg.lfg = d.lfg; if (msgKey() === key) renderMessages(true); }
+  if (msg) { msg.lfg = d.lfg; rerenderOne(key, msg.id); }
   if (S.view.kind === 'home') loadDashLfg();
 });
 function openLfgBuilder() {
@@ -2598,7 +2644,7 @@ live.on('poll', (d) => {
   const m = key && S.msgs.get(key), msg = m && m.list.find((x) => x.id === d.messageId);
   if (!msg) return;
   msg.poll = d.poll;
-  if (msgKey() === key) renderMessages(true);
+  rerenderOne(key, msg.id);
 });
 function pollOptRow(value = '') {
   const row = document.createElement('div'); row.className = 'row poll-opt-row';
@@ -2672,7 +2718,12 @@ document.querySelectorAll('#disappearOpts [data-secs]').forEach((b) => b.addEven
 }));
 
 /* ================= saved messages (bookmarks) ================= */
-live.on('bookmarks', (d) => { S.bookmarks = new Set(d.ids); rerenderMessagesSoft(); if (S.savedOpen && !$('#searchPanel').hidden) openSaved(); });
+live.on('bookmarks', (d) => {
+  const was = S.bookmarks; S.bookmarks = new Set(d.ids);
+  const key = msgKey();
+  if (key) for (const id of new Set([...was, ...S.bookmarks])) if (was.has(id) !== S.bookmarks.has(id)) rerenderOne(key, id);
+  if (S.savedOpen && !$('#searchPanel').hidden) openSaved();
+});
 async function openSaved() {
   S.savedOpen = true;
   $('#searchForm').hidden = true;
@@ -3405,7 +3456,10 @@ function renderGames() {
     ul.appendChild(li);
   }
 }
-function openGames() { closeSearch(); renderGames(); $('#gamesPanel').hidden = false; loadGames(true); setTimeout(() => $('#gameName').focus(), 30); }
+function openGames() {
+  closeSearch(); renderGames(); $('#gamesPanel').hidden = false; loadGames(true);
+  if (!isPhone()) $('#gameName').focus();   // right away: a late focus would grab what you're typing in the message box
+}
 $('#gamesBtn').addEventListener('click', () => ($('#gamesPanel').hidden ? openGames() : ($('#gamesPanel').hidden = true)));
 $('#gamesClose').addEventListener('click', () => { $('#gamesPanel').hidden = true; });
 $('#gamesPanel').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); $('#gamesPanel').hidden = true; } });

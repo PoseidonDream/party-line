@@ -474,8 +474,8 @@ export function serverView(serverId, viewerId) {
   if (!s) return null;
   const channels = all('SELECT * FROM channels WHERE server_id = ? ORDER BY position, id', serverId).map(publicChannel);
   for (const c of channels) {   // voice channels have a chat too
-    const last = one('SELECT MAX(id) AS m, MAX(created_at) AS t FROM messages WHERE channel_id = ?', c.id);
-    c.lastId = last.m || 0; c.lastAt = last.t || 0;
+    const last = one('SELECT id, created_at FROM messages WHERE channel_id = ? ORDER BY id DESC LIMIT 1', c.id);   // newest is the last id: an index lookup
+    c.lastId = last ? last.id : 0; c.lastAt = last ? last.created_at : 0;
     c.unread = unreadCount(viewerId, `c:${c.id}`, 'channel_id', c.id);
     c.mentions = c.unread ? mentionCount(viewerId, `c:${c.id}`, c.id) : 0;
   }
@@ -990,7 +990,8 @@ export function markRead(userId, target, lastId) {
 }
 function mentionCount(userId, target, channelId) {
   const r = one('SELECT last_id FROM reads WHERE user_id = ? AND target = ?', userId, target);
-  return one(`SELECT COUNT(*) AS n FROM (SELECT 1 FROM messages WHERE channel_id = ? AND id > ? AND body LIKE ? LIMIT 99)`,
+  // Only the newest 1,000 unread messages are looked at, so a channel left unread for months stays quick to count.
+  return one(`SELECT COUNT(*) AS n FROM (SELECT body FROM messages WHERE channel_id = ? AND id > ? ORDER BY id DESC LIMIT 1000) WHERE body LIKE ?`,
     channelId, r ? r.last_id : 0, `%<@${userId}>%`).n;
 }
 function unreadCount(userId, target, col, targetId) {
@@ -1042,7 +1043,7 @@ export function dmWith(userId, otherId, create) {
 export const getDm = (id) => one('SELECT * FROM dms WHERE id = ?', id);
 export function dmsOf(userId) {
   return all(`SELECT d.*, (SELECT MAX(id) FROM messages WHERE dm_id = d.id) AS last_id,
-                     (SELECT MAX(created_at) FROM messages WHERE dm_id = d.id) AS last_at
+                     (SELECT created_at FROM messages WHERE dm_id = d.id ORDER BY id DESC LIMIT 1) AS last_at
               FROM dms d WHERE user_a = ? OR user_b = ?`, userId, userId)
     .filter((d) => d.last_id)
     .map((d) => ({ id: d.id, userId: d.user_a === userId ? d.user_b : d.user_a, lastId: d.last_id, lastAt: d.last_at, unread: unreadCount(userId, `d:${d.id}`, 'dm_id', d.id), disappear: d.disappear || 0 }));
