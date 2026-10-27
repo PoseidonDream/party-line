@@ -1143,6 +1143,10 @@ dialog::backdrop { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px
 .games-head { display: flex; align-items: center; gap: 8px; }
 .games-head h2 { flex: 1; margin: 0; font-size: 16px; }
 .games-head .btn { width: auto; }
+.games-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.games-actions .btn { width: auto; }
+.games-actions select { width: auto; height: 34px; padding: 0 8px; font-size: 13px; }
+.games-actions #gamesPick { margin-left: auto; }
 .games-form { display: grid; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
 .games-form .row > * { flex: 1; min-width: 0; }
 .games-form .btn.primary { height: 40px; font-size: 14px; }
@@ -1160,3 +1164,42 @@ a.game-name:hover { color: var(--lamp-ink); text-decoration: underline; }
 .game-played.on { color: var(--ok); }
 .game-del { flex: none; }
 .games-empty { padding: 10px 2px; }
+
+/* GIF search in the 🙂 picker */
+.gif-query { height: 38px; margin-bottom: 8px; }
+.pick-h { margin: 4px 2px 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.pick-grid.gifs button { background: var(--panel-2); overflow: hidden; }
+.pick-grid.gifs button.busy { opacity: .5; cursor: progress; }
+.pick-tabs { border-bottom: 1px solid var(--line-soft); padding-bottom: 6px; }
+.giphy-credit { margin: 2px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); text-align: right; }
+
+/* Accent colors (Settings → Appearance). Amber is the default, set in :root above. */
+:root[data-accent="cyan"] { --lamp: #22d3ee; --lamp-ink: #67e8f9; --lamp-glow: rgba(34, 211, 238, .42); --lamp-tint: rgba(34, 211, 238, .11); --on-lamp: #031418; }
+@media (prefers-color-scheme: light) { :root[data-accent="cyan"]:not([data-theme="dark"]) { --lamp: #06b6d4; --lamp-ink: #0e7490; --lamp-glow: rgba(34, 211, 238, .4); --lamp-tint: rgba(34, 211, 238, .15); --on-lamp: #031418; } }
+:root[data-accent="cyan"][data-theme="light"] { --lamp: #06b6d4; --lamp-ink: #0e7490; --lamp-glow: rgba(34, 211, 238, .4); --lamp-tint: rgba(34, 211, 238, .15); --on-lamp: #031418; }
+:root[data-accent="violet"] { --lamp: #a78bfa; --lamp-ink: #c4b5fd; --lamp-glow: rgba(167, 139, 250, .42); --lamp-tint: rgba(167, 139, 250, .11); --on-lamp: #140b2e; }
+@media (prefers-color-scheme: light) { :root[data-accent="violet"]:not([data-theme="dark"]) { --lamp: #8b5cf6; --lamp-ink: #6d28d9; --lamp-glow: rgba(167, 139, 250, .4); --lamp-tint: rgba(167, 139, 250, .15); --on-lamp: #ffffff; } }
+:root[data-accent="violet"][data-theme="light"] { --lamp: #8b5cf6; --lamp-ink: #6d28d9; --lamp-glow: rgba(167, 139, 250, .4); --lamp-tint: rgba(167, 139, 250, .15); --on-lamp: #ffffff; }
+:root[data-accent="green"] { --lamp: #4ade80; --lamp-ink: #86efac; --lamp-glow: rgba(74, 222, 128, .42); --lamp-tint: rgba(74, 222, 128, .11); --on-lamp: #04140a; }
+@media (prefers-color-scheme: light) { :root[data-accent="green"]:not([data-theme="dark"]) { --lamp: #22c55e; --lamp-ink: #15803d; --lamp-glow: rgba(74, 222, 128, .4); --lamp-tint: rgba(74, 222, 128, .15); --on-lamp: #04140a; } }
+:root[data-accent="green"][data-theme="light"] { --lamp: #22c55e; --lamp-ink: #15803d; --lamp-glow: rgba(74, 222, 128, .4); --lamp-tint: rgba(74, 222, 128, .15); --on-lamp: #04140a; }
+:root[data-accent="pink"] { --lamp: #f472b6; --lamp-ink: #f9a8d4; --lamp-glow: rgba(244, 114, 182, .42); --lamp-tint: rgba(244, 114, 182, .11); --on-lamp: #2a0618; }
+@media (prefers-color-scheme: light) { :root[data-accent="pink"]:not([data-theme="dark"]) { --lamp: #ec4899; --lamp-ink: #be185d; --lamp-glow: rgba(244, 114, 182, .4); --lamp-tint: rgba(244, 114, 182, .15); --on-lamp: #ffffff; } }
+:root[data-accent="pink"][data-theme="light"] { --lamp: #ec4899; --lamp-ink: #be185d; --lamp-glow: rgba(244, 114, 182, .4); --lamp-tint: rgba(244, 114, 182, .15); --on-lamp: #ffffff; }
+:root[data-accent="white"] { --lamp: #e8e9ee; --lamp-ink: #ffffff; --lamp-glow: rgba(232, 233, 238, .42); --lamp-tint: rgba(232, 233, 238, .11); --on-lamp: #000000; }
+@media (prefers-color-scheme: light) { :root[data-accent="white"]:not([data-theme="dark"]) { --lamp: #16181d; --lamp-ink: #16181d; --lamp-glow: rgba(232, 233, 238, .4); --lamp-tint: rgba(232, 233, 238, .15); --on-lamp: #ffffff; } }
+:root[data-accent="white"][data-theme="light"] { --lamp: #16181d; --lamp-ink: #16181d; --lamp-glow: rgba(232, 233, 238, .4); --lamp-tint: rgba(232, 233, 238, .15); --on-lamp: #ffffff; }
+.accent-pick { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.accent-opt { position: relative; }
+.accent-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.accent-opt span { display: block; width: 32px; height: 32px; border-radius: 50%; background: var(--sw); cursor: pointer; box-shadow: 0 0 0 1px var(--line); transition: box-shadow .15s, transform .15s; }
+.accent-opt span:hover { transform: scale(1.08); }
+.accent-opt input:checked + span { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--sw), 0 0 16px var(--sw); }
+.accent-opt input:focus-visible + span { outline: 2px solid var(--fg); outline-offset: 4px; }
+
+/* Voice channel status */
+.chan-status { margin: -2px 8px 4px 36px; font-size: 12.5px; color: var(--lamp-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc-status { display: flex; align-items: center; gap: 10px; margin: 12px 16px 0; padding: 8px 8px 8px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.vc-status-text { flex: 1; min-width: 0; font-weight: 600; color: var(--lamp-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-status-text.empty { font-weight: 400; color: var(--dim); }
+.vc-status .btn { width: auto; flex: none; }

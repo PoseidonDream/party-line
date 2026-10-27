@@ -10,6 +10,7 @@ import * as M from './model.js';
 import { db } from './db.js';
 import { proxyImage, signatureOk } from './preview.js';
 import * as Push from './push.js';
+import * as Gifs from './gifs.js';
 import { attachHub, hub, voiceChannelOf, voiceCount } from './hub.js';
 
 M.ensureDefaultServer();
@@ -144,6 +145,20 @@ app.get('/api/dev/backup/:token', (req, res) => {
   tar.stdout.pipe(res);
   tar.on('close', done); tar.on('error', (e) => { done(); console.error(e); res.destroy(); });
   res.on('close', () => { if (tar.exitCode === null) tar.kill(); });
+});
+
+/* GIF search (see gifs.js): at most 30 searches a minute per person. */
+const gifTimes = new Map();
+app.get('/api/gifs', auth, async (req, res) => {
+  const now = Date.now(), recent = (gifTimes.get(req.user.id) || []).filter((t) => now - t < 60_000);
+  if (recent.length >= 30) return res.status(429).json({ error: 'Slow down a little with the GIF searches.' });
+  recent.push(now); gifTimes.set(req.user.id, recent);
+  try { res.json(await Gifs.searchGifs(req.query.q)); }
+  catch (e) { if (e instanceof M.UserError) res.status(400).json({ error: e.message }); else { console.error(e); res.status(500).json({ error: 'GIF search failed.' }); } }
+});
+app.post('/api/gifs/send', auth, async (req, res) => {
+  try { res.json({ uploadId: await Gifs.saveGif(req.user.id, (req.body || {}).id) }); }
+  catch (e) { if (e instanceof M.UserError) res.status(400).json({ error: e.message }); else { console.error(e); res.status(500).json({ error: 'That GIF couldn’t be saved.' }); } }
 });
 
 /* Push notifications (see push.js). */

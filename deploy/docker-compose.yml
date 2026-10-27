@@ -20,6 +20,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASK_MODEL: ${ASK_MODEL:-}
       ASK_DAILY_LIMIT: ${ASK_DAILY_LIMIT:-}
+      GIPHY_KEY: ${GIPHY_KEY:-}
       TZ: ${TZ:-Europe/Istanbul}
     volumes:
       - partyline-data:/data

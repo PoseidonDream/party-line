@@ -22,6 +22,7 @@ export function initBot(h) {
   host = h;
   bot = M.ensureBot();
   setInterval(fireReminders, 15_000).unref();
+  setInterval(closeGamePolls, process.env.POLL_MINUTE_MS ? 1000 : 15_000).unref();
   setInterval(birthdays, 10 * 60_000).unref(); setTimeout(birthdays, 20_000).unref();
   setInterval(health, Number(process.env.HEALTH_EVERY) || 10 * 60_000).unref(); setTimeout(health, 60_000).unref();
   return bot;
@@ -225,11 +226,58 @@ function game(ctx) {
   host.games(ctx.where);
   return { ephemeral: `🎮 Added **${name.trim().slice(0, 80)}** to this chat’s game list. See it all with the 🎮 button at the top.` };
 }
+/* Vote tonight's game: a poll of this chat's games nobody has ticked off yet (most wanted first, up to 10).
+   Everyone votes with reactions, and Party Bot announces the winner when time's up. */
+const POLL_MINUTES = [15, 30, 60, 120];
+const minute = () => Number(process.env.POLL_MINUTE_MS) || 60_000;   // tests make minutes short
+export function startGamePoll(user, where, minutes) {
+  const open = M.gamesOf(where).filter((g) => !g.playedAt).slice(0, 10);
+  if (open.length < 2) fail('Add at least 2 games to the list first (or untick ones you’ve played).');
+  if (one('SELECT 1 AS x FROM game_polls WHERE channel_id IS ? AND dm_id IS ?', where.channelId || null, where.dmId || null)) fail('There’s already a vote running here. Wait for the result first.');
+  const mins = POLL_MINUTES.includes(Number(minutes)) ? Number(minutes) : 30;
+  const ends = Date.now() + mins * minute();
+  const emojis = NUMBERS.slice(0, open.length);
+  const msg = post(where, `🗳️ **What do we play tonight?** ${who(user.id)} started a vote. Vote for every game you’d play with the reactions below. Result <t:${Math.floor(ends / 1000)}:R>.\n`
+    + open.map((g, i) => `${emojis[i]} ${g.name}${g.note ? ` · ${g.note}` : ''}`).join('\n'));
+  if (!msg) fail('Couldn’t start the vote.');
+  let reactions = [];
+  for (const e of emojis) reactions = M.react(bot.id, msg.id, e, true);
+  host.broadcastReactions(msg, reactions);
+  run('INSERT INTO game_polls (message_id, channel_id, dm_id, options, ends_at) VALUES (?, ?, ?, ?, ?)', msg.id, where.channelId || null, where.dmId || null,
+    JSON.stringify(open.map((g, i) => ({ emoji: emojis[i], name: g.name, url: g.url || null }))), ends);
+  return {};
+}
+function closeGamePolls() {
+  for (const p of all('SELECT * FROM game_polls WHERE ends_at <= ?', Date.now())) {
+    run('DELETE FROM game_polls WHERE message_id = ?', p.message_id);
+    if (!M.getMessage(p.message_id)) continue;   // the poll was deleted
+    const where = p.channel_id ? { channelId: p.channel_id } : { dmId: p.dm_id };
+    const votes = new Map(all('SELECT emoji, COUNT(*) AS n FROM reactions WHERE message_id = ? AND user_id != ? GROUP BY emoji', p.message_id, bot.id).map((r) => [r.emoji, r.n]));
+    const options = JSON.parse(p.options).map((o) => Object.assign(o, { n: votes.get(o.emoji) || 0 }));
+    const top = Math.max(...options.map((o) => o.n));
+    let text;
+    if (!top) text = '🗳️ Nobody voted, so no game was picked. 😴 Maybe next time!';
+    else {
+      const best = options.filter((o) => o.n === top), win = best[Math.floor(Math.random() * best.length)];
+      const votesText = `${top} vote${top === 1 ? '' : 's'}`;
+      text = best.length > 1
+        ? `🏆 It’s a tie between ${best.map((o) => `**${o.name}**`).join(' and ')} (${votesText} each), so I picked… **${win.name}**! 🎮${win.url ? ` ${win.url}` : ''}`
+        : `🏆 Tonight’s game: **${win.name}** with ${votesText}! 🎮${win.url ? ` ${win.url}` : ''}`;
+    }
+    try { host.post(where, text, p.message_id); } catch {}
+  }
+}
 function games(ctx) {
   const list = M.gamesOf(ctx.where);
   const open = list.filter((g) => !g.playedAt), done = list.length - open.length;
   if (!list.length) return { ephemeral: 'No games on this chat’s list yet. Add one with /game and its name, or the 🎮 button at the top.' };
   return { ephemeral: [`🎮 **Games to play here** (${open.length}${done ? `, plus ${done} played` : ''})`, ...open.slice(0, 15).map((g, i) => `${i + 1}. ${g.name}${g.votes.length ? ` · 👍 ${g.votes.length}` : ''}${g.note ? ` · ${g.note}` : ''}`)].join('\n') };
+}
+function vote(ctx) {
+  const m = /^(\d+)\s*(m|min|mins|minutes|h|hour|hours)?$/i.exec(ctx.args);
+  const mins = m ? Number(m[1]) * (/^h/i.test(m[2] || '') ? 60 : 1) : 30;
+  if (ctx.args && !POLL_MINUTES.includes(mins)) fail('Votes can last 15m, 30m, 1h or 2h, like: /vote 1h');
+  return startGamePoll(ctx.user, ctx.where, mins);
 }
 /* The question shows up right away for everyone, and the answer arrives as a reply to it. */
 async function ask(ctx) {
@@ -314,12 +362,13 @@ const HELP = [
   '/remind 10m take the pizza out: a reminder in this chat (s, m, h or d)',
   '🎮 **Games**',
   '/game Name: add a game to this chat’s list for later (or use the 🎮 button). /games: the list',
+  '/vote: everyone votes on tonight’s game from the list (/vote 1h for a longer vote)',
   '🤖 **Ask**',
   '/ask anything: Party Bot answers (it reads the last few messages here for context)',
 ].join('\n');
 
 export const COMMANDS = {
-  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games,
+  play, pause, resume, skip, stop, queue, np: queue, roll, coinflip, flip: coinflip, poll, remind, ask, game, games, vote,
   help: () => ({ ephemeral: HELP }),
 };
 /* For the command hints in the message box. */
@@ -329,7 +378,7 @@ export const COMMAND_LIST = [
   ['stop', '', 'Stop the music and clear the queue'], ['queue', '', 'What’s playing and what’s next'],
   ['roll', '[20 or 2d6]', 'Roll dice'], ['coinflip', '', 'Heads or tails'],
   ['poll', 'Question | Choice | Choice', 'Start a poll with reaction votes'],
-  ['remind', '10m what', 'Get a reminder in this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['help', '', 'All bot commands'],
+  ['remind', '10m what', 'Get a reminder in this chat'], ['ask', 'question', 'Party Bot answers with AI'], ['game', 'Name', 'Add a game to this chat’s list'], ['games', '', 'Games to play here'], ['vote', '[15m, 30m, 1h or 2h]', 'Vote on tonight’s game from the list'], ['help', '', 'All bot commands'],
 ];
 
 export const isCommand = (body) => { const m = /^\/([a-z]+)(?:\s|$)/i.exec(String(body || '').trim()); return !!(m && Object.hasOwn(COMMANDS, m[1].toLowerCase())); };

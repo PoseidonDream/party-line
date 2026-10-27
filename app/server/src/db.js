@@ -182,6 +182,17 @@ CREATE TABLE IF NOT EXISTS reset_requests (
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS gif_cache (
+  giphy_id TEXT PRIMARY KEY,
+  upload_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS game_polls (
+  message_id INTEGER PRIMARY KEY,
+  channel_id INTEGER,
+  dm_id INTEGER,
+  options TEXT NOT NULL,
+  ends_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS game_ideas (
   id INTEGER PRIMARY KEY,
   channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,

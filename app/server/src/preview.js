@@ -40,7 +40,7 @@ function safeLookup(host, opts, cb) {
   });
 }
 /* GET a URL, following up to 3 redirects, reading at most `max` bytes. Resolves { url, type, body }. */
-function get(url, max, accept, hops = 0) {
+export function get(url, max, accept, hops = 0) {
   return new Promise((resolve, reject) => {
     let u;
     try { u = new URL(url); } catch { return reject(new Error('bad url')); }

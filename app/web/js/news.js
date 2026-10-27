@@ -2,6 +2,12 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 3, items: [
+    ['🗳️', 'Vote tonight’s game', 'In the 🎮 list, press “Vote tonight’s game” (or type /vote). Everyone votes with reactions and Party Bot announces the winner.'],
+    ['🎨', 'Accent colors', 'Settings → Appearance: amber, cyan, violet, green, pink or white glow.'],
+    ['🔊', 'Voice channel status', 'In a voice channel, set a line like “ranked Valorant 🔥” that everyone sees under the channel.'],
+    ['🔎', 'GIF search', 'The 🙂 button → GIFs: search any GIF (when the server has GIF search switched on).'],
+  ] },
   { id: 2, items: [
     ['🖤', 'A new, black look', 'Darker and simpler. Prefer the old light look? Settings → Light.'],
     ['🎮', 'Games to play', 'Every chat has a 🎮 list of games to try. Vote 👍, tick off what you’ve played, and press 🎲 to let Party Bot pick one. Or type /game and a name.'],

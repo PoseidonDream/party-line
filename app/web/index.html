@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="/app.css">
-<script>try { var s = JSON.parse(localStorage.getItem('pl:settings')) || {}, t = s.theme; if (!t || (t === 'system' && !s.themeV)) t = 'dark'; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) { document.documentElement.dataset.theme = 'dark'; }</script>
+<script>try { var s = JSON.parse(localStorage.getItem('pl:settings')) || {}, t = s.theme; if (!t || (t === 'system' && !s.themeV)) t = 'dark'; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; if (s.accent && s.accent !== 'amber') document.documentElement.dataset.accent = s.accent; } catch (e) { document.documentElement.dataset.theme = 'dark'; }</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -235,8 +235,12 @@
     <div class="search-panel games-panel" id="gamesPanel" role="dialog" aria-labelledby="gamesTitle" hidden>
       <div class="games-head">
         <h2 id="gamesTitle">🎮 Games to play</h2>
-        <button type="button" class="btn small" id="gamesPick" title="Party Bot picks one (more 👍, better odds)">🎲 Pick one</button>
         <button type="button" class="btn small icon-btn" id="gamesClose" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="games-actions">
+        <button type="button" class="btn small" id="gamesPoll" title="Everyone votes with reactions; Party Bot announces the winner">🗳️ Vote tonight’s game</button>
+        <select id="gamesPollMins" aria-label="How long the vote lasts"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="60">1 hour</option><option value="120">2 hours</option></select>
+        <button type="button" class="btn small" id="gamesPick" title="Party Bot picks one now (more 👍, better odds)">🎲 Pick one</button>
       </div>
       <form class="games-form" id="gamesForm">
         <input type="text" id="gameName" class="input" maxlength="80" placeholder="Game name, like Lethal Company" aria-label="Game name" required>
@@ -277,9 +281,9 @@
       <form class="composer" id="chatForm">
         <div class="pick-pop" id="pickPop" role="dialog" aria-label="Emoji, stickers and GIFs" hidden>
           <div class="tabs pick-tabs" role="tablist">
-            <button type="button" role="tab" data-pick="emoji" aria-selected="true">Emoji</button>
-            <button type="button" role="tab" data-pick="sticker" aria-selected="false">Stickers</button>
-            <button type="button" role="tab" data-pick="gif" aria-selected="false">GIFs</button>
+            <button type="button" class="tab" role="tab" data-pick="emoji" aria-selected="true">Emoji</button>
+            <button type="button" class="tab" role="tab" data-pick="sticker" aria-selected="false">Stickers</button>
+            <button type="button" class="tab" role="tab" data-pick="gif" aria-selected="false">GIFs</button>
           </div>
           <div class="pick-body" id="pickBody"></div>
         </div>
@@ -343,6 +347,7 @@
     </div>
 
     <div class="view-voice" id="viewVoice" hidden>
+      <div class="vc-status" id="vcStatus" hidden><span class="vc-status-text" id="vcStatusText"></span><button type="button" class="btn small" id="vcStatusEdit"><svg class="ic"><use href="#i-pencil"/></svg><span id="vcStatusEditLabel">Set a status</span></button></div>
       <div class="stage" id="stage" hidden>
         <div class="stage-bar">
           <div class="stage-title" id="stageTitle"></div>
@@ -649,6 +654,15 @@
           <label class="theme-opt"><input type="radio" name="theme" value="light"><span>Light</span></label>
         </div>
         <p class="hint">System follows your computer or phone's dark mode setting.</p>
+        <div class="accent-pick" role="radiogroup" aria-label="Accent color">
+          <label class="accent-opt" title="Amber"><input type="radio" name="accent" value="amber" aria-label="Amber"><span style="--sw: #ffad1f"></span></label>
+          <label class="accent-opt" title="Cyan"><input type="radio" name="accent" value="cyan" aria-label="Cyan"><span style="--sw: #22d3ee"></span></label>
+          <label class="accent-opt" title="Violet"><input type="radio" name="accent" value="violet" aria-label="Violet"><span style="--sw: #a78bfa"></span></label>
+          <label class="accent-opt" title="Green"><input type="radio" name="accent" value="green" aria-label="Green"><span style="--sw: #4ade80"></span></label>
+          <label class="accent-opt" title="Pink"><input type="radio" name="accent" value="pink" aria-label="Pink"><span style="--sw: #f472b6"></span></label>
+          <label class="accent-opt" title="White"><input type="radio" name="accent" value="white" aria-label="White"><span style="--sw: #e8e9ee"></span></label>
+        </div>
+        <p class="hint">Accent color: what glows when something is selected, live or talking. Saved on this device.</p>
       </fieldset>
       <div class="field">
         <label class="flabel" for="setName">Display name</label>
@@ -819,7 +833,7 @@
   <form method="dialog" class="cf">
     <h2 id="cfTitle"></h2>
     <p id="cfText"></p>
-    <input type="text" id="cfInput" class="input" maxlength="40" hidden>
+    <input type="text" id="cfInput" class="input" maxlength="60" hidden>
     <div class="cf-btns"><button class="btn" value="cancel">Cancel</button><button class="btn cf-ok" value="ok" id="cfOk">Delete</button></div>
   </form>
 </dialog>

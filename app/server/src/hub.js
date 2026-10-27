@@ -13,6 +13,7 @@ import QRCode from 'qrcode';
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
 const voice = new Map();     // userId -> { channelId, serverId, connId, muted, deafened, sharing, screenId, serverMuted, since }
+const voiceStatus = new Map();   // voice channelId -> { text, by }: a line like "ranked Valorant 🔥", until the channel empties
 let nextConn = 1;
 const cmdTimes = new Map();   // userId -> times of recent bot commands
 const startedAt = Date.now();
@@ -162,6 +163,7 @@ function readyFor(user) {
     dms: M.dmsOf(user.id),
     voice: [...voice].filter(([, v]) => mine.has(v.serverId)).map(([id, v]) => voiceView(id, v)),
     previews: [...voice].filter(([, v]) => mine.has(v.serverId) && v.preview).map(([userId, v]) => ({ userId, img: v.preview })),
+    voiceStatus: [...voiceStatus].filter(([chId]) => { const ch = M.getChannel(chId); return ch && mine.has(ch.server_id); }).map(([channelId, st]) => ({ channelId, status: st })),
     music: Bot.musicStates(mine),
     events: [...mine].flatMap((id) => M.eventsOf(id)),
     sounds: [...mine].flatMap((id) => M.soundsOf(id)),
@@ -181,6 +183,7 @@ function leaveVoice(userId, reason) {
   toServer(v.serverId, { t: 'voice.left', userId, channelId: v.channelId, serverId: v.serverId });
   if (![...voice.values()].some((x) => x.channelId === v.channelId)) {
     Bot.voiceEmptied(v.channelId);
+    if (voiceStatus.delete(v.channelId)) toServer(v.serverId, { t: 'voice.status', channelId: v.channelId, status: null });
     toServer(v.serverId, { t: 'ring.stop', channelId: v.channelId });
   }
   if (reason) { const c = conns.get(v.connId); send(c, { t: 'voice.kicked', reason }); }
@@ -323,6 +326,7 @@ const handlers = {
     shareGames(w);
     return {};
   },
+  'games.poll'(c, user, d) { return Bot.startGamePoll(user, gameWhere(user, d, true), d.minutes); },
   /* 🎲: Party Bot picks one of the games nobody has ticked off yet; more votes, better odds. */
   'games.pick'(c, user, d) {
     const w = gameWhere(user, d, false);
@@ -648,6 +652,19 @@ const handlers = {
     v.camera = !!d.camera;
     if (!v.sharing && v.preview) { v.preview = null; toServer(v.serverId, { t: 'voice.preview', userId: user.id, img: null }); }
     toServer(v.serverId, { t: 'voice', state: voiceView(user.id, v) });
+    return {};
+  },
+  /* Voice channel status: anyone in the channel (or who can manage channels) sets a short line everyone sees
+     under the channel's name. It clears when the last person leaves. */
+  'voice.status'(c, user, d) {
+    const ch = M.getChannel(Number(d.channelId));
+    if (!ch || ch.kind !== 'voice' || !M.isMember(user.id, ch.server_id)) fail('That voice channel is gone.');
+    const v = voice.get(user.id);
+    if (!(v && v.channelId === ch.id) && !M.can(user, M.getServer(ch.server_id), 'channels')) fail('Join the voice channel to set its status.');
+    if (![...voice.values()].some((x) => x.channelId === ch.id)) fail('Nobody is in that channel, so there’s nothing to set a status for.');
+    const text = String(d.text || '').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (text) voiceStatus.set(ch.id, { text, by: user.id }); else voiceStatus.delete(ch.id);
+    toServer(ch.server_id, { t: 'voice.status', channelId: ch.id, status: text ? { text, by: user.id } : null });
     return {};
   },
   /* Go Live preview: whoever shares their screen sends a small snapshot every so often, so people in the server

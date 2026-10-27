@@ -11,7 +11,7 @@ const { V } = Voice;
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(), voiceStatus: new Map(),
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -32,6 +32,8 @@ function applyTheme() {
   if (meta) meta.content = isDark() ? '#000000' : '#e8ebf0';
   $('#themeToggle').querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
   for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
+  if (settings.accent && settings.accent !== 'amber') root.dataset.accent = settings.accent; else delete root.dataset.accent;
+  for (const r of document.querySelectorAll('input[name="accent"]')) r.checked = r.value === (settings.accent || 'amber');
   if (desktop && desktop.setTheme) desktop.setTheme(settings.theme);
 }
 function setTheme(t) { settings.theme = t; saveSettings(); applyTheme(); }
@@ -242,6 +244,7 @@ live.on('ready', (d) => {
   S.resets = d.resets || [];
   S.notif = d.notify || {};
   S.previews = new Map((d.previews || []).map((p) => [p.userId, p.img]));
+  S.voiceStatus = new Map((d.voiceStatus || []).map((x) => [x.channelId, x.status]));
   S.emoji = new Map((d.emoji || []).map((e) => [e.id, e]));
   S.gifs = d.gifs || [];
   renderResetBar();
@@ -635,6 +638,8 @@ function renderSide() {
       if (tune) { const l = document.createElement('span'); l.className = 'chan-music'; l.title = `Playing: ${tune.now.title}`; l.innerHTML = iconSvg('music'); b.appendChild(l); }
       b.addEventListener('click', () => { setView({ kind: 'voice', serverId: s.id, channelId: c.id }); if (V.channelId !== c.id) joinVoice(c.id); });
       li.appendChild(b);
+      const vst = S.voiceStatus.get(c.id);
+      if (vst) { const st = document.createElement('div'); st.className = 'chan-status'; st.textContent = vst.text; st.title = `Status set by ${nameOf(vst.by)}`; li.appendChild(st); }
       if (people.length) {
         const ul = document.createElement('ul'); ul.className = 'members';
         for (const p of people) {
@@ -1627,6 +1632,12 @@ function renderVoiceView() {
   const chId = S.view.channelId;
   const people = voiceIn(chId);
   const inThis = V.channelId === chId;
+  const vst = S.voiceStatus.get(chId);
+  $('#vcStatus').hidden = !vst && !inThis;
+  $('#vcStatusText').textContent = vst ? vst.text : 'No status yet. Tell others what’s going on here, like “ranked Valorant 🔥”.';
+  $('#vcStatusText').classList.toggle('empty', !vst);
+  $('#vcStatusEdit').hidden = !inThis;
+  $('#vcStatusEditLabel').textContent = vst ? 'Change' : 'Set a status';
   const tiles = $('#tiles');
   tiles.textContent = '';
   // the stage: someone's screen share you chose to watch
@@ -1904,6 +1915,15 @@ setInterval(() => {
 $('#afkUnmute').addEventListener('click', () => {
   lastSpoke = Date.now();
   if (V.muted || V.deafened) { if (V.deafened) Voice.setDeafened(false); Voice.setMuted(false); S.mutedSince = 0; renderVoiceBits(); }
+});
+
+/* Voice channel status (shown under the channel's name until everyone leaves) */
+live.on('voice.status', (d) => { if (d.status) S.voiceStatus.set(d.channelId, d.status); else S.voiceStatus.delete(d.channelId); renderSide(); if (S.view.kind === 'voice') renderVoiceView(); });
+$('#vcStatusEdit').addEventListener('click', async () => {
+  const chId = S.view.channelId, cur = S.voiceStatus.get(chId);
+  const text = await confirmBox('Voice channel status', 'A short line everyone sees under the channel’s name, like “ranked Valorant 🔥” or “just chilling”. Leave it empty to clear it. It goes away when everyone leaves.', 'Save', cur ? cur.text : '');
+  if (text === false) return;
+  act(() => live.req('voice.status', { channelId: chId, text }));
 });
 
 /* Server menu → AFK channel */
@@ -2356,6 +2376,7 @@ $('#inVol').addEventListener('input', (e) => { $('#inVolOut').textContent = `${e
 $('#outVol').addEventListener('input', (e) => { $('#outVolOut').textContent = `${e.target.value}%`; settings.outputVol = clampLevel(e.target.value / 100); saveSettings(); Voice.applyAllVolumes(); });
 document.querySelectorAll('input[name="noise"]').forEach((r) => r.addEventListener('change', () => Voice.setNoiseMode(r.value).then(renderUserArea)));
 document.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
+document.querySelectorAll('input[name="accent"]').forEach((r) => r.addEventListener('change', () => { settings.accent = r.value; saveSettings(); applyTheme(); }));
 document.querySelectorAll('input[name="quality"]').forEach((r) => r.addEventListener('change', () => { settings.quality = r.value; saveSettings(); }));
 $('#setPtt').addEventListener('change', (e) => { settings.ptt = e.target.checked; saveSettings(); Voice.setPtt(false); Voice.applyMic(); renderUserArea(); });
 $('#setNotify').addEventListener('change', async (e) => {
@@ -2452,14 +2473,53 @@ function renderPick() {
       b.addEventListener('click', () => sendSpecial(`<s:${e.id}>`)); g.appendChild(b);
     }
   } else {
-    if (!S.gifs.length) { note('Your saved GIFs show up here. Press “☆ Save to my GIFs” under any GIF or picture in the chat.'); return; }
-    const g = grid('big gifs');
-    for (const x of S.gifs) {
-      const b = document.createElement('button'); b.type = 'button'; b.title = 'Send this GIF';
-      const img = document.createElement('img'); img.src = absUrl(x.url); img.alt = 'GIF'; img.loading = 'lazy'; b.appendChild(img);
-      b.addEventListener('click', () => sendSpecial(`<g:${x.id}>`)); g.appendChild(b);
-    }
+    const inp = document.createElement('input'); inp.type = 'search'; inp.className = 'input gif-query'; inp.id = 'gifQuery';
+    inp.placeholder = 'Search GIFs'; inp.setAttribute('aria-label', 'Search GIFs'); inp.value = gifQuery; inp.autocomplete = 'off';
+    const out = document.createElement('div'); out.className = 'gif-results';
+    body.append(inp, out);
+    inp.addEventListener('input', () => { gifQuery = inp.value; clearTimeout(gifTimer); gifTimer = setTimeout(() => searchGifs(out), 350); });
+    searchGifs(out);
+    setTimeout(() => inp.focus(), 20);
   }
+}
+/* GIFs tab: your saved GIFs, then Giphy search (trending when the box is empty). Search goes through our
+   server; see gifs.js. */
+let gifQuery = '', gifTimer = null, gifSeq = 0, gifSearchOn = null;
+function gifGrid(out, items, onPick) {
+  const g = document.createElement('div'); g.className = 'pick-grid big gifs'; out.appendChild(g);
+  for (const x of items) {
+    const b = document.createElement('button'); b.type = 'button'; b.title = x.title ? `Send “${x.title}”` : 'Send this GIF';
+    const img = document.createElement('img'); img.src = absUrl(x.preview || x.url); img.alt = x.title || 'GIF'; img.loading = 'lazy'; b.appendChild(img);
+    b.addEventListener('click', () => onPick(x, b)); g.appendChild(b);
+  }
+}
+async function searchGifs(out) {
+  const q = gifQuery.trim(), my = ++gifSeq;
+  const add = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; e.textContent = text; out.appendChild(e); return e; };
+  const paint = (res, err) => {
+    if (my !== gifSeq || !out.isConnected) return;
+    out.textContent = '';
+    if (!q && S.gifs.length) { add('h4', 'pick-h', '★ Saved'); gifGrid(out, S.gifs, (x) => sendSpecial(`<g:${x.id}>`)); }
+    if (err) { add('p', 'hint pick-note', err); return; }
+    if (!res.enabled) {
+      if (!S.gifs.length) add('p', 'hint pick-note', 'GIFs you save (☆ under any picture in the chat) show up here.');
+      add('p', 'hint pick-note', 'GIF search is off on this server. The server owner can switch it on with a free Giphy key (see DEPLOY.md).');
+      return;
+    }
+    add('h4', 'pick-h', q ? `Results for “${q}”` : 'Trending');
+    if (!res.gifs.length) add('p', 'hint pick-note', 'No GIFs found. Try other words.');
+    gifGrid(out, res.gifs, async (x, btn) => {
+      btn.disabled = true; btn.classList.add('busy');
+      const r = await act(() => api('/api/gifs/send', { method: 'POST', body: { id: x.id } }));
+      btn.disabled = false; btn.classList.remove('busy');
+      if (r) sendSpecial(`<g:${r.uploadId}>`);
+    });
+    add('p', 'giphy-credit', 'Powered by GIPHY');
+  };
+  if (gifSearchOn === false) { paint({ enabled: false, gifs: [] }); return; }
+  if (!out.childElementCount) add('p', 'hint pick-note', 'Loading GIFs…');
+  try { const r = await api(`/api/gifs?q=${encodeURIComponent(q)}`); gifSearchOn = r.enabled; paint(r); }
+  catch (e) { paint(null, e.message); }
 }
 function insertText(t) {
   const ta = chatInput, a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
@@ -2547,6 +2607,7 @@ function renderGames() {
   const ul = $('#gamesList'); ul.textContent = '';
   const list = S.games.get(msgKey()) || [];
   $('#gamesPick').disabled = !list.some((g) => !g.playedAt);
+  $('#gamesPoll').disabled = list.filter((g) => !g.playedAt).length < 2;
   if (!list.length) { const li = document.createElement('li'); li.className = 'hint games-empty'; li.textContent = 'No games yet. Add the ones you want to try together, so you remember them on game night.'; ul.appendChild(li); return; }
   const srv = curServer(), mod = S.view.kind === 'text' && can(srv, 'messages');
   for (const g of list) {
@@ -2583,6 +2644,9 @@ $('#gamesForm').addEventListener('submit', async (e) => {
   if (r) { $('#gameName').value = ''; $('#gameUrl').value = ''; $('#gameNote').value = ''; loadGames(true); $('#gameName').focus(); }
 });
 $('#gamesPick').addEventListener('click', () => act(() => live.req('games.pick', gameTarget())));
+$('#gamesPoll').addEventListener('click', async () => {
+  if (await act(() => live.req('games.poll', Object.assign({ minutes: Number($('#gamesPollMins').value) }, gameTarget())))) $('#gamesPanel').hidden = true;
+});
 
 /* "New in Party Line" (see news.js) */
 function showNews() {

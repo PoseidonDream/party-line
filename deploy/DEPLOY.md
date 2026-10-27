@@ -156,7 +156,9 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 - **Events:** the Events button in a server plans things like game night. Friends answer Going or Maybe, and Party Bot reminds everyone going 15 minutes before.
 - **Notifications:** the bell at the top of a chat chooses All messages, Only @mentions or Nothing (the server menu sets the default). In the website, Settings → **Even when Party Line is closed** sends private messages, @mentions and calls to the phone or computer even with the tab closed (on iPhone, Add to Home Screen first).
 - **Desktop app extras** (all in the tray icon's menu): **Ctrl+Shift+M** mutes and **Ctrl+Shift+D** deafens from any app, even mid-game (pick other keys in the menu). An **overlay** in the top-left corner shows who's in your voice channel and who's talking while you're in a game (works in windowed and borderless games, not exclusive full screen). **Start with the computer** can start quietly in the tray.
-- **Games to play:** every chat has a 🎮 button with its own list of games to try later. Vote 👍, tick off what you've played, and press **🎲 Pick one** to let Party Bot choose. `/game Name` adds one from the message box.
+- **Games to play:** every chat has a 🎮 button with its own list of games to try later. Vote 👍, tick off what you've played, and press **🎲 Pick one** to let Party Bot choose. `/game Name` adds one from the message box. **🗳️ Vote tonight's game** (or `/vote`, `/vote 1h`) starts a poll of the list, and Party Bot announces the winner when time's up.
+- **Voice channel status:** in a voice channel, press **Set a status** at the top to show a line like "ranked Valorant 🔥" under the channel's name. It clears when everyone leaves.
+- **Accent color:** Settings → Appearance has six glow colors (amber, cyan, violet, green, pink, white). Each device remembers its own.
 - **Emoji, stickers and GIFs:** server menu → **Emoji & stickers** to add your own. Type `:name:` or use the 🙂 button next to the message box, which also holds stickers and the GIFs you saved (☆ under any picture).
 - **Birthdays:** add yours in Settings. Friends see 🎂 next to your name on the day and Party Bot says happy birthday in #general.
 - **Voice extras:** server menu → **AFK channel** moves people who are quiet for 15 minutes (or muted for 30) there instead of disconnecting them. Point at a **LIVE** badge to peek at someone's screen before joining.
@@ -174,6 +176,16 @@ Type these in any text channel or private chat. Type **/** to see the list.
 - `/help` lists everything.
 
 Each device plays the video in YouTube's own player, so it follows YouTube's rules. A few videos can't be played outside YouTube, and the bot skips those.
+
+### GIF search (optional, free)
+
+The 🙂 button next to the message box has a **GIFs** tab. Saved GIFs always work; searching all GIFs needs a free Giphy key (Google's Tenor, the other big one, closed its GIF service in June 2026):
+
+1. Go to developers.giphy.com, sign up, and press **Create an API key** → **API** (not SDK). Give it any name, like "Party Line".
+2. On the server: `nano /opt/party-line/deploy/.env` and add the line `GIPHY_KEY=the key you got`
+3. Run `cd /opt/party-line/deploy && docker compose up -d`.
+
+The free key allows about 100 searches an hour for the whole group, plenty for friends (the same search within 10 minutes is answered by your server and doesn't count). Searches go through your server, so Giphy never sees your friends' addresses, and the GIFs people send are saved on your server.
 
 ### /ask: Party Bot answers questions (optional, costs a little)
 
