@@ -22,7 +22,8 @@ export default async function (ok) {
     await b.reload();
     await b.waitForSelector('#newsDlg[open] .news-list li');
     const news = await b.textContent('#newsList');
-    ok('after an update, friends see what’s new (newest first)', news.includes('Meme soundboard') && news.indexOf('Meme soundboard') < news.indexOf('Home dashboard') && news.indexOf('Home dashboard') < news.indexOf('Better polls'));
+    const shown = await b.locator('#newsList li').count();
+    ok(`after an update, friends see what’s new (newest first, ${shown} items at most 14)`, news.includes('Slow-mo voice') && news.indexOf('Slow-mo voice') < news.indexOf('Meme soundboard') && news.indexOf('Meme soundboard') < news.indexOf('Home dashboard') && shown <= 14);
     await b.screenshot({ path: `${RESULTS}/whats-new.png` });
     await b.click('#newsOk');
     await b.reload(); await b.waitForSelector('#room:not([hidden])'); await b.waitForTimeout(800);
