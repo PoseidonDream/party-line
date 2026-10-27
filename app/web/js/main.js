@@ -1065,11 +1065,15 @@ const decodeMentions = (text) => String(text || '').replace(/^<poll:\d+>$/, 'ðŸ“
   .replace(/<t:(\d{9,11})(?::R)?>/g, (x, t) => fmtWhen(Number(t) * 1000));
 const mentionsMe = (msg) => !!msg.body && msg.body.includes(`<@${S.me.id}>`);
 let lastRendered = { author: null, at: 0 };
-function messageEl(msg, prev) {
+/* prev: the message this one may continue (same person, a moment later); before: the one just above it, for the
+   day line ("Today", "Yesterday", "12 Oct") over the first message of each day. */
+function messageEl(msg, prev, before = prev) {
   const cont = !msg.reply && prev && prev.userId === msg.userId && msg.at - prev.at < 5 * 60_000 && fmtDay(prev.at) === fmtDay(msg.at);
+  const newDay = !before || fmtDay(before.at) !== fmtDay(msg.at);
   const li = document.createElement('li');
-  li.className = 'msg' + (cont ? ' cont' : '') + (msg.reply ? ' has-reply' : '') + (mentionsMe(msg) ? ' mentioned' : '');
+  li.className = 'msg' + (cont ? ' cont' : '') + (newDay ? ' new-day' : '') + (msg.reply ? ' has-reply' : '') + (mentionsMe(msg) ? ' mentioned' : '');
   li.dataset.id = msg.id;
+  if (newDay) { const d = document.createElement('div'); d.className = 'day-line'; d.setAttribute('role', 'separator'); const t = document.createElement('span'); t.textContent = fmtDay(msg.at); d.appendChild(t); li.appendChild(d); }
   if (msg.reply) {
     const r = document.createElement('button'); r.type = 'button'; r.className = 'msg-reply';
     if (msg.reply.deleted) r.textContent = 'Original message was deleted';
@@ -1092,7 +1096,7 @@ function messageEl(msg, prev) {
   if (msg.expiresAt) { const x = document.createElement('span'); x.className = 'msg-expires'; x.textContent = 'â³'; x.title = `Disappears ${fmtRelative(msg.expiresAt)}`; head.appendChild(x); }
   if (msg.pinned) { const p = document.createElement('span'); p.className = 'msg-pinned'; p.title = `Pinned by ${nameOf(msg.pinned.by)}`; p.innerHTML = iconSvg('pin'); head.appendChild(p); }
   const tm = document.createElement('time'); tm.className = 'msg-time'; tm.dateTime = new Date(msg.at).toISOString();
-  tm.textContent = `${fmtDay(msg.at)} ${fmtTime(msg.at)}`; tm.title = new Date(msg.at).toLocaleString();
+  tm.textContent = fmtTime(msg.at); tm.title = new Date(msg.at).toLocaleString();   // the day is on the line above the day's first message
   head.appendChild(tm);
   li.appendChild(head);
   const special = msg.body && /^<([sg]):([\w-]+)>$/.exec(msg.body);
@@ -1326,11 +1330,11 @@ function renderMessages(keepScroll) {
   const top = box.scrollTop;
   box.textContent = '';
   box.appendChild(chatTop(m, key));
-  let prev = null;
+  let prev = null, last = null;
   const mark = S.newMark && S.newMark.key === key && m.loaded ? m.list[Math.max(0, m.list.length - S.newMark.count)] : null;
   for (const msg of m.list) {
     if (mark && msg === mark && msg.userId !== S.me.id) { const d = document.createElement('li'); d.className = 'new-divider'; d.innerHTML = '<span>New messages</span>'; box.appendChild(d); prev = null; }
-    box.appendChild(messageEl(msg, prev)); prev = msg;
+    box.appendChild(messageEl(msg, prev, last)); prev = msg; last = msg;
   }
   lastRendered = { key, prev };
   renderSeen();
@@ -4088,9 +4092,9 @@ $('#fxBtn').addEventListener('click', () => {
   if (!$('#fxPop').hidden) { closeFx(); return; }
   syncFx();
   const pop = $('#fxPop'); pop.hidden = false;
-  const r = $('#fxBtn').getBoundingClientRect();
+  const r = $('#fxBtn').getBoundingClientRect(), above = $('#voiceStatus').getBoundingClientRect().top || r.top;
   pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left))}px`;
-  pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+  pop.style.top = `${Math.max(8, above - pop.offsetHeight - 8)}px`;
   $('#fxBtn').setAttribute('aria-expanded', 'true');
 });
 $('#fxHear').addEventListener('change', () => Voice.setMonitor($('#fxHear').checked));
@@ -4107,9 +4111,9 @@ function openSoundboard() {
 }
 /* Above the soundboard button, and kept on screen as the Add a sound form grows. */
 function placeSoundPop() {
-  const pop = $('#soundPop'), r = $('#soundBtn').getBoundingClientRect();
+  const pop = $('#soundPop'), r = $('#soundBtn').getBoundingClientRect(), above = $('#voiceStatus').getBoundingClientRect().top || r.top;
   pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left))}px`;
-  pop.style.top = `${Math.max(8, Math.min(r.top - pop.offsetHeight - 8, innerHeight - pop.offsetHeight - 8))}px`;
+  pop.style.top = `${Math.max(8, Math.min(above - pop.offsetHeight - 8, innerHeight - pop.offsetHeight - 8))}px`;   // above the voice bar, not over it
 }
 function closeSoundboard() { $('#soundPop').hidden = true; $('#soundBtn').setAttribute('aria-expanded', 'false'); soundKeysMode = false; keyCapture = null; endPreview(); }
 $('#soundBtn').addEventListener('click', () => ($('#soundPop').hidden ? openSoundboard() : closeSoundboard()));

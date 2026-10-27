@@ -86,7 +86,7 @@ export function makeAnalyser(stream) {
     return { source, analyser };
   } catch { return { source: null, analyser: null }; }
 }
-export const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 export function fmtDay(ts) {
   const d = new Date(ts), n = new Date();
   if (d.toDateString() === n.toDateString()) return 'Today';
