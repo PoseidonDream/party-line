@@ -54,7 +54,7 @@ function teardownFx() {
 const needsFx = () => settings.noiseMode === 'strong' || Math.abs(settings.inputVol - 1) > 0.004 || settings.voiceFx !== 'none';
 
 /* ================= voice effects (for fun: your friends hear you through them) ================= */
-export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch'];
+export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch', 'slowmo'];
 let pitchReady = null;
 function loadPitch() {
   const c = audioCtx();
@@ -163,6 +163,13 @@ async function effectChain(c, kind) {
     return done(hp, out);
   }
   if (kind === 'glitch') { const g = await worklet('pl-glitch', {}); return done(g, g); }
+  if (kind === 'slowmo') {
+    // Deep and slow, like a slowed-down video, with a little room around it.
+    const sl = await worklet('pl-slow', { rate: 0.72 }), out = gain(1);
+    sl.connect(out);
+    chain(sl, room(1.4, 3), gain(0.18), out);
+    return done(sl, out);
+  }
   return null;
 }
 /* For the developer panel's voice check: the same effects on any sound, and a microphone of its own. */

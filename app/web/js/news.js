@@ -2,6 +2,10 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 10, items: [
+    ['🐢', 'Slow-mo voice', 'A new voice effect: press ✨ in voice → Slow-mo. Friends hear you deep and slowed down, like a slowed-down video.'],
+    ['📺', 'One click to watch', 'Click a voice channel that says LIVE and the stream opens. Already in the call? Click the bubble of whoever is live.'],
+  ] },
   { id: 9, items: [
     ['📺', 'Easier to watch screens', 'Click a voice channel that says LIVE and the stream opens. Already in the call? Click the bubble of whoever is live.'],
     ['🔊', 'Add your own sounds', 'Everyone can add up to 10 sounds: Soundboard → Add a sound. Any audio or video file works: pick the 7 seconds you want and preview it.'],

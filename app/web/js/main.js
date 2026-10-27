@@ -4069,7 +4069,7 @@ syncSoundKeys();
 /* ---------- voice effects (see Voice.setVoiceFx) ---------- */
 const VOICE_FX = [['none', '🙂', 'Normal'], ['robot', '🤖', 'Robot'], ['deep', '🐻', 'Deep'], ['chipmunk', '🐿️', 'Chipmunk'], ['cave', '🏔️', 'Cave echo'], ['radio', '📻', 'Radio'],
   ['alien', '👽', 'Alien'], ['demon', '😈', 'Demon'], ['underwater', '🌊', 'Underwater'], ['arcade', '👾', '8-bit'], ['wobbly', '🥴', 'Wobbly'], ['ghost', '👻', 'Ghost'],
-  ['harmony', '🎶', 'Choir'], ['stadium', '🏟️', 'Stadium'], ['glitch', '📟', 'Glitchy']];
+  ['harmony', '🎶', 'Choir'], ['stadium', '🏟️', 'Stadium'], ['glitch', '📟', 'Glitchy'], ['slowmo', '🐢', 'Slow-mo']];
 for (const box of [$('#fxOpts'), $('#setFx')]) {
   for (const [key, emoji, name] of VOICE_FX) {
     const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.fx = key; b.textContent = `${emoji} ${name}`;

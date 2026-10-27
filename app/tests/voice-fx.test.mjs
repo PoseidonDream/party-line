@@ -37,6 +37,8 @@ export default async function (ok) {
     ok(`Robot: they hear it changed (${Math.round(robot)} Hz)`, Math.abs(robot - normal) > 25);
     const demon = await fx('demon');
     ok(`Demon: they hear it much lower (${Math.round(demon)} Hz, ×${(demon / normal).toFixed(2)})`, demon / normal > 0.45 && demon / normal < 0.7);
+    const slow = await fx('slowmo');
+    ok(`Slow-mo: they hear it deep and drawn out (${Math.round(slow)} Hz, ×${(slow / normal).toFixed(2)})`, slow / normal > 0.64 && slow / normal < 0.8);
     const quiet = [];
     for (const name of ['alien', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch']) {
       const hz = await fx(name);

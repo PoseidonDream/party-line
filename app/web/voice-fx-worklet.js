@@ -92,3 +92,46 @@ class Glitch extends AudioWorkletProcessor {
   }
 }
 registerProcessor('pl-glitch', Glitch);
+
+/* Slow-mo: your voice played back slower, so it comes out deep and drawn out, like a slowed-down video.
+   Playing slower than you talk builds up a backlog, so it catches up in your pauses (it skips ahead through
+   quiet parts), and if you talk without a break for too long it jumps ahead, with a short crossfade. */
+class Slow extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = (options && options.processorOptions) || {};
+    this.rate = o.rate > 0 && o.rate < 1 ? o.rate : 0.72;
+    this.n = Math.round(sampleRate * 4);                 // the last 4 seconds
+    this.buf = new Float32Array(this.n);
+    this.loud = new Float32Array(Math.ceil(this.n / 128) + 1);   // how loud each 128-sample piece was
+    this.w = 0; this.r = 0;                              // samples written / read position, counted from the start
+    this.maxLag = sampleRate * 1.5; this.keepLag = sampleRate * 0.3; this.minLag = sampleRate * 0.03;
+    this.xf = 0; this.oldR = 0;                          // crossfade after a jump
+  }
+  at(pos) {
+    const i = Math.floor(pos), f = pos - i, a = this.buf[i % this.n], b = this.buf[(i + 1) % this.n];
+    return a + (b - a) * f;
+  }
+  process(inputs, outputs) {
+    const inp = inputs[0] && inputs[0][0], out = outputs[0] && outputs[0][0];
+    if (!out) return true;
+    const len = out.length, pieces = this.loud.length;
+    let e = 0;
+    for (let i = 0; i < len; i++) { const x = inp ? inp[i] : 0; this.buf[(this.w + i) % this.n] = x; e += x * x; }
+    this.loud[Math.floor(this.w / 128) % pieces] = Math.sqrt(e / len);
+    this.w += len;
+    const XF = 512;
+    for (let i = 0; i < len; i++) {
+      const lag = this.w - this.r;
+      if (lag > this.maxLag && !this.xf) { this.oldR = this.r; this.r = this.w - this.keepLag; this.xf = XF; }
+      let y = this.at(this.r);
+      if (this.xf) { const k = this.xf / XF; y = y * (1 - k) + this.at(this.oldR) * k; this.oldR += this.rate; this.xf--; }
+      out[i] = y;
+      const quiet = this.loud[Math.floor(this.r / 128) % pieces] < 0.006;
+      this.r += quiet && lag > this.minLag ? 4 : this.rate;   // pauses go by fast, to catch up
+      if (this.r > this.w - 2) this.r = this.w - 2;
+    }
+    return true;
+  }
+}
+registerProcessor('pl-slow', Slow);
