@@ -36,6 +36,7 @@
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></symbol>
     <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
     <symbol id="i-poll" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
@@ -232,10 +233,18 @@
         <button type="button" class="btn small" id="pinsBtn" title="Pinned messages" hidden><svg class="ic"><use href="#i-pin"/></svg><span class="hide-sm">Pinned</span></button>
         <button type="button" class="btn small" id="searchBtn" title="Search messages (Ctrl+K)"><svg class="ic"><use href="#i-search"/></svg><span class="hide-sm">Search</span></button>
         <button type="button" class="btn small" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
+        <button type="button" class="btn small icon-btn" id="moreBtn" title="More" aria-controls="moreMenu" aria-expanded="false"><svg class="ic"><use href="#i-dots"/></svg><span class="sr">More</span></button>
         <button type="button" class="btn small" id="feedbackBtn" title="Send feedback"><svg class="ic"><use href="#i-feedback"/></svg><span class="hide-sm">Feedback</span><span class="count-pill" id="fbCount" hidden></span></button>
       </div>
     </header>
 
+    <div class="menu more-menu" id="moreMenu" hidden>
+      <button type="button" data-proxy="gamesBtn"><svg class="ic"><use href="#i-gamepad"/></svg>Games to play</button>
+      <button type="button" data-proxy="galleryBtn"><svg class="ic"><use href="#i-image"/></svg>Photos, videos and files</button>
+      <button type="button" data-proxy="pinsBtn"><svg class="ic"><use href="#i-pin"/></svg>Pinned messages</button>
+      <button type="button" data-proxy="copyInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
+      <button type="button" data-proxy="feedbackBtn"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
+    </div>
     <div class="search-panel" id="searchPanel" role="dialog" aria-label="Search messages" hidden>
       <form class="search-form" id="searchForm">
         <label class="sr" for="searchInput">Search messages</label>

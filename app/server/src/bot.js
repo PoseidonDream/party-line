@@ -164,7 +164,7 @@ export function musicEvent(user, d) {
 }
 /* The player's buttons run the same commands as typing them. */
 export function musicControl(user, action) {
-  const run = { pause, resume, skip, stop }[action];
+  const actions = { pause, resume, skip, stop }, run = Object.hasOwn(actions, action) ? actions[action] : null;
   if (!run) fail('Unknown action.');
   const v = host.voiceOf(user.id);
   const st = v && music.get(v.channelId);
@@ -224,7 +224,7 @@ function top(ctx) {
 const UNITS = { s: 1, sec: 1, second: 1, seconds: 1, m: 60, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400 };
 function remind(ctx) {
   const m = /^(\d+(?:[.,]\d+)?)\s*([a-z]+)\s+([\s\S]+)$/i.exec(ctx.args);
-  const unit = m && UNITS[m[2].toLowerCase()];
+  const unit = m && Object.hasOwn(UNITS, m[2].toLowerCase()) && UNITS[m[2].toLowerCase()];
   if (!unit) fail('Say when, then what, like: /remind 10m take the pizza out (s, m, h or d).');
   const secs = Math.round(Number(m[1].replace(',', '.')) * unit);
   if (secs < 5 || secs > 30 * 86400) fail('Reminders can be from 5 seconds to 30 days away.');

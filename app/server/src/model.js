@@ -396,7 +396,7 @@ export function can(user, server, perm) {
   return !!r.p;
 }
 const permList = (bits) => Object.keys(PERMS).filter((k) => bits & PERMS[k]);
-const permBits = (list) => (Array.isArray(list) ? list : []).reduce((a, k) => a | (PERMS[k] || 0), 0);
+const permBits = (list) => (Array.isArray(list) ? list : []).reduce((a, k) => a | (Object.hasOwn(PERMS, k) ? PERMS[k] : 0), 0);
 const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '')) ? String(c) : null);
 export function createRole(serverId, d) {
   const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -670,7 +670,7 @@ export function search(userId, text, serverId) {
   });
   const HAS = { file: 'm.attachments IS NOT NULL', image: `m.attachments LIKE '%"type":"image/%'`, photo: `m.attachments LIKE '%"type":"image/%'`,
     video: `m.attachments LIKE '%"type":"video/%'`, audio: `m.attachments LIKE '%"type":"audio/%'`, link: "m.body LIKE '%http%'", pin: 'm.pinned_at IS NOT NULL' };
-  q = q.replace(/(^|\s)has:(\w+)/gi, (x, sp, k) => { where.push(HAS[k.toLowerCase()] || '0'); return sp; });
+  q = q.replace(/(^|\s)has:(\w+)/gi, (x, sp, k) => { where.push(Object.hasOwn(HAS, k.toLowerCase()) ? HAS[k.toLowerCase()] : '0'); return sp; });
   q = q.trim().slice(0, 100);
   if (q.length < 2 && !where.length) return [];
   if (q) { where.push("m.body LIKE ? ESCAPE '\\'"); args.push(`%${q.replace(/[\\%_]/g, (c) => '\\' + c)}%`); }

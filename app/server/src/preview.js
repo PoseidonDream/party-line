@@ -68,7 +68,8 @@ export function get(url, max, accept, hops = 0) {
 const decode = (s) => String(s || '').replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|#39|nbsp);/gi, (m, e) => {
   const k = e.toLowerCase();
   if (k[0] === '#') { const n = k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10); return n > 0 && n < 0x110000 ? String.fromCodePoint(n) : ''; }
-  return { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }[k] || m;
+  const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return Object.hasOwn(named, k) ? named[k] : m;
 }).replace(/\s+/g, ' ').trim();
 export function parsePage(html, pageUrl) {
   const head = html.slice(0, 300_000);

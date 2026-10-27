@@ -2331,6 +2331,22 @@ function renderHits(res) {
   }
 }
 
+/* ================= ⋯ on phones: the header buttons that don't fit (each item just presses the real button) ================= */
+function closeMore() { $('#moreMenu').hidden = true; $('#moreBtn').setAttribute('aria-expanded', 'false'); }
+$('#moreBtn').addEventListener('click', () => {
+  const m = $('#moreMenu');
+  if (!m.hidden) { closeMore(); return; }
+  for (const b of m.querySelectorAll('[data-proxy]')) {
+    const real = $(`#${b.dataset.proxy}`);
+    b.hidden = real.hidden;
+    const pill = real.querySelector('.count-pill:not([hidden])');
+    b.dataset.count = pill ? pill.textContent : '';
+  }
+  m.hidden = false; $('#moreBtn').setAttribute('aria-expanded', 'true');
+});
+$('#moreMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-proxy]'); if (!b) return; closeMore(); $(`#${b.dataset.proxy}`).click(); });
+document.addEventListener('pointerdown', (e) => { if (!$('#moreMenu').hidden && !e.target.closest('#moreMenu, #moreBtn')) closeMore(); });
+
 /* ================= XP and levels (one total per person for the whole app; the server adds it, see M.addXp) ================= */
 const xpLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 30));
 function levelBits(xp) {
