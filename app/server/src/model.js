@@ -519,6 +519,12 @@ export function postMessage(userId, where, body, attachments, replyTo) {
   markRead(userId, where.channelId ? `c:${where.channelId}` : `d:${where.dmId}`, id);
   return publicMessage(one('SELECT * FROM messages WHERE id = ?', id));
 }
+/* A message as plain words: @names instead of <@12>, times written out, :emoji: names, [sticker] and [GIF].
+   For push notifications and /ask. */
+export const readableBody = (body) => String(body || '')
+  .replace(/<@(\d+)>/g, (_, id) => '@' + ((getUser(Number(id)) || {}).name || 'someone'))
+  .replace(/<t:(\d+)(?::\w)?>/g, (_, t) => new Date(Number(t) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC')
+  .replace(/<:(\w+):\d+>/g, ':$1:').replace(/^<s:\d+>$/, '[sticker]').replace(/^<g:[\w-]+>$/, '[GIF]');
 /* Mentions are written in messages as <@userId>. */
 export const mentionedIds = (body) => [...new Set([...String(body || '').matchAll(/<@(\d+)>/g)].map((x) => Number(x[1])))];
 const EMOJI = /^(?=.*(?:\p{Extended_Pictographic}|\u20e3))[^\s]{1,16}$/u;   // \u20e3: keycap numbers like 1️⃣

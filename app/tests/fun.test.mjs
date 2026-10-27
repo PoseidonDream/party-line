@@ -29,7 +29,7 @@ export default async function (ok) {
 
     // Birthdays
     const now = new Date();
-    await a.click('#setBtn');
+    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="profile"]');
     await a.selectOption('#setBdayMonth', String(now.getMonth() + 1));
     await a.selectOption('#setBdayDay', String(now.getDate()));
     await a.click('#setProfileSave');

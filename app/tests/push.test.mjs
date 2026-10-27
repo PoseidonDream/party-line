@@ -47,7 +47,7 @@ export default async function (ok) {
     const a = await signUp(browser, srv.url, 'Poseidon');
     let b = await signUp(browser, srv.url, 'Bora');
 
-    await b.click('#setBtn');
+    await b.click('#setBtn'); await b.click('#settings [role="tab"][data-settab="alerts"]');
     ok('Settings offers notifications “even when Party Line is closed” in a browser', await b.isVisible('#pushField'));
     await b.keyboard.press('Escape');
 

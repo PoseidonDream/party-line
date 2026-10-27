@@ -55,7 +55,7 @@ export default async function (ok) {
     await a.evaluate(() => window.__playing(null));
     await b.waitForSelector('#popActivity', { state: 'hidden' });
 
-    await a.click('#setBtn');
+    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="profile"]');
     await a.fill('#setBio', 'Plays support. Pizza > burgers.');
     await a.click('#setBanner .swatch[title="#3d7be8"]');
     await a.click('#setProfileSave');

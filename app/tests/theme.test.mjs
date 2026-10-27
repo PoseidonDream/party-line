@@ -15,7 +15,7 @@ export default async function (ok) {
     await p.reload();
     ok('the choice is remembered', (await bg()) === LIGHT);
     const q = await signUp(browser, srv.url, 'Deniz', { colorScheme: 'light' });
-    await q.click('#setBtn');
+    await q.click('#setBtn'); await q.click('#settings [role="tab"][data-settab="look"]');
     await q.click('.theme-opt:has-text("Light")');
     ok('Settings → Light works', (await q.evaluate(() => getComputedStyle(document.body).backgroundColor)) === LIGHT);
     await q.click('.theme-opt:has-text("Dark")');

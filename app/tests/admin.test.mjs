@@ -26,7 +26,7 @@ export default async function (ok) {
     await p.fill('#authPass', temp); await p.click('#authBtn');
     await p.waitForSelector('#room:not([hidden])');
     ok('the temporary password works', true);
-    await p.click('#setBtn'); await p.click('#pwBox summary');
+    await p.click('#setBtn'); await p.click('#settings [role="tab"][data-settab="account"]'); await p.click('#pwBox summary');
     await p.fill('#pwOld', temp); await p.fill('#pwNew', 'newpass99'); await p.click('#pwSave');
     await p.waitForSelector('#pwNote:has-text("changed")');
     ok('they can change it to their own', true);

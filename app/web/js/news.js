@@ -2,6 +2,10 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 4, items: [
+    ['⚙️', 'Tidier Settings', 'Settings is now split into Profile, Look, Voice, Alerts and Account.'],
+    ['👆', 'Cleaner chat on phones', 'Tap a message to react, reply or pin it.'],
+  ] },
   { id: 3, items: [
     ['🗳️', 'Vote tonight’s game', 'In the 🎮 list, press “Vote tonight’s game” (or type /vote). Everyone votes with reactions and Party Bot announces the winner.'],
     ['🎨', 'Accent colors', 'Settings → Appearance: amber, cyan, violet, green, pink or white glow.'],

@@ -2357,7 +2357,16 @@ function fillBirthday(b) {
 }
 const birthdayValue = () => ($('#setBdayMonth').value && $('#setBdayDay').value ? `${$('#setBdayMonth').value.padStart(2, '0')}-${$('#setBdayDay').value.padStart(2, '0')}` : '');
 $('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, birthday: birthdayValue() }), 'Profile saved.'));
-function openSettings() {
+/* Settings is split into tabs: Profile, Look, Voice, Alerts, Account. */
+let setTab = 'profile';
+function showSetTab(name) {
+  setTab = name;
+  for (const t of document.querySelectorAll('#settings [role="tab"][data-settab]')) t.setAttribute('aria-selected', String(t.dataset.settab === name));
+  for (const p of document.querySelectorAll('#settings .set-tab')) p.hidden = p.dataset.settab !== name;
+}
+document.querySelectorAll('#settings [role="tab"][data-settab]').forEach((t) => t.addEventListener('click', () => showSetTab(t.dataset.settab)));
+function openSettings(tab) {
+  showSetTab(typeof tab === 'string' ? tab : setTab);
   syncSettingsForm();
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
   $('#setBio').value = S.me.bio || ''; profileBanner = S.me.banner || ''; renderSwatches();
@@ -2734,7 +2743,6 @@ $('#setNameSave').addEventListener('click', async () => {
   catch (ex) { $('#setNameNote').textContent = ex.message; }
 });
 /* Settings → Devices you're signed in on */
-const agoText = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
 async function renderSessions() {
   const ul = $('#sessionList');
   let r; try { r = await live.req('sessions.list', {}); } catch { return; }
@@ -2743,7 +2751,7 @@ async function renderSessions() {
     const li = document.createElement('li');
     const t = document.createElement('div');
     const b = document.createElement('b'); b.textContent = x.device; t.appendChild(b);
-    const sm = document.createElement('small'); sm.textContent = x.current ? 'This device' : x.online ? 'Online now' : `Last used ${agoText(x.lastSeen)}`; t.appendChild(sm);
+    const sm = document.createElement('small'); sm.textContent = x.current ? 'This device' : x.online ? 'Online now' : `Last used ${Date.now() - x.lastSeen < 120_000 ? 'just now' : fmtRelative(x.lastSeen)}`; t.appendChild(sm);
     li.appendChild(t);
     if (!x.current) {
       const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn small'; btn.textContent = 'Sign out';
@@ -2903,6 +2911,14 @@ function renderNewBar() {
 }
 $('#newBar').addEventListener('click', () => { const d = document.querySelector('#messages .new-divider'); if (d) d.scrollIntoView({ block: 'start' }); renderNewBar(); });
 $('#messages').addEventListener('scroll', renderNewBar, { passive: true });
+/* Phones and tablets: tap a message to show its react, reply and pin buttons (they'd crowd every message otherwise). */
+const touchOnly = matchMedia('(hover: none)');
+$('#messages').addEventListener('click', (e) => {
+  if (!touchOnly.matches || e.target.closest('a, button, video, audio, input, textarea, select, .spoiler, .msg-tools')) return;
+  const msg = e.target.closest('.msg');
+  for (const m of document.querySelectorAll('#messages .msg.tools-open')) if (m !== msg) m.classList.remove('tools-open');
+  if (msg) msg.classList.toggle('tools-open');
+});
 
 /* ================= password reset requests (admins) ================= */
 function renderResetBar() {

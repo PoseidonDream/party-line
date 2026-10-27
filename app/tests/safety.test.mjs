@@ -30,7 +30,7 @@ export default async function (ok) {
     await phone.waitForSelector('#room:not([hidden])');
 
     // Devices
-    await a.click('#setBtn'); await a.click('#devicesBox summary');
+    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="account"]'); await a.click('#devicesBox summary');
     await a.waitForSelector('#sessionList li:nth-child(2)');
     const items = await a.locator('#sessionList li').allTextContents();
     ok('Settings lists every device you’re signed in on, with this one marked', items.length === 2 && items.some((t) => t.includes('This device')) && items.every((t) => /Chrome|Browser/.test(t)));

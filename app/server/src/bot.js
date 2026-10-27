@@ -316,7 +316,7 @@ export function birthdays() {
    nearly used up, an automatic update failed, last night's backup didn't happen). Each problem is reported again
    at most every 12 hours while it lasts, and once more when it's fixed. */
 const warned = new Map();   // problem key -> last warned at
-const readJson = (f) => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, f), 'utf8')); } catch { return null; } };
+export const readJson = (f) => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, f), 'utf8')); } catch { return null; } };
 export function healthProblems() {
   const out = [];
   try {

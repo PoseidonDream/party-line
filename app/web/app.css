@@ -529,11 +529,6 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .cf-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .cf-ok { background: var(--danger); color: var(--on-danger); border-color: transparent; }
 .msg { position: relative; }
-.msg-del { position: absolute; top: 12px; right: 0; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--danger); opacity: 0; transition: opacity .12s; }
-.msg.cont .msg-del { top: 0; }
-.msg:hover .msg-del, .msg-del:focus-visible { opacity: 1; }
-.msg-del .ic { width: 15px; height: 15px; }
-@media (hover: none) { .msg-del { opacity: .75; } }
 .chan-list li { position: relative; }
 .chan-del { position: absolute; right: 4px; top: 5px; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: var(--panel-2); color: var(--danger); opacity: 0; }
 .chan-list li:hover > .chan-del, .chan-del:focus-visible { opacity: 1; }
@@ -605,7 +600,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .msg-tools { position: absolute; top: 12px; right: 0; display: flex; gap: 4px; opacity: 0; transition: opacity .12s; }
 .msg.cont .msg-tools { top: 0; }
 .msg:hover .msg-tools, .msg-tools:focus-within { opacity: 1; }
-@media (hover: none) { .msg-tools { opacity: .75; } }
+/* touch screens: a tapped message counts as hovered for good, so only the tap (tools-open) shows its buttons */
+@media (hover: none) { .msg .msg-tools, .msg:hover .msg-tools { opacity: 0; pointer-events: none; } .msg.tools-open .msg-tools, .msg.tools-open:hover .msg-tools { opacity: 1; pointer-events: auto; } .msg.tools-open { background: var(--line-soft); } }
 .msg-tool { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--dim); }
 .msg-tool:hover { color: var(--fg); }
 .msg-tool.del { color: var(--danger); }
@@ -649,7 +645,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .reaction.add { color: var(--dim); opacity: 0; transition: opacity .12s; }
 .reaction.add .ic { width: 15px; height: 15px; }
 .msg:hover .reaction.add, .reaction.add:focus-visible { opacity: 1; }
-@media (hover: none) { .reaction.add { opacity: 1; } }
+@media (hover: none) { .msg .reaction.add, .msg:hover .reaction.add { opacity: 0; } .msg.tools-open .reaction.add, .msg.tools-open:hover .reaction.add { opacity: 1; } }
 .emoji-pop { position: fixed; z-index: 45; display: grid; grid-template-columns: repeat(6, 38px); gap: 2px; padding: 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .emoji-pop button { width: 38px; height: 38px; border: 0; border-radius: 8px; background: transparent; font-size: 21px; line-height: 1; }
 .emoji-pop button:hover, .emoji-pop button:focus-visible { background: var(--panel-2); }
@@ -1029,7 +1025,7 @@ body.in-call .watch-btn { display: inline-flex; }
 .save-gif { display: none; margin-top: 4px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; }
 .save-gif.on { color: var(--lamp, #f4a52a); }
 .msg:hover .save-gif, .save-gif.on, .save-gif:focus-visible { display: inline-block; }
-@media (hover: none) { .save-gif { display: inline-block; } }
+@media (hover: none) { .msg .save-gif:not(.on), .msg:hover .save-gif:not(.on) { display: none; } .msg.tools-open .save-gif, .msg.tools-open:hover .save-gif { display: inline-block; } }
 .pick-pop { position: absolute; z-index: 25; right: 12px; bottom: calc(100% + 6px); width: min(380px, calc(100vw - 24px)); max-height: min(420px, 60vh); display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
 .pick-pop[hidden] { display: none; }
@@ -1203,3 +1199,14 @@ a.game-name:hover { color: var(--lamp-ink); text-decoration: underline; }
 .vc-status-text { flex: 1; min-width: 0; font-weight: 600; color: var(--lamp-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vc-status-text.empty { font-weight: 400; color: var(--dim); }
 .vc-status .btn { width: auto; flex: none; }
+
+/* Settings tabs */
+.set-tabs { position: sticky; top: 0; z-index: 2; margin: 0 -22px; padding: 6px 22px 10px; border-bottom: 1px solid var(--line-soft); background: var(--glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); flex-wrap: nowrap; overflow-x: auto; }
+.set-tabs .tab { flex: none; }
+.set-tab { display: grid; gap: 18px; align-content: start; }
+@media (min-width: 700px) { .set-tab { min-height: 420px; } }
+@media (max-width: 420px) { .set-tabs .tab { padding: 0 9px; } }
+.set-tab[hidden] { display: none; }
+
+/* Developer panel */
+#devBackup { width: auto; justify-self: start; }

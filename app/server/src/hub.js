@@ -60,11 +60,8 @@ const online = (userId) => (byUser.get(userId) || new Set()).size > 0;
 /* Push notifications reach people who have no Party Line open, following the same rules as the in-app ones:
    private chats and group chats ring by default, servers only for @mentions and replies, mute is mute, and
    Do Not Disturb silences everything. */
-const plainText = (body) => String(body || '')
-  .replace(/<@(\d+)>/g, (_, id) => '@' + ((M.getUser(Number(id)) || {}).name || 'someone'))
-  .replace(/<t:(\d+)(?::\w)?>/g, (_, t) => new Date(Number(t) * 1000).toUTCString().slice(0, 22))
-  .replace(/<:(\w+):\d+>/g, ':$1:').replace(/^<s:\d+>$/, '[sticker]').replace(/^<g:[\w-]+>$/, '[GIF]')
-  .replace(/\|\|[\s\S]*?\|\|/g, '[spoiler]').replace(/```\w*\n?|[*_~`]{1,3}/g, '').replace(/^> /gm, '').replace(/\s+/g, ' ').trim();
+const plainText = (body) => M.readableBody(body)
+  .replace(/\|\|[\s\S]*?\|\|/g, '[spoiler]').replace(/```\w*\n?|\*\*|__|~~|[*`]/g, '').replace(/^> /gm, '').replace(/\s+/g, ' ').trim();
 function pushIfAway(userId, payload) {
   if (online(userId)) return;
   const u = M.getUser(userId);
@@ -84,7 +81,7 @@ function pushMessage(m, author) {
   if (replied) mentioned.add(replied.user_id);
   const hidden = srv.kind === 'group' || srv.kind === 'pair';
   for (const id of M.memberIds(srv.id)) {
-    if (id === author.id || online(id)) continue;
+    if (id === author.id || online(id) || !Push.hasPush(id)) continue;   // cheap checks first: this runs for every message
     const prefs = M.notifyPrefs(id);
     const level = prefs[`c:${ch.id}`] || prefs[`s:${srv.id}`] || (hidden ? 'all' : 'mentions');
     if (level === 'mute' || (level === 'mentions' && !mentioned.has(id))) continue;
@@ -812,7 +809,7 @@ const handlers = {
         turn: !!(config.turnUrls.length && config.turnSecret), sfu: !!(config.livekit.url && config.livekit.secret),
         groupPassword: !!config.groupPassword,
         health: Bot.healthProblems().map(([, text]) => text),
-        backup: (() => { try { return JSON.parse(fs.readFileSync(path.join(config.dataDir, 'backup-status.json'), 'utf8')); } catch { return null; } })(),   // written by deploy/backup.sh
+        backup: Bot.readJson('backup-status.json'),   // written by deploy/backup.sh
       },
       voice: voiceList,
       people: [...byUser].map(([id, set]) => ({ userId: id, devices: set.size, apps: [...set].map((x) => x.client || 'unknown app') })),

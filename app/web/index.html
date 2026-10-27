@@ -639,130 +639,152 @@
       <button class="btn icon-btn" value="close" aria-label="Close settings"><svg class="ic"><use href="#i-x"/></svg></button>
     </div>
     <div class="set-body">
-      <div class="av-pick">
-        <button type="button" class="av-btn" id="setAvBtn"><span class="mini-av" id="setAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Change profile picture</span></button>
-        <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Square photos look best.</small>
-          <div class="av-actions"><button type="button" class="btn small" id="setAvChange">Change picture</button><button type="button" class="btn small" id="setAvRemove">Remove</button></div>
+      <div class="tabs set-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" class="tab" role="tab" data-settab="profile" aria-selected="true">Profile</button>
+        <button type="button" class="tab" role="tab" data-settab="look" aria-selected="false">Look</button>
+        <button type="button" class="tab" role="tab" data-settab="voice" aria-selected="false">Voice</button>
+        <button type="button" class="tab" role="tab" data-settab="alerts" aria-selected="false">Alerts</button>
+        <button type="button" class="tab" role="tab" data-settab="account" aria-selected="false">Account</button>
+      </div>
+      <section class="set-tab" data-settab="profile" role="tabpanel">
+        <div class="av-pick">
+          <button type="button" class="av-btn" id="setAvBtn"><span class="mini-av" id="setAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Change profile picture</span></button>
+          <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Square photos look best.</small>
+            <div class="av-actions"><button type="button" class="btn small" id="setAvChange">Change picture</button><button type="button" class="btn small" id="setAvRemove">Remove</button></div>
+          </div>
+          <input type="file" id="setAvFile" accept="image/*" hidden>
         </div>
-        <input type="file" id="setAvFile" accept="image/*" hidden>
-      </div>
-      <fieldset class="field">
-        <legend class="flabel">Appearance</legend>
-        <div class="theme-pick" role="radiogroup">
-          <label class="theme-opt"><input type="radio" name="theme" value="system"><span>System</span></label>
-          <label class="theme-opt"><input type="radio" name="theme" value="dark"><span>Dark</span></label>
-          <label class="theme-opt"><input type="radio" name="theme" value="light"><span>Light</span></label>
+        <div class="field">
+          <label class="flabel" for="setName">Display name</label>
+          <div class="row"><input type="text" id="setName" class="input" maxlength="24" autocomplete="nickname"><button type="button" class="btn" id="setNameSave">Save</button></div>
+          <p class="hint" id="setNameNote">Friends sign in and find you by this name.</p>
         </div>
-        <p class="hint">System follows your computer or phone's dark mode setting.</p>
-        <div class="accent-pick" role="radiogroup" aria-label="Accent color">
-          <label class="accent-opt" title="Amber"><input type="radio" name="accent" value="amber" aria-label="Amber"><span style="--sw: #ffad1f"></span></label>
-          <label class="accent-opt" title="Cyan"><input type="radio" name="accent" value="cyan" aria-label="Cyan"><span style="--sw: #22d3ee"></span></label>
-          <label class="accent-opt" title="Violet"><input type="radio" name="accent" value="violet" aria-label="Violet"><span style="--sw: #a78bfa"></span></label>
-          <label class="accent-opt" title="Green"><input type="radio" name="accent" value="green" aria-label="Green"><span style="--sw: #4ade80"></span></label>
-          <label class="accent-opt" title="Pink"><input type="radio" name="accent" value="pink" aria-label="Pink"><span style="--sw: #f472b6"></span></label>
-          <label class="accent-opt" title="White"><input type="radio" name="accent" value="white" aria-label="White"><span style="--sw: #e8e9ee"></span></label>
+        <div class="field">
+          <label class="flabel" for="setBio">About me</label>
+          <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
+          <div class="flabel-sub">Banner color</div>
+          <div class="swatches" id="setBanner" role="radiogroup" aria-label="Banner color"></div>
+          <div class="flabel-sub">Birthday</div>
+          <div class="bday-row"><select id="setBdayMonth" class="input" aria-label="Birthday month"></select><select id="setBdayDay" class="input" aria-label="Birthday day"></select></div>
+          <p class="hint">Friends see 🎂 next to your name on the day, and Party Bot says happy birthday. No year needed.</p>
+          <div class="row-btns"><button type="button" class="btn" id="setProfileSave">Save profile</button></div>
         </div>
-        <p class="hint">Accent color: what glows when something is selected, live or talking. Saved on this device.</p>
-      </fieldset>
-      <div class="field">
-        <label class="flabel" for="setName">Display name</label>
-        <div class="row"><input type="text" id="setName" class="input" maxlength="24" autocomplete="nickname"><button type="button" class="btn" id="setNameSave">Save</button></div>
-        <p class="hint" id="setNameNote">Friends sign in and find you by this name.</p>
-      </div>
-      <div class="field">
-        <label class="flabel" for="setBio">About me</label>
-        <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
-        <div class="flabel-sub">Banner color</div>
-        <div class="swatches" id="setBanner" role="radiogroup" aria-label="Banner color"></div>
-        <label class="flabel" for="setBdayMonth">Birthday <small class="hint">(friends see 🎂 on the day, and Party Bot says happy birthday; no year)</small></label>
-        <div class="bday-row"><select id="setBdayMonth" class="input" aria-label="Birthday month"></select><select id="setBdayDay" class="input" aria-label="Birthday day"></select></div>
-        <div class="row-btns"><button type="button" class="btn" id="setProfileSave">Save profile</button></div>
-      </div>
-      <div class="field">
-        <label class="flabel" for="setMic">Microphone</label>
-        <select id="setMic"><option value="">System default</option></select>
-      </div>
-      <div class="field" id="camField">
-        <label class="flabel" for="setCam">Camera</label>
-        <select id="setCam"><option value="">System default</option></select>
-      </div>
-      <div class="field" id="speakerField">
-        <label class="flabel" for="setSpeaker">Speaker</label>
-        <select id="setSpeaker"><option value="">System default</option></select>
-      </div>
-      <fieldset class="field levels">
-        <legend class="flabel">Voice levels</legend>
-        <div class="level">
-          <div class="level-head"><label for="inVol">Your mic volume</label><output id="inVolOut" for="inVol">100%</output></div>
-          <input type="range" id="inVol" min="0" max="150" step="1" list="volTicks">
-          <div class="meter" aria-hidden="true"><i></i></div>
-          <small>How loud your friends hear you. Talk and watch the bar; it should reach about halfway.</small>
+      </section>
+      <section class="set-tab" data-settab="look" role="tabpanel" hidden>
+        <fieldset class="field">
+          <legend class="flabel">Theme</legend>
+          <div class="theme-pick" role="radiogroup">
+            <label class="theme-opt"><input type="radio" name="theme" value="system"><span>System</span></label>
+            <label class="theme-opt"><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+            <label class="theme-opt"><input type="radio" name="theme" value="light"><span>Light</span></label>
+          </div>
+          <p class="hint">System follows your computer or phone's dark mode setting.</p>
+          <div class="flabel-sub">Accent color</div>
+          <div class="accent-pick" role="radiogroup" aria-label="Accent color">
+            <label class="accent-opt" title="Amber"><input type="radio" name="accent" value="amber" aria-label="Amber"><span style="--sw: #ffad1f"></span></label>
+            <label class="accent-opt" title="Cyan"><input type="radio" name="accent" value="cyan" aria-label="Cyan"><span style="--sw: #22d3ee"></span></label>
+            <label class="accent-opt" title="Violet"><input type="radio" name="accent" value="violet" aria-label="Violet"><span style="--sw: #a78bfa"></span></label>
+            <label class="accent-opt" title="Green"><input type="radio" name="accent" value="green" aria-label="Green"><span style="--sw: #4ade80"></span></label>
+            <label class="accent-opt" title="Pink"><input type="radio" name="accent" value="pink" aria-label="Pink"><span style="--sw: #f472b6"></span></label>
+            <label class="accent-opt" title="White"><input type="radio" name="accent" value="white" aria-label="White"><span style="--sw: #e8e9ee"></span></label>
+          </div>
+          <p class="hint">What glows when something is selected, live or talking. Each device remembers its own.</p>
+        </fieldset>
+      </section>
+      <section class="set-tab" data-settab="voice" role="tabpanel" hidden>
+        <div class="field">
+          <label class="flabel" for="setMic">Microphone</label>
+          <select id="setMic"><option value="">System default</option></select>
         </div>
-        <div class="level">
-          <div class="level-head"><label for="outVol">Everyone's volume</label><output id="outVolOut" for="outVol">100%</output></div>
-          <input type="range" id="outVol" min="0" max="150" step="1" list="volTicks">
-          <small>How loud you hear everyone. To change one friend, click their tile in a voice channel.</small>
+        <div class="field" id="camField">
+          <label class="flabel" for="setCam">Camera</label>
+          <select id="setCam"><option value="">System default</option></select>
         </div>
-      </fieldset>
-      <fieldset class="field">
-        <legend class="flabel">Background noise</legend>
-        <label class="radio"><input type="radio" name="noise" value="strong"><span><b>Strong</b><small>Your browser's filter plus Party Line's extra filter. Removes steady noise like fans, AC and hum.</small></span></label>
-        <label class="radio"><input type="radio" name="noise" value="standard"><span><b>Standard</b><small>The built-in filter only. Use this if your voice sounds choppy on Strong.</small></span></label>
-        <label class="radio"><input type="radio" name="noise" value="off"><span><b>Off</b><small>Raw microphone. Best for music.</small></span></label>
-      </fieldset>
-      <label class="check"><input type="checkbox" id="setPtt"><span><b>Push to talk</b><small id="pttHint">Hold Space (or the Hold to talk button) to talk.</small></span></label>
-      <label class="check" id="notifyField"><input type="checkbox" id="setNotify"><span><b>Pop-up notifications</b><small>For private messages while Party Line is in the background.</small></span></label>
-      <label class="check" id="pushField" hidden><input type="checkbox" id="setPush"><span><b>Even when Party Line is closed</b><small>Private messages, @mentions and calls reach this browser or phone even with the tab closed. On iPhone, add Party Line to your Home Screen first (Share → Add to Home Screen).</small></span></label>
-      <fieldset class="field">
-        <legend class="flabel">Screen share quality</legend>
-        <label class="radio"><input type="radio" name="quality" value="motion"><span><b>Smooth</b><small>720p at 30 fps. Best for games and videos.</small></span></label>
-        <label class="radio"><input type="radio" name="quality" value="detail"><span><b>Sharp</b><small>1080p at 15 fps. Best for code, slides and documents.</small></span></label>
-      </fieldset>
-      <details class="pw-box" id="devicesBox">
-        <summary>Devices you’re signed in on</summary>
-        <ul class="dev-sessions" id="sessionList"></ul>
-        <button type="button" class="btn small" id="sessionsEndOthers" hidden>Sign out everywhere else</button>
-      </details>
-      <details class="pw-box" id="twoStepBox">
-        <summary>2-step sign-in <span class="pill" id="twoStepState">Off</span></summary>
-        <div class="pw-form">
-          <p class="hint">When it’s on, signing in on a new device also needs a 6-digit code from an app on your phone (Google Authenticator, Microsoft Authenticator, Authy…). Devices you’re already signed in on stay signed in.</p>
-          <div id="twoStepOff">
-            <button type="button" class="btn" id="twoStepStart">Turn on</button>
-            <div id="twoStepSetup" hidden>
-              <p class="hint">1. In your authenticator app, add an account and scan this code:</p>
-              <img id="twoStepQr" class="qr" alt="QR code for your authenticator app">
-              <p class="hint">Can’t scan? Type this key instead: <code id="twoStepSecret"></code></p>
-              <p class="hint">2. Type the 6 digits the app shows:</p>
-              <div class="row"><input type="text" id="twoStepCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"><button type="button" class="btn primary" id="twoStepConfirm">Turn on</button></div>
+        <div class="field" id="speakerField">
+          <label class="flabel" for="setSpeaker">Speaker</label>
+          <select id="setSpeaker"><option value="">System default</option></select>
+        </div>
+        <fieldset class="field levels">
+          <legend class="flabel">Voice levels</legend>
+          <div class="level">
+            <div class="level-head"><label for="inVol">Your mic volume</label><output id="inVolOut" for="inVol">100%</output></div>
+            <input type="range" id="inVol" min="0" max="150" step="1" list="volTicks">
+            <div class="meter" aria-hidden="true"><i></i></div>
+            <small>How loud your friends hear you. Talk and watch the bar; it should reach about halfway.</small>
+          </div>
+          <div class="level">
+            <div class="level-head"><label for="outVol">Everyone's volume</label><output id="outVolOut" for="outVol">100%</output></div>
+            <input type="range" id="outVol" min="0" max="150" step="1" list="volTicks">
+            <small>How loud you hear everyone. To change one friend, click their tile in a voice channel.</small>
+          </div>
+        </fieldset>
+        <fieldset class="field">
+          <legend class="flabel">Background noise</legend>
+          <label class="radio"><input type="radio" name="noise" value="strong"><span><b>Strong</b><small>Your browser's filter plus Party Line's extra filter. Removes steady noise like fans, AC and hum.</small></span></label>
+          <label class="radio"><input type="radio" name="noise" value="standard"><span><b>Standard</b><small>The built-in filter only. Use this if your voice sounds choppy on Strong.</small></span></label>
+          <label class="radio"><input type="radio" name="noise" value="off"><span><b>Off</b><small>Raw microphone. Best for music.</small></span></label>
+        </fieldset>
+        <label class="check"><input type="checkbox" id="setPtt"><span><b>Push to talk</b><small id="pttHint">Hold Space (or the Hold to talk button) to talk.</small></span></label>
+        <fieldset class="field">
+          <legend class="flabel">Screen share quality</legend>
+          <label class="radio"><input type="radio" name="quality" value="motion"><span><b>Smooth</b><small>720p at 30 fps. Best for games and videos.</small></span></label>
+          <label class="radio"><input type="radio" name="quality" value="detail"><span><b>Sharp</b><small>1080p at 15 fps. Best for code, slides and documents.</small></span></label>
+        </fieldset>
+      </section>
+      <section class="set-tab" data-settab="alerts" role="tabpanel" hidden>
+        <label class="check" id="notifyField"><input type="checkbox" id="setNotify"><span><b>Pop-up notifications</b><small>For private messages while Party Line is in the background.</small></span></label>
+        <label class="check" id="pushField" hidden><input type="checkbox" id="setPush"><span><b>Even when Party Line is closed</b><small>Private messages, @mentions and calls reach this browser or phone even with the tab closed. On iPhone, add Party Line to your Home Screen first (Share → Add to Home Screen).</small></span></label>
+        <p class="hint">Which chats notify you (all messages, only @mentions or nothing) is set with the 🔔 at the top of each chat.</p>
+      </section>
+      <section class="set-tab" data-settab="account" role="tabpanel" hidden>
+        <details class="pw-box" id="devicesBox">
+          <summary>Devices you’re signed in on</summary>
+          <ul class="dev-sessions" id="sessionList"></ul>
+          <button type="button" class="btn small" id="sessionsEndOthers" hidden>Sign out everywhere else</button>
+        </details>
+        <details class="pw-box" id="twoStepBox">
+          <summary>2-step sign-in <span class="pill" id="twoStepState">Off</span></summary>
+          <div class="pw-form">
+            <p class="hint">When it’s on, signing in on a new device also needs a 6-digit code from an app on your phone (Google Authenticator, Microsoft Authenticator, Authy…). Devices you’re already signed in on stay signed in.</p>
+            <div id="twoStepOff">
+              <button type="button" class="btn" id="twoStepStart">Turn on</button>
+              <div id="twoStepSetup" hidden>
+                <p class="hint">1. In your authenticator app, add an account and scan this code:</p>
+                <img id="twoStepQr" class="qr" alt="QR code for your authenticator app">
+                <p class="hint">Can’t scan? Type this key instead: <code id="twoStepSecret"></code></p>
+                <p class="hint">2. Type the 6 digits the app shows:</p>
+                <div class="row"><input type="text" id="twoStepCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"><button type="button" class="btn primary" id="twoStepConfirm">Turn on</button></div>
+              </div>
+            </div>
+            <div id="twoStepOn" hidden>
+              <div class="row"><input type="password" id="twoStepPass" class="input" placeholder="Your password, to turn it off" autocomplete="current-password"><button type="button" class="btn" id="twoStepStop">Turn off</button></div>
             </div>
           </div>
-          <div id="twoStepOn" hidden>
-            <div class="row"><input type="password" id="twoStepPass" class="input" placeholder="Your password, to turn it off" autocomplete="current-password"><button type="button" class="btn" id="twoStepStop">Turn off</button></div>
+        </details>
+        <details class="pw-box" id="pwBox">
+          <summary>Change password</summary>
+          <div class="pw-form">
+            <input type="password" id="pwOld" class="input" placeholder="Current password" autocomplete="current-password">
+            <input type="password" id="pwNew" class="input" placeholder="New password" autocomplete="new-password">
+            <button type="button" class="btn" id="pwSave">Change password</button>
+            <p class="hint" id="pwNote" hidden></p>
           </div>
+        </details>
+        <div class="keys">
+          <span class="flabel">Shortcuts</span>
+          <dl>
+            <dt><kbd>M</kbd></dt><dd>Mute or unmute</dd>
+            <dt><kbd>D</kbd></dt><dd>Deafen or undeafen (also mutes you)</dd>
+            <dt><kbd>N</kbd></dt><dd>Noise filter Strong or Standard</dd>
+            <dt><kbd>Space</kbd></dt><dd>Talk, when push to talk is on</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search messages</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>M</kbd> / <kbd>D</kbd></dt><dd>Mute / deafen from any app (desktop app, while it’s in the background)</dd>
+          </dl>
         </div>
-      </details>
-      <details class="pw-box" id="pwBox">
-        <summary>Change password</summary>
-        <div class="pw-form">
-          <input type="password" id="pwOld" class="input" placeholder="Current password" autocomplete="current-password">
-          <input type="password" id="pwNew" class="input" placeholder="New password" autocomplete="new-password">
-          <button type="button" class="btn" id="pwSave">Change password</button>
-          <p class="hint" id="pwNote" hidden></p>
-        </div>
-      </details>
-      <div class="keys">
-        <span class="flabel">Shortcuts</span>
-        <dl>
-          <dt><kbd>M</kbd></dt><dd>Mute or unmute</dd>
-          <dt><kbd>D</kbd></dt><dd>Deafen or undeafen (also mutes you)</dd>
-          <dt><kbd>N</kbd></dt><dd>Noise filter Strong or Standard</dd>
-          <dt><kbd>Space</kbd></dt><dd>Talk, when push to talk is on</dd>
-        </dl>
-      </div>
-      <p class="hint" id="appInfo"></p>
-      <button type="button" class="link-btn" id="devOpen" hidden><svg class="ic"><use href="#i-code"/></svg>Developer panel (Ctrl+Shift+D)</button>
-      <button type="button" class="link-btn" id="signOut"><svg class="ic"><use href="#i-leave"/></svg>Sign out on this device</button>
+        <p class="hint" id="appInfo"></p>
+        <button type="button" class="link-btn" id="devOpen" hidden><svg class="ic"><use href="#i-code"/></svg>Developer panel (Ctrl+Shift+D)</button>
+        <button type="button" class="link-btn" id="signOut"><svg class="ic"><use href="#i-leave"/></svg>Sign out on this device</button>
+      </section>
     </div>
   </form>
 </dialog>

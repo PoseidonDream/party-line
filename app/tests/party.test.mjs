@@ -49,7 +49,7 @@ export default async function (ok) {
     ok('when time’s up, Party Bot announces the winner', (await a.textContent('#messages .msg:has-text("Tonight’s game")')).includes('Peak') && (await a.textContent('#messages .msg:has-text("Tonight’s game")')).includes('2 votes'));
 
     // Accent color
-    await a.click('#setBtn');
+    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="look"]');
     const lamp = () => a.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--lamp').trim());
     const before = await lamp();
     await a.click('.accent-opt[title="Cyan"]');
