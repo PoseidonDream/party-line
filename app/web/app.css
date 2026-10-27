@@ -1444,3 +1444,4 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .sound-btn { position: relative; }
 .sound-key { display: block; margin-top: 2px; font: 600 10px/1.2 var(--font-mono); color: var(--lamp-ink); }
 .sound-key.wait { animation: fx-twinkle .8s ease-in-out infinite alternate; }
+#stageClipBtn.armed::after { content: ""; width: 7px; height: 7px; margin-left: 2px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 8px var(--danger); }   /* recording the last 30 s */

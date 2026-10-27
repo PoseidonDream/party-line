@@ -383,7 +383,7 @@ const handlers = {
     if (!m || !canSee(user.id, m)) fail('That message is gone.');
     const reactions = M.react(user.id, m.id, d.emoji, !!d.on);
     broadcastAbout(m, { t: 'reactions', id: m.id, channelId: m.channel_id, dmId: m.dm_id, reactions });
-    if (d.on && d.emoji === '⭐') hallOfFame(m, reactions);
+    if (d.on && d.emoji === '⭐') { try { hallOfFame(m, reactions); } catch (e) { console.error('hall of fame', e); } }   // the reaction itself still counts
     return {};
   },
   typing(c, user, d) {
@@ -835,9 +835,9 @@ const handlers = {
     if (!srv) fail('Join the voice channel first.');
     const of = Number(d.of), clipCh = srv.kind === 'server' ? M.clipsChannel(srv.id) : null;
     const who = of === user.id ? 'my screen' : `**${(M.getUser(of) || { name: 'someone' }).name}**’s screen`;
-    const where = clipCh ? clipCh.id : ch.id;
-    const r = handlers['msg.send'](c, user, { channelId: where, body: `🎬 Clip of ${who}${clipCh ? ` in 🔊 ${ch.name}` : ''}`, attachments: [{ id: String(d.upload || '') }] });
-    if (!r.msg.attachments.length) fail('The clip didn’t upload. Try again.');
+    const where = clipCh ? clipCh.id : ch.id, up = M.getUpload(String(d.upload || ''));
+    if (!up || up.user_id !== user.id || !up.type.startsWith('video/')) fail('The clip didn’t upload. Try again.');
+    handlers['msg.send'](c, user, { channelId: where, body: `🎬 Clip of ${who}${clipCh ? ` in 🔊 ${ch.name}` : ''}`, attachments: [{ id: up.id }] });
     progress(user.id, P.once(user.id, 'director'));
     return { channelId: where };
   },

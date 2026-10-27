@@ -9,7 +9,7 @@ export const NEWS = [
     ['⭐', 'Hall of fame', 'Three ⭐ on a message puts it in #hall-of-fame forever.'],
     ['🎮', 'Looking for group', 'Press + → Looking for group (or /lfg Valorant 2). Friends who list that game get pinged.'],
     ['✏️', 'Draw on screen shares', 'Watching someone’s screen? Press Draw to point at things. In the desktop app it shows on their real screen too.'],
-    ['🎬', 'Clip it & pop out', 'Clip it saves the last seconds of a screen share to #clips-and-highlights. Pop out keeps it in a small window.'],
+    ['🎬', 'Clip it & pop out', 'Watching a screen? Press 🎬 once to switch on Clip it, then again to save the last 30 seconds to #clips-and-highlights. Pop out keeps it in a small window.'],
     ['⌨️', 'Soundboard keys', 'Soundboard → Keys gives sounds their own shortcuts. In the desktop app they work even in a game.'],
   ] },
   { id: 6, items: [

@@ -1849,11 +1849,15 @@ function stageStream() {
   if (!S.watching || !V.channelId) return null;
   return (S.watching === S.me.id ? V.screenStream : (V.peers.get(S.watching) || {}).screenStream) || null;
 }
-/* Keeps the clip recorder on whatever you're watching, and tidies up when the share ends. */
+/* Keeps the clip recorder on whatever you're watching (once Clip it is switched on: recording uses a fair bit of the
+   computer), and tidies up when the share ends. */
 function syncStageExtras() {
   const st = stageStream();
-  clipBuf.watch(isPhone() ? null : st);
-  $('#stageClipBtn').hidden = !clipsSupported() || isPhone();
+  clipBuf.watch(!isPhone() && settings.clips ? st : null);
+  const cb = $('#stageClipBtn');
+  cb.hidden = !clipsSupported() || isPhone();
+  cb.classList.toggle('armed', !!settings.clips);
+  cb.title = settings.clips ? 'Save the last 30 seconds as a clip' : 'Turn on Clip it: keeps the last 30 seconds so you can save them';
   $('#stagePipBtn').hidden = !document.pictureInPictureEnabled;
   if (!st) {
     if (drawLayer.drawing) setDrawing(false);
@@ -1878,6 +1882,11 @@ live.on('draw', (d) => {
 $('#stageClipBtn').addEventListener('click', async () => {
   const b = $('#stageClipBtn'), of = S.watching;
   if (b.disabled || !of) return;
+  if (!settings.clips) {
+    settings.clips = true; saveSettings(); syncStageExtras(); syncSettingsForm();
+    toast('🎬 Clip it is on: from now on it keeps the last 30 seconds of screens you watch. Press it again when something happens. (It uses more of your computer; Settings → Voice turns it off.)', 9000);
+    return;
+  }
   b.disabled = true;
   try {
     const c = await clipBuf.clip();
@@ -3079,6 +3088,8 @@ function syncSettingsForm() {
   $('#setAvRemove').hidden = !S.me.avatar;
   for (const r of document.querySelectorAll('input[name="noise"]')) r.checked = r.value === settings.noiseMode;
   syncFx();
+  $('#setClips').checked = !!settings.clips;
+  $('#clipsField').hidden = !clipsSupported() || isPhone();
   for (const r of document.querySelectorAll('input[name="quality"]')) r.checked = r.value === settings.quality;
   for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
   $('#setPtt').checked = settings.ptt;
@@ -3189,6 +3200,7 @@ document.querySelectorAll('input[name="noise"]').forEach((r) => r.addEventListen
 document.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
 document.querySelectorAll('input[name="accent"]').forEach((r) => r.addEventListener('change', () => { settings.accent = r.value; saveSettings(); applyTheme(); }));
 document.querySelectorAll('input[name="quality"]').forEach((r) => r.addEventListener('change', () => { settings.quality = r.value; saveSettings(); }));
+$('#setClips').addEventListener('change', (e) => { settings.clips = e.target.checked; saveSettings(); syncStageExtras(); });
 $('#setPtt').addEventListener('change', (e) => { settings.ptt = e.target.checked; saveSettings(); Voice.setPtt(false); Voice.applyMic(); renderUserArea(); });
 $('#setNotify').addEventListener('change', async (e) => {
   if (e.target.checked && Notification.permission !== 'granted') {

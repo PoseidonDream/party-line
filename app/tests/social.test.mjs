@@ -123,6 +123,11 @@ export default async function (ok) {
     const painted = await b.evaluate(() => { const c = document.querySelector('#stageCanvas'); if (!c.width) return false; const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < px.length; i += 4) if (px[i]) return true; return false; });
     ok('…and over the screen share for everyone watching it', painted);
     await a.click('#stageDrawBtn');
+    await clearToasts(a);
+    ok('Clip it starts switched off (recording costs computer power)', !(await a.evaluate(async () => { const m = await import('/js/util.js'); return !!m.settings.clips; })));
+    await a.click('#stageClipBtn');
+    await a.waitForSelector('.toast:has-text("Clip it is on")');
+    ok('the first press switches it on and explains', await a.isVisible('#stageClipBtn.armed'));
     await a.waitForTimeout(2500);   // something to clip
     await clearToasts(a);
     await a.click('#stageClipBtn');
