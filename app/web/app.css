@@ -451,7 +451,7 @@ button.member:hover { background: var(--panel-2); color: var(--fg); }
 .tile-vol { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: var(--dim); display: grid; place-items: center; opacity: 0; transition: opacity .12s; }
 .tile-vol:hover { background: var(--panel-2); color: var(--fg); }
 .tile:hover .tile-vol, .tile-vol:focus-visible { opacity: 1; }
-@media (hover: none) { .tile-vol { opacity: 1; } }
+@media (hover: none) and (pointer: coarse) { .tile-vol { opacity: 1; } }
 .crowd-note { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--lamp); background: var(--panel); }
 .crowd-ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--lamp); color: var(--on-lamp); }
 .crowd-ic .ic { width: 18px; height: 18px; }
@@ -548,7 +548,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .chan-list li:hover > .chan-del, .chan-del:focus-visible { opacity: 1; }
 .chan-del .ic { width: 14px; height: 14px; }
 /* Touch screens: only the channel you're in shows its delete button, so it's hard to hit by accident. */
-@media (hover: none) { .chan-del { opacity: 0; pointer-events: none; } .chan-list li:has(> .chan[aria-current="true"]) > .chan-del { opacity: .75; pointer-events: auto; } }
+@media (hover: none) and (pointer: coarse) { .chan-del { opacity: 0; pointer-events: none; } .chan-list li:has(> .chan[aria-current="true"]) > .chan-del { opacity: .75; pointer-events: auto; } }
 .count-pill { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
 #feedback { width: min(600px, calc(100% - 32px)); }
 .fb-form { display: grid; gap: 14px; }
@@ -615,7 +615,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .msg.cont .msg-tools { top: 0; }
 .msg:hover .msg-tools, .msg-tools:focus-within { opacity: 1; }
 /* touch screens: a tapped message counts as hovered for good, so only the tap (tools-open) shows its buttons */
-@media (hover: none) { .msg .msg-tools, .msg:hover .msg-tools { opacity: 0; pointer-events: none; } .msg.tools-open .msg-tools, .msg.tools-open:hover .msg-tools { opacity: 1; pointer-events: auto; } .msg.tools-open { background: var(--line-soft); } }
+@media (hover: none) and (pointer: coarse) { .msg .msg-tools, .msg:hover .msg-tools { opacity: 0; pointer-events: none; } .msg.tools-open .msg-tools, .msg.tools-open:hover .msg-tools { opacity: 1; pointer-events: auto; } .msg.tools-open { background: var(--line-soft); } }
 .msg-tool { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--dim); }
 .msg-tool:hover { color: var(--fg); }
 .msg-tool.del { color: var(--danger); }
@@ -659,7 +659,7 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .reaction.add { color: var(--dim); opacity: 0; transition: opacity .12s; }
 .reaction.add .ic { width: 15px; height: 15px; }
 .msg:hover .reaction.add, .reaction.add:focus-visible { opacity: 1; }
-@media (hover: none) { .msg .reaction.add, .msg:hover .reaction.add { opacity: 0; } .msg.tools-open .reaction.add, .msg.tools-open:hover .reaction.add { opacity: 1; } }
+@media (hover: none) and (pointer: coarse) { .msg .reaction.add, .msg:hover .reaction.add { opacity: 0; } .msg.tools-open .reaction.add, .msg.tools-open:hover .reaction.add { opacity: 1; } }
 .emoji-pop { position: fixed; z-index: 45; display: grid; grid-template-columns: repeat(6, 38px); gap: 2px; padding: 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .emoji-pop button { width: 38px; height: 38px; border: 0; border-radius: 8px; background: transparent; font-size: 21px; line-height: 1; }
 .emoji-pop button:hover, .emoji-pop button:focus-visible { background: var(--panel-2); }
@@ -896,7 +896,7 @@ body.in-call .watch-btn { display: inline-flex; }
 .sound-del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; display: none; place-items: center; border: 0; border-radius: 50%; background: var(--panel); color: var(--danger); }
 .sound-del .ic { width: 12px; height: 12px; }
 .sound:hover .sound-del, .sound-del:focus-visible { display: grid; }
-@media (hover: none) { .sound-del { display: grid; } }
+@media (hover: none) and (pointer: coarse) { .sound-del { display: grid; } }
 .sound-vol { display: flex; align-items: center; gap: 8px; color: var(--dim); }
 .sound-vol input { flex: 1; }
 .sound-form { display: grid; gap: 6px; }
@@ -916,7 +916,7 @@ body.in-call .watch-btn { display: inline-flex; }
 .chan-list li .chan-gear { right: 36px; color: var(--dim); }
 .chan-list li:not(:has(.chan-del:not(.chan-gear))) .chan-gear { right: 4px; }
 .chan-list li:hover > .chan-gear { opacity: 1; }
-@media (hover: none) { .chan-list li:has(> .chan[aria-current="true"]) > .chan-gear { opacity: .75; pointer-events: auto; } }
+@media (hover: none) and (pointer: coarse) { .chan-list li:has(> .chan[aria-current="true"]) > .chan-gear { opacity: .75; pointer-events: auto; } }
 .view-sub { max-width: 40vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Roles */
 #rolesDlg { width: min(720px, calc(100% - 32px)); }
@@ -960,7 +960,7 @@ body.in-call .watch-btn { display: inline-flex; }
 .dm-close .ic { width: 14px; height: 14px; }
 #dmList li:hover .dm-close, .dm-close:focus-visible { opacity: 1; }
 .dm-close:hover { color: var(--fg); }
-@media (hover: none) { .dm-close { opacity: .7; } }
+@media (hover: none) and (pointer: coarse) { .dm-close { opacity: .7; } }
 /* New app version: a card in the corner, in Party Line's own style */
 .update-card { position: fixed; z-index: 60; right: 24px; bottom: 104px; width: 340px; max-width: calc(100vw - 32px); display: grid; grid-template-columns: 44px 1fr; gap: 10px 12px; align-items: center;
   padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); animation: update-in .35s cubic-bezier(.2, .9, .3, 1.2); }
@@ -1053,7 +1053,7 @@ body.in-call .watch-btn { display: inline-flex; }
 .save-gif { display: none; margin-top: 4px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; }
 .save-gif.on { color: var(--lamp, #f4a52a); }
 .msg:hover .save-gif, .save-gif.on, .save-gif:focus-visible { display: inline-block; }
-@media (hover: none) { .msg .save-gif:not(.on), .msg:hover .save-gif:not(.on) { display: none; } .msg.tools-open .save-gif, .msg.tools-open:hover .save-gif { display: inline-block; } }
+@media (hover: none) and (pointer: coarse) { .msg .save-gif:not(.on), .msg:hover .save-gif:not(.on) { display: none; } .msg.tools-open .save-gif, .msg.tools-open:hover .save-gif { display: inline-block; } }
 .pick-pop { position: absolute; z-index: 25; right: 12px; bottom: calc(100% + 6px); width: min(380px, calc(100vw - 24px)); max-height: min(420px, 60vh); display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
 .pick-pop[hidden] { display: none; }
@@ -1261,7 +1261,7 @@ dialog.wide-dlg { width: min(860px, calc(100% - 32px)); }
 .gal-badge .ic { width: 14px; height: 14px; fill: currentColor; stroke: none; }
 .gal-jump { position: absolute; right: 6px; top: 6px; padding: 3px 8px; border: 0; border-radius: 6px; background: rgba(0, 0, 0, .7); color: #fff; font: inherit; font-size: 11.5px; opacity: 0; transition: opacity .12s; }
 .gal-cell:hover .gal-jump, .gal-jump:focus-visible { opacity: 1; }
-@media (hover: none) { .gal-jump { opacity: 1; } }
+@media (hover: none) and (pointer: coarse) { .gal-jump { opacity: 1; } }
 .gal-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .gal-file { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .gal-file > div { flex: 1; min-width: 0; display: grid; }
@@ -1338,7 +1338,7 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .jump-item small { flex: 1; min-width: 0; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jump-hint { margin: 8px 4px 0; }
 .nav-kbd { margin-left: auto; font: 600 10.5px var(--font-mono); color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
-@media (hover: none) { .nav-kbd { display: none; } }
+@media (hover: none) and (pointer: coarse) { .nav-kbd { display: none; } }
 
 /* Voice channels' own chat */
 .chan-chat { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--lamp-tint); color: var(--lamp-ink); font-size: 11.5px; font-weight: 700; cursor: pointer; }

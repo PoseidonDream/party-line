@@ -3895,7 +3895,7 @@ function renderNewBar() {
 $('#newBar').addEventListener('click', () => { const d = document.querySelector('#messages .new-divider'); if (d) d.scrollIntoView({ block: 'start' }); renderNewBar(); });
 $('#messages').addEventListener('scroll', renderNewBar, { passive: true });
 /* Phones and tablets: tap a message to show its react, reply and pin buttons (they'd crowd every message otherwise). */
-const touchOnly = matchMedia('(hover: none)');
+const touchOnly = matchMedia('(hover: none) and (pointer: coarse)');   // a touch screen (not a computer without a mouse)
 $('#messages').addEventListener('click', (e) => {
   if (!touchOnly.matches || e.target.closest('a, button, video, audio, input, textarea, select, .spoiler, .msg-tools')) return;
   const msg = e.target.closest('.msg');
