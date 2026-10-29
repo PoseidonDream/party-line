@@ -245,10 +245,27 @@ $('#authForm').addEventListener('submit', async (e) => {
   setInterval(() => { if ($('#join').hidden) return; const j = jacks[Math.floor(Math.random() * jacks.length)]; j.classList.toggle('lit'); }, 450);
 })();
 
+let bootTimer = 0;
 function start() {
-  $('#join').hidden = true; $('#booting').hidden = false; $('#bootText').textContent = 'Connecting…';
+  $('#join').hidden = true; $('#booting').hidden = false; $('#bootText').textContent = 'Connecting…'; $('#bootHelp').hidden = true;
+  live.lastClose = null; live.lastError = '';
+  clearTimeout(bootTimer); bootTimer = setTimeout(bootTrouble, 10000);
   live.connect();
 }
+/* Still not in after 10 seconds: say why, as far as the app can tell, and offer a way out instead of spinning forever. */
+function bootTrouble() {
+  if (S.ready || $('#booting').hidden) return;
+  const c = live.lastClose;
+  $('#bootWhy').textContent = live.lastError ? 'Party Line hit a problem while loading. Try again, and if it keeps happening, tell whoever runs your server.'
+    : !c ? 'The server is taking a long time to answer.'
+    : c.opened ? 'The connection to the server keeps dropping.'
+    : 'The app can’t open its live connection to the server. If the website works in your browser, something on this network is blocking it: try Wi-Fi instead of mobile data, or the other way round.';
+  $('#bootDetail').textContent = live.lastError || (c ? `WebSocket ${c.code}` : '');
+  $('#bootHelp').hidden = false;
+  bootTimer = setTimeout(bootTrouble, 5000);   // it keeps trying meanwhile: keep the reason current
+}
+$('#bootRetry').addEventListener('click', () => { live.close(); start(); });
+$('#bootSignOut').addEventListener('click', () => { clearTimeout(bootTimer); signOut(); });
 async function signOut() {
   if (V.channelId) Voice.leaveVoice();
   if (pushSupported() && settings.push) await Promise.race([setPush(false).catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);   // the next person on this device shouldn't get your messages

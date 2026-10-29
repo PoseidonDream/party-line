@@ -1098,5 +1098,9 @@
 "😈 Demon": "😈 Démon",
 "🙂 Normal": "🙂 Normal",
 "🤖 Robot": "🤖 Robot",
-"🥴 Wobbly": "🥴 Tremblant"
+"🥴 Wobbly": "🥴 Tremblant",
+"Party Line hit a problem while loading. Try again, and if it keeps happening, tell whoever runs your server.": "Party Line a rencontré un problème au chargement. Réessaie, et si ça recommence, préviens la personne qui gère ton serveur.",
+"The server is taking a long time to answer.": "Le serveur met beaucoup de temps à répondre.",
+"The connection to the server keeps dropping.": "La connexion au serveur n’arrête pas de couper.",
+"The app can’t open its live connection to the server. If the website works in your browser, something on this network is blocking it: try Wi-Fi instead of mobile data, or the other way round.": "L’app n’arrive pas à ouvrir sa connexion en direct avec le serveur. Si le site marche dans ton navigateur, quelque chose sur ce réseau la bloque : essaie le Wi-Fi au lieu des données mobiles, ou l’inverse."
 }

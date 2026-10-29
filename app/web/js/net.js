@@ -52,7 +52,9 @@ let ws = null, rid = 0, retry = 0, retryTimer = 0, wantOpen = false, queue = [];
 export const live = {
   get open() { return !!ws && ws.readyState === 1; },
   on(t, fn) { if (!listeners.has(t)) listeners.set(t, []); listeners.get(t).push(fn); },
-  emit(t, d) { for (const fn of listeners.get(t) || []) { try { fn(d); } catch (e) { console.error(t, e); } } },
+  emit(t, d) { for (const fn of listeners.get(t) || []) { try { fn(d); } catch (e) { console.error(t, e); live.lastError = `${t}: ${e && e.message}`; } } },
+  /* For the "still connecting" help: how the last try ended, and the last error while handling a message. */
+  lastClose: null, lastError: '',
   connect() { wantOpen = true; open(); },
   close() { wantOpen = false; clearTimeout(retryTimer); if (ws) { try { ws.close(); } catch {} } ws = null; },
   /* Fire and forget. Sent as soon as the connection is up. */
@@ -79,6 +81,7 @@ function open() {
   const sock = new WebSocket(url);
   ws = sock;
   sock.onopen = () => {
+    sock.opened = true;
     retry = 0;
     const q = queue; queue = [];
     for (const m of q) sock.send(m);
@@ -99,6 +102,7 @@ function open() {
   sock.onclose = (e) => {
     if (ws !== sock) return;
     ws = null;
+    live.lastClose = { code: e.code, opened: !!sock.opened };
     for (const [id, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Lost connection to the server.')); pending.delete(id); }
     if (e.code === 4001) { wantOpen = false; live.emit('auth-failed'); return; }
     live.emit('down');
