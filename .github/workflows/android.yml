@@ -46,6 +46,25 @@ jobs:
           else
             echo "::warning::No signing key set, so this is a debug build. Phones can install it, but to update later they must uninstall first. See app/SIGNING.md."
           fi
+      - name: Check the signing key
+        if: env.PL_KEYSTORE != ''
+        env:
+          PL_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          PL_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PL_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # A clear message for each usual mistake, instead of a long error from the build.
+          ks=(-keystore "$PL_KEYSTORE" -storepass "$PL_KEYSTORE_PASSWORD")
+          if ! keytool -list "${ks[@]}" >/dev/null 2>&1; then
+            echo "::error title=Signing key::ANDROID_KEYSTORE_PASSWORD doesn't open the key file (or ANDROID_KEYSTORE_BASE64 isn't the whole file). Set it again with gh secret set (see app/SIGNING.md)."; exit 1
+          fi
+          if ! keytool -list "${ks[@]}" -alias "$PL_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error title=Signing key::The key file has no key called \"$PL_KEY_ALIAS\" (ANDROID_KEY_ALIAS). It has: $(keytool -list "${ks[@]}" 2>/dev/null | grep -i 'PrivateKeyEntry' | cut -d, -f1 | tr '\n' ' ')"; exit 1
+          fi
+          if ! keytool -certreq "${ks[@]}" -alias "$PL_KEY_ALIAS" -keypass "$PL_KEY_PASSWORD" -file /dev/null >/dev/null 2>&1; then
+            echo "::error title=Signing key::ANDROID_KEY_PASSWORD is wrong. If you pressed Enter when keytool asked for a key password, it is the same as ANDROID_KEYSTORE_PASSWORD."; exit 1
+          fi
+          echo "The signing key and both passwords work."
       - name: Build
         working-directory: app/mobile/android
         env:
@@ -57,7 +76,13 @@ jobs:
         run: |
           chmod +x gradlew
           # The bundle is built either way (so a broken one shows up early), but only a signed one is kept: Play takes no other.
-          if [ -n "$PL_KEYSTORE" ]; then ./gradlew --no-daemon assembleRelease bundleRelease; else ./gradlew --no-daemon assembleDebug bundleRelease; fi
+          if [ -n "$PL_KEYSTORE" ]; then tasks="assembleRelease bundleRelease"; else tasks="assembleDebug bundleRelease"; fi
+          # If it fails, the reason goes in the run's summary (GitHub's own log only says "exit code 1").
+          set +e; ./gradlew --no-daemon $tasks 2>&1 | tee "$RUNNER_TEMP/gradle.log"; ok=${PIPESTATUS[0]}; set -e
+          if [ "$ok" != 0 ]; then
+            echo "::error title=Android build failed::$( (grep -A12 'What went wrong' "$RUNNER_TEMP/gradle.log" || tail -20 "$RUNNER_TEMP/gradle.log") | head -24 | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}')"
+            exit "$ok"
+          fi
           mkdir -p ../dist ../play
           cp app/build/outputs/apk/*/*.apk "../dist/Party-Line-${PL_VERSION_NAME#android-v}.apk"
           # Google Play takes a signed bundle (.aab) instead of an .apk.
