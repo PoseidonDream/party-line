@@ -4,4 +4,6 @@
     <string name="title_activity_main">Party Line</string>
     <string name="package_name">com.poseidondream.partyline</string>
     <string name="custom_url_scheme">com.poseidondream.partyline</string>
+    <string name="downloading">Downloading %1$s</string>
+    <string name="download_failed">Couldn’t download it. Try again.</string>
 </resources>

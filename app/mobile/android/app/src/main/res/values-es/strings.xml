@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="downloading">Descargando %1$s</string>
+    <string name="download_failed">No se pudo descargar. Inténtalo de nuevo.</string>
+</resources>
