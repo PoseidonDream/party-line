@@ -2,6 +2,11 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 11, items: [
+    ['🌍', 'Languages', 'Party Line now speaks English, Deutsch, Español, Français, Italiano, Русский and Türkçe. Change it any time in Settings → Look → Language (or on the sign-in screen). What people write stays as they wrote it.'],
+    ['🛡️', 'Block and report', 'Click someone’s name to block them: you won’t see their messages and they can’t reach you. Point at a message and press the 🚩 to report it to the admins.'],
+    ['🗑️', 'Delete your account', 'Settings → Account → Delete my account removes your account and everything that’s yours. There’s also a page for it: /delete-account.'],
+  ] },
   { id: 10, items: [
     ['🐢', 'Slow-mo voice', 'A new voice effect: press ✨ in voice → Slow-mo. Friends hear you deep and slowed down, like a slowed-down video.'],
     ['📺', 'One click to watch', 'Click a voice channel that says LIVE and the stream opens. Already in the call? Click the bubble of whoever is live.'],

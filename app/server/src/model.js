@@ -61,13 +61,14 @@ export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
 
-export function register(name, pass, groupPass) {
+export function register(name, pass, groupPass, agree) {
   name = cleanName(name);
   if (!groupPasswordOk(groupPass)) fail('That group password is wrong. Ask whoever invited you.');
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   if (String(pass || '').length < 4) fail('Pick a password with at least 4 characters.');
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
+  if (agree !== true) fail('To make an account, agree to the community rules and the privacy policy.');
   // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
   const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen) VALUES (?, ?, ?, ?, ?, -1)',
     name, foldKey(name), hashPass(pass), isAdminName(name) ? 1 : 0, now()).lastInsertRowid);
@@ -1013,6 +1014,7 @@ export function requestFriend(userId, name) {
   const other = userByName(cleanName(name));
   if (!other) fail(`Nobody is called “${cleanName(name)}”. Check the spelling.`);
   if (other.id === userId) fail('That’s you.');
+  if (blockedBetween(userId, other.id)) fail(hasBlocked(userId, other.id) ? `You blocked ${other.name}. Unblock them first (Settings → Account).` : `You can’t send ${other.name} a friend request.`);
   const st = friendState(userId, other.id);
   if (st === 'friends') fail(`You and ${other.name} are already friends.`);
   if (st === 'incoming') { acceptFriend(userId, other.id); return { other, state: 'friends' }; }
@@ -1111,3 +1113,74 @@ export function unusedUploads(olderThan = 60 * 60_000) {
   return all('SELECT id FROM uploads WHERE created_at < ?', now() - olderThan).map((r) => r.id).filter((id) => !used.has(id));
 }
 export const forgetUpload = (id) => run('DELETE FROM uploads WHERE id = ?', id);
+
+/* ---------- Deleting your account (Settings -> Account, or the /delete-account page) ----------
+   Your messages, private chats, reactions, sounds, emoji, feedback and everything else that's yours go too. Servers
+   you own pass to the member who joined first, or go if nobody else is in them. Photos and files nobody uses any
+   more are swept up by the hourly cleanup (index.js). Returns the servers you were in, to tell them. */
+export const passwordOk = (userId, pass) => { const u = getUser(userId); return !!u && checkPass(pass, u.pass_hash); };
+export function deleteAccount(userId, pass) {
+  const u = getUser(userId);
+  if (!u || u.is_bot) fail('That account can’t be deleted.');
+  if (!checkPass(pass, u.pass_hash)) fail('That password isn’t right.');
+  const servers = serverIdsOf(userId);
+  tx(() => {
+    run('DELETE FROM messages WHERE user_id = ?', userId);
+    run('DELETE FROM polls WHERE created_by = ?', userId);
+    for (const t of ['sounds', 'emoji', 'feedback', 'game_ideas']) run(`DELETE FROM ${t} WHERE user_id = ?`, userId);
+    for (const s of all('SELECT id, is_default FROM servers WHERE owner_id = ?', userId)) {
+      const next = one('SELECT user_id FROM members WHERE server_id = ? AND user_id != ? ORDER BY joined_at LIMIT 1', s.id, userId);
+      if (next) run('UPDATE servers SET owner_id = ? WHERE id = ?', next.user_id, s.id);
+      else if (!s.is_default) run('DELETE FROM servers WHERE id = ?', s.id);
+    }
+    run('DELETE FROM users WHERE id = ?', userId);   // and with it (ON DELETE CASCADE): sign-ins, memberships, private chats, reactions, votes…
+    run("DELETE FROM servers WHERE kind = 'group' AND NOT EXISTS (SELECT 1 FROM members WHERE server_id = servers.id)");
+  });
+  return servers.filter((id) => getServer(id));
+}
+
+/* ---------- Blocking ---------- */
+export const blockedBy = (userId) => all('SELECT blocked_id FROM blocks WHERE user_id = ?', userId).map((r) => r.blocked_id);
+/* True if either of the two has blocked the other. */
+export const blockedBetween = (a, b) => !!one('SELECT 1 AS x FROM blocks WHERE (user_id = ? AND blocked_id = ?) OR (user_id = ? AND blocked_id = ?)', a, b, b, a);
+export const hasBlocked = (userId, otherId) => !!one('SELECT 1 AS x FROM blocks WHERE user_id = ? AND blocked_id = ?', userId, otherId);
+export function setBlock(userId, otherId, on) {
+  const other = getUser(otherId);
+  if (!other || other.id === userId) fail('Pick someone else.');
+  if (other.is_bot) fail('Party Bot can’t be blocked. Turn its messages off with the 🔔 in its chat instead.');
+  if (on) {
+    run('INSERT OR IGNORE INTO blocks (user_id, blocked_id, created_at) VALUES (?, ?, ?)', userId, otherId, now());
+    run('DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)', userId, otherId, otherId, userId);
+  } else run('DELETE FROM blocks WHERE user_id = ? AND blocked_id = ?', userId, otherId);
+}
+
+/* ---------- Reports (for the admins) ---------- */
+export const REPORT_REASONS = { spam: 'Spam', harassment: 'Harassment or bullying', hate: 'Hate or violence', sexual: 'Sexual content', other: 'Something else' };
+export function addReport(reporterId, d) {
+  const reason = Object.hasOwn(REPORT_REASONS, d.reason) ? d.reason : fail('Pick a reason.');
+  const note = oneLine(d.note, 500) || null;
+  const recent = one('SELECT COUNT(*) AS n FROM reports WHERE reporter_id = ? AND created_at > ?', reporterId, now() - 3600_000).n;
+  if (recent >= 10) fail('That’s a lot of reports. Try again in a while, or message an admin.');
+  let userId = Number(d.userId) || null, messageId = null, excerpt = null;
+  if (d.messageId) {
+    const m = getMessage(Number(d.messageId));
+    if (!m) fail('That message is gone.');
+    messageId = m.id; userId = m.user_id; excerpt = readableBody(m.body).slice(0, 500) || '[a photo, video or file]';
+  }
+  const target = userId && getUser(userId);
+  if (!target || target.id === reporterId) fail('Pick someone else to report.');
+  const id = Number(run('INSERT INTO reports (reporter_id, user_id, message_id, excerpt, reason, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    reporterId, target.id, messageId, excerpt, reason, note, now()).lastInsertRowid);
+  return one('SELECT * FROM reports WHERE id = ?', id);
+}
+const reportView = (r) => r && ({
+  id: r.id, reason: r.reason, reasonText: REPORT_REASONS[r.reason] || r.reason, note: r.note, excerpt: r.excerpt, at: r.created_at,
+  reporter: r.reporter_id ? { id: r.reporter_id, name: (getUser(r.reporter_id) || {}).name || 'Someone' } : null,
+  user: r.user_id ? { id: r.user_id, name: (getUser(r.user_id) || {}).name || 'Someone' } : null,
+  messageId: r.message_id && getMessage(r.message_id) ? r.message_id : null,
+  handledAt: r.handled_at, outcome: r.outcome,
+});
+export const listReports = () => all('SELECT * FROM reports ORDER BY handled_at IS NOT NULL, id DESC LIMIT 200').map(reportView);
+export const getReport = (id) => reportView(one('SELECT * FROM reports WHERE id = ?', id));
+export const openReports = () => one('SELECT COUNT(*) AS n FROM reports WHERE handled_at IS NULL').n;
+export const resolveReport = (id, by, outcome) => run('UPDATE reports SET handled_at = ?, handled_by = ?, outcome = ? WHERE id = ?', now(), by, outcome, id);

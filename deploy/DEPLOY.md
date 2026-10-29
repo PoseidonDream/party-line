@@ -86,7 +86,7 @@ The app updates itself: when you publish a newer release, everyone gets it on th
 
 ## Phones
 
-- **Android:** there's a real app. Run **Actions → Android app → Run workflow** (after setting `PARTY_LINE_SERVER` in step 6) and share the `.apk` it makes. In the app, voice keeps running when the phone locks or you switch apps. See [app/SIGNING.md](../app/SIGNING.md) to sign it so updates install over the old version.
+- **Android:** there's a real app. Run **Actions → Android app → Run workflow** (after setting `PARTY_LINE_SERVER` in step 6) and share the `.apk` it makes. In the app, voice keeps running when the phone locks or you switch apps. See [app/SIGNING.md](../app/SIGNING.md) to sign it so updates install over the old version. To put it on **Google Play** (friends install and update it from the Play Store), see [app/PLAY_STORE.md](../app/PLAY_STORE.md).
 - **iPhone:** use the website in Safari → Share → **Add to Home Screen**. A real iPhone app needs Apple's $99/year developer account and a Mac; the steps are in [app/SIGNING.md](../app/SIGNING.md).
 
 The website also works in any phone browser for chat, voice and watching screen shares. On the website, voice stops when the phone locks. Sharing your screen from a phone isn't supported.
@@ -149,6 +149,8 @@ With it on, voice uses your server's traffic. That's roughly 1 GB per person per
 
 ## What friends can do
 
+- **Languages:** English, Deutsch, Español, Français, Italiano, Русский and Türkçe. Party Line starts in the phone's or computer's language; anyone can change it in **Settings → Look → Language**, or on the sign-in screen. Only the app's own words change, never what people write.
+- **Safety:** click someone's name to **Block** them (you don't see their messages; they can't message, call or add you) or **Report** them. Point at a message and press the flag to report it. You and the other admins get reports from Party Bot and in **Developer → Reports**, where you can delete the message. Anyone can delete their own account in **Settings → Account**, or at `/delete-account`. The rules people agree to are at `/rules`, the privacy policy at `/privacy`. Put your email in `.env` as `CONTACT_EMAIL=you@example.com` so those pages say how to reach you.
 - **Chat:** messages, replies, reactions, @mentions, editing, search (Ctrl+K), **pinned messages** (the Pinned button lists them), **link previews** (YouTube links play right in the chat), photos, videos and **any file** up to 25 MB, and **voice messages** (the mic button in the message box).
 - **Voice:** voice channels with screen sharing, camera, noise filter, push to talk, the **soundboard** (16 meme sounds, plus up to 10 clips each member adds: any audio or video file, trimmed to 7 seconds), and Listen together (see Party Bot below).
 - **Watching a screen share:** click the voice channel that shows **LIVE** (it joins the call and opens the stream), or click the bubble of whoever is live (it shows a peek of their screen and ▶ Watch). The red **LIVE** next to their name and the **Watch** note that pops up when someone starts sharing work too. To share your own screen, press the screen button in the voice bar.

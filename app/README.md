@@ -6,7 +6,7 @@ Party Line as its own app: a server your group runs, a website and a desktop app
 |---|---|
 | `server/` | Node.js server: accounts, servers, channels, saved messages, friends, private chats, photo and video uploads, who's online, and the handshakes that connect voice. Data goes in one SQLite file. Also serves the website. |
 | `web/` | The website (plain HTML, CSS and JavaScript, no build step). Same look as the original Party Line. |
-| `mobile/` | The Android app (Capacitor). It opens your server like the desktop app, and keeps voice running in the background with an "In voice" notification. Built by GitHub (Actions → Android app). See [SIGNING.md](SIGNING.md). |
+| `mobile/` | The Android app (Capacitor). It opens your server like the desktop app, and keeps voice running in the background with an "In voice" notification. Built by GitHub (Actions → Android app). See [SIGNING.md](SIGNING.md), and [PLAY_STORE.md](PLAY_STORE.md) for Google Play. |
 | `desktop/` | The Windows, Mac and Linux app (Electron). It opens your server and adds a screen and window picker, push to talk that works in games, a tray icon and auto-updates. |
 | `../deploy/` | Everything to run it on a $5 server: Docker, automatic HTTPS (Caddy), a voice relay (coturn) and a setup script. See [deploy/DEPLOY.md](../deploy/DEPLOY.md). |
 
@@ -60,6 +60,11 @@ npm test -- chat-voice   # just one file
 ```
 
 Screenshots land in `app/tests/results/`.
+
+## Languages
+The app is written in English. `web/js/i18n.js` swaps each piece of English text on screen for its translation from `web/i18n/<language>.json` (English text → translation), so the code keeps using plain English. What people write, and names, are never translated (the `SKIP` list in `i18n.js`).
+
+When you add or change text in the app, add the same English line to all six files (`de`, `es`, `fr`, `it`, `ru`, `tr`); a line that's missing just shows in English. Text put together in code goes through `t()`: `t('{0} is typing…', name)`, and an app word inside it too: `t('Noise filter: {0}', t('Strong'))`. `tests/languages.test.mjs` checks every file has the same lines and keeps the `{0}` slots. The developer panel stays in English.
 
 ## Admin powers
 

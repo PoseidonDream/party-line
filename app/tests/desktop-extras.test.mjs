@@ -17,7 +17,7 @@ export default async function (ok) {
     await a.goto(srv.url);
     await a.click('#tabRegister'); await a.fill('#authName', 'Poseidon'); await a.fill('#authPass', 'pass1234');
     if (await a.isVisible('#authGroup')) await a.fill('#authGroup', 'test');
-    await a.click('#authBtn'); await a.waitForSelector('#room:not([hidden])');
+    await a.check('#authAgree'); await a.click('#authBtn'); await a.waitForSelector('#room:not([hidden])');
     const b = await signUp(browser, srv.url, 'Bora');
 
     await joinVoice(a); await joinVoice(b);

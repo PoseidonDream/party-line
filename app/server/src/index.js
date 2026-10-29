@@ -47,7 +47,7 @@ const wrap = (fn) => async (req, res) => {
   }
 };
 
-app.get('/api/info', wrap(() => ({ name: 'Party Line', needsGroupPassword: !!config.groupPassword, version: 1 })));
+app.get('/api/info', wrap(() => ({ name: 'Party Line', needsGroupPassword: !!config.groupPassword, version: 1, contact: config.contactEmail || null })));
 /* For the auto-updater on the server itself (deploy/auto-update.sh): how many people are in voice right now.
    Only answers requests from inside the machine; through Caddy the request comes from another address. */
 app.get('/api/local/voice-count', (req, res) => {
@@ -56,8 +56,8 @@ app.get('/api/local/voice-count', (req, res) => {
   res.json({ inVoice: voiceCount() });
 });
 app.post('/api/register', throttle, wrap((req) => {
-  const { name, password, groupPassword } = req.body || {};
-  const r = M.register(name, password, groupPassword);
+  const { name, password, groupPassword, agree } = req.body || {};
+  const r = M.register(name, password, groupPassword, agree);
   hub.userChanged(r.user);
   hub.joinedServers(r.user.id);
   return { token: r.token, user: M.publicUser(r.user) };
@@ -77,6 +77,8 @@ app.post('/api/reset-request', throttle, wrap((req) => {
 }));
 app.post('/api/reset-request/:id', wrap((req) => M.resetStatus(Number(req.params.id), (req.body || {}).secret)));
 app.post('/api/logout', wrap((req) => { M.logout(bearer(req)); return { ok: true }; }));
+/* Deleting your account from the web page (/delete-account), for people without the app: sign in there, then this. */
+app.post('/api/account/delete', throttle, auth, wrap((req) => { hub.deleteAccount(req.user.id, (req.body || {}).password); return { ok: true }; }));
 app.post('/api/password', auth, wrap((req) => { M.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword); return { ok: true }; }));
 
 /* ICE servers for voice. TURN passwords are short-lived and signed with TURN_SECRET (coturn "use-auth-secret"). */

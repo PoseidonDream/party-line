@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete your account · Party Line</title>
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<main>
+<p class="back"><a href="/">← Party Line</a></p>
+<h1>Delete your account</h1>
+<p>This deletes your Party Line account on this server and everything that’s yours, for everyone: your messages, private chats, photos, files, voice messages and sounds. Servers you own go to the member who joined first. It happens straight away and can’t be undone. (Copies in the server’s backups disappear within 30 days.)</p>
+<p>You can also do this in the app: <b>Settings → Account → Delete my account</b>.</p>
+
+<form id="form" class="card">
+  <label for="name">Your name</label>
+  <input id="name" autocomplete="username" required>
+  <label for="pass">Your password</label>
+  <input id="pass" type="password" autocomplete="current-password" required>
+  <div id="codeRow" hidden>
+    <label for="code">6-digit code from your authenticator app</label>
+    <input id="code" inputmode="numeric" autocomplete="one-time-code">
+  </div>
+  <label class="check"><input type="checkbox" id="sure" required> <span>Yes, delete my account and everything in it for good.</span></label>
+  <button type="submit" id="go">Delete my account</button>
+  <p class="error" id="error" role="alert" hidden></p>
+</form>
+<p class="done" id="done" hidden>Your account was deleted. Thanks for hanging out.</p>
+<p class="contact" id="contact">Forgot your password? In the app, press “Forgot your password?” on the sign-in screen, or ask an admin.</p>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const post = async (path, body, token) => {
+    const r = await fetch(path, { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, token ? { authorization: `Bearer ${token}` } : {}), body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'That didn’t work. Try again.');
+    return d;
+  };
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('error').hidden = true; $('go').disabled = true;
+    try {
+      const login = await post('/api/login', { name: $('name').value, password: $('pass').value, code: $('code').value, device: 'Account deletion page' });
+      if (login.needCode) { $('codeRow').hidden = false; $('code').focus(); return; }
+      await post('/api/account/delete', { password: $('pass').value }, login.token);
+      $('form').hidden = true; $('done').hidden = false;
+    } catch (ex) { $('error').textContent = ex.message; $('error').hidden = false; }
+    finally { $('go').disabled = false; }
+  });
+</script>
+</body>
+</html>

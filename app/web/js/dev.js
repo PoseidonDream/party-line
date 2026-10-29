@@ -62,6 +62,7 @@ function build() {
       <button type="button" class="tab" role="tab" data-tab="audit">Admin log</button>
       <button type="button" class="tab" role="tab" data-tab="people">Check a friend</button>
       <button type="button" class="tab" role="tab" data-tab="features">Features</button>
+      <button type="button" class="tab" role="tab" data-tab="reports">Reports</button>
     </div>
     <div class="dev-body" id="devBody"></div>`;
   document.body.appendChild(dlg);
@@ -93,6 +94,7 @@ async function render() {
   else if (tab === 'audit') renderAudit();
   else if (tab === 'lab') renderLab();
   else if (tab === 'features') renderFeatures();
+  else if (tab === 'reports') renderReports();
   else renderPeople();
 }
 const body = () => dlg.querySelector('#devBody');
@@ -443,6 +445,43 @@ async function renderFeatures() {
     tb.appendChild(tr);
   }
   b.appendChild(t);
+}
+
+/* ---------- Reports: messages and people friends reported (server: M.addReport), open ones first ---------- */
+async function renderReports(list) {
+  const b = body();
+  if (!list) {
+    b.textContent = ''; b.appendChild(el('p', 'hint', 'Loading…'));
+    try { list = (await live.req('report.list', {})).reports; } catch (e) { b.textContent = ''; b.appendChild(el('p', 'error', e.message)); return; }
+  }
+  if (!dlg.open || tab !== 'reports') return;
+  b.textContent = '';
+  const open = list.filter((r) => !r.handledAt).length;
+  b.appendChild(el('p', 'hint', open ? `${open} report${open === 1 ? '' : 's'} to look at. Party Bot tells you about each new one.` : 'Nothing to look at. When someone reports a message or a person, it shows here and Party Bot tells you.'));
+  const ul = el('ul', 'report-list');
+  for (const r of list) {
+    const li = el('li', r.handledAt ? 'done' : null); li.dataset.id = r.id;
+    li.appendChild(el('b', null, `🚩 ${r.reasonText} · about ${r.user ? r.user.name : 'a deleted account'}`));
+    li.appendChild(el('small', null, `Reported by ${r.reporter ? r.reporter.name : 'a deleted account'} · ${fmtTime(r.at)}${r.handledAt ? ` · ${r.outcome}` : ''}`));
+    if (r.excerpt) li.appendChild(el('blockquote', null, r.excerpt));
+    if (r.note) li.appendChild(el('p', null, `“${r.note}”`));
+    if (!r.handledAt) {
+      const row = el('div', 'pop-btns dev-actions');
+      const act = (label, action, cls) => {
+        const x = el('button', cls || 'btn small', label); x.type = 'button';
+        x.addEventListener('click', async () => {
+          try { renderReports((await live.req('report.resolve', { id: r.id, action })).reports); } catch (e) { toast(e.message, 3000); }
+        });
+        row.appendChild(x);
+      };
+      if (r.messageId) act('Delete the message', 'delete', 'btn small danger');
+      act(r.messageId ? 'Keep it' : 'Done', 'dismiss');
+      li.appendChild(row);
+      if (r.user) li.appendChild(el('small', 'hint', `To remove ${r.user.name} from a server, click their name in it → Remove from server.`));
+    }
+    ul.appendChild(li);
+  }
+  b.appendChild(ul);
 }
 
 /* ---------- Log ---------- */

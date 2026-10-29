@@ -18,7 +18,7 @@ export default async function (ok) {
     a.errors = []; a.on('pageerror', (e) => a.errors.push(e.message));
     await a.goto(srv.url);
     await a.click('#tabRegister'); await a.fill('#authName', 'Poseidon'); await a.fill('#authPass', 'pass1234'); await a.fill('#authGroup', 'test');
-    await a.click('#authBtn'); await a.waitForSelector('#room:not([hidden])');
+    await a.check('#authAgree'); await a.click('#authBtn'); await a.waitForSelector('#room:not([hidden])');
     const b = await signUp(browser, srv.url, 'Bora');
 
     await a.fill('#chatInput', 'hello'); await a.keyboard.press('Enter');

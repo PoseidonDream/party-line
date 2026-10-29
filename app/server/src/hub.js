@@ -75,7 +75,7 @@ function pushMessage(m, author) {
   const what = plainText(m.body) || (m.attachments && m.attachments.length ? '📎 sent a file' : '');
   if (m.dmId || m.dm_id) {
     const dm = M.getDm(m.dmId || m.dm_id), to = dm.user_a === author.id ? dm.user_b : dm.user_a;
-    if ((M.notifyPrefs(to)[`d:${author.id}`] || 'all') === 'mute') return;
+    if ((M.notifyPrefs(to)[`d:${author.id}`] || 'all') === 'mute' || M.hasBlocked(to, author.id)) return;
     return pushIfAway(to, { title: author.name, body: what, url: `/?dm=${author.id}`, tag: `d:${author.id}` });
   }
   const ch = M.getChannel(m.channelId || m.channel_id), srv = M.getServer(ch.server_id);
@@ -84,7 +84,7 @@ function pushMessage(m, author) {
   if (replied) mentioned.add(replied.user_id);
   const hidden = srv.kind === 'group' || srv.kind === 'pair';
   for (const id of M.memberIds(srv.id)) {
-    if (id === author.id || online(id) || !Push.hasPush(id)) continue;   // cheap checks first: this runs for every message
+    if (id === author.id || online(id) || !Push.hasPush(id) || M.hasBlocked(id, author.id)) continue;   // cheap checks first: this runs for every message
     const prefs = M.notifyPrefs(id);
     const level = prefs[`c:${ch.id}`] || prefs[`s:${srv.id}`] || (hidden ? 'all' : 'mentions');
     if (level === 'mute' || (level === 'mentions' && !mentioned.has(id))) continue;
@@ -105,7 +105,18 @@ export const hub = {
   resetRequested(request) { for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reset.request', request }); },
   userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); toUser(u.id, { t: 'me', me: M.selfView(u) }); announce(u.id); },
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
+  deleteAccount: (userId, password) => deleteAccount(userId, password),
 };
+/* Deleting an account (see M.deleteAccount): out of voice, its data gone, everyone's apps drop its messages, and its
+   own apps are signed out. */
+function deleteAccount(userId, password) {
+  if (!M.passwordOk(userId, password)) fail('That password isn’t right.');
+  if (voice.has(userId)) leaveVoice(userId);
+  const servers = M.deleteAccount(userId, password);
+  for (const c of conns.values()) send(c, { t: 'user.deleted', userId });
+  for (const sid of servers) refreshServer(sid);
+  setTimeout(() => { for (const c of byUser.get(userId) || []) try { c.ws.close(4001, 'deleted'); } catch {} }, 300);
+}
 
 /* What Party Bot (bot.js) may do: post messages, react, start polls and group posts, and see who's in voice. */
 const botHost = {
@@ -187,6 +198,8 @@ function readyFor(user) {
     emoji: [...mine].flatMap((id) => M.emojiOf(id)),
     gifs: M.favGifs(user.id),
     bookmarks: M.bookmarkIds(user.id),
+    blocked: M.blockedBy(user.id),
+    reports: user.is_admin ? M.openReports() : 0,
     commands: Bot.COMMAND_LIST,
     perks: { achievements: P.ACHIEVEMENTS, unlocks: M.UNLOCKS, nameColors: M.NAME_COLORS },
     serverNow: Date.now(),
@@ -233,6 +246,7 @@ const handlers = {
     }
     const other = M.getUser(Number(d.toUserId));
     if (!other) fail('That person doesn’t exist.');
+    if (M.blockedBetween(user.id, other.id)) fail(M.hasBlocked(user.id, other.id) ? `You blocked ${other.name}. Unblock them to send a message.` : `Your message couldn’t be delivered to ${other.name}.`);
     const shares = M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s));
     if (M.friendState(user.id, other.id) !== 'friends' && !shares) fail(`Add ${other.name} as a friend first.`);
     const dm = M.dmWith(user.id, other.id, true);
@@ -517,7 +531,7 @@ const handlers = {
   /* A 1-on-1 call: the hidden room for the two of you. The client then joins its voice channel, which rings. */
   'call.start'(c, user, d) {
     const other = M.getUser(Number(d.userId));
-    if (!other || other.is_bot || other.id === user.id) fail('You can’t call them.');
+    if (!other || other.is_bot || other.id === user.id || M.blockedBetween(user.id, other.id)) fail('You can’t call them.');
     if (M.friendState(user.id, other.id) !== 'friends' && !M.serverIdsOf(user.id).some((s) => M.isMember(other.id, s))) fail(`Add ${other.name} as a friend first.`);
     const room = M.pairRoom(user.id, other.id);
     if (room.created) { sendServerTo(user.id, room.id); sendServerTo(other.id, room.id); }
@@ -1012,6 +1026,36 @@ const handlers = {
     const id = M.addFeedback(d.anonymous ? null : user.id, d.kind, d.body);
     for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'feedback.new', id });
     return { id };
+  },
+  /* Deleting your own account (Settings -> Account). The /delete-account web page does the same (index.js). */
+  'account.delete'(c, user, d) { deleteAccount(user.id, d.password); return {}; },
+  /* Blocking (see M.setBlock): your devices get the new list, and a friendship between you ends. */
+  'block.set'(c, user, d) {
+    const id = Number(d.userId);
+    M.setBlock(user.id, id, !!d.on);
+    toUser(user.id, { t: 'blocks', blocked: M.blockedBy(user.id) });
+    if (d.on) { toUser(user.id, { t: 'friend', id, state: null }); toUser(id, { t: 'friend', id: user.id, state: null }); }
+    return {};
+  },
+  /* Reporting a message or a person: the admins get a private note from Party Bot and the report in Developer -> Reports. */
+  'report.send'(c, user, d) {
+    const r = M.getReport(M.addReport(user.id, d).id);
+    if (d.block && r.user) { M.setBlock(user.id, r.user.id, true); toUser(user.id, { t: 'blocks', blocked: M.blockedBy(user.id) }); }
+    const quote = r.excerpt ? `\n> ${r.excerpt.replace(/\s+/g, ' ').slice(0, 300)}` : '';
+    tellAdmins(`🚩 **Report** from ${r.reporter.name} about **${r.user.name}**: ${r.reasonText}${quote}${r.note ? `\nThey added: ${r.note}` : ''}\n_Look at it in Developer → Reports._`);
+    for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reports', open: M.openReports() });
+    return {};
+  },
+  'report.list'(c, user) { if (!user.is_admin) fail('Admins only.'); return { reports: M.listReports() }; },
+  'report.resolve'(c, user, d) {
+    if (!user.is_admin) fail('Admins only.');
+    const r = M.getReport(Number(d.id));
+    if (!r) fail('That report is gone.');
+    let outcome = 'Dismissed';
+    if (d.action === 'delete' && r.messageId) { handlers['msg.delete'](c, user, { id: r.messageId }); outcome = 'Message deleted'; }
+    M.resolveReport(r.id, user.id, outcome);
+    for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'reports', open: M.openReports() });
+    return { reports: M.listReports() };
   },
   /* Features friends use (see usage.js): things only the app sees are counted from this note, in Usage.track. */
   'feature.used': () => ({}),

@@ -11,7 +11,7 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-/** Lets the Party Line page tell the app when you join or leave voice, and ask which build it is (for the update banner). */
+/** Lets the Party Line page tell the app when you join or leave voice, and ask which build it is and where it came from (for the update banner). */
 @CapacitorPlugin(name = "PartyLine")
 public class PartyLinePlugin extends Plugin {
     @PluginMethod
@@ -32,6 +32,17 @@ public class PartyLinePlugin extends Plugin {
         call.resolve();
     }
 
+    /** Which app store installed Party Line ("com.android.vending" is Google Play), or null for a downloaded .apk. */
+    private String installer() {
+        try {
+            String pkg = getContext().getPackageName();
+            if (Build.VERSION.SDK_INT >= 30) return getContext().getPackageManager().getInstallSourceInfo(pkg).getInstallingPackageName();
+            return getContext().getPackageManager().getInstallerPackageName(pkg);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @PluginMethod
     public void getVersion(PluginCall call) {
         try {
@@ -39,6 +50,7 @@ public class PartyLinePlugin extends Plugin {
             JSObject r = new JSObject();
             r.put("code", Build.VERSION.SDK_INT >= 28 ? p.getLongVersionCode() : p.versionCode);
             r.put("name", p.versionName);
+            r.put("fromPlay", "com.android.vending".equals(installer()));   // Play updates it; the page then doesn't offer updates
             call.resolve(r);
         } catch (Exception e) {
             call.reject("Couldn't read the app version", e);

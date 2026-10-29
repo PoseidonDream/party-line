@@ -1,20 +1,21 @@
 /* Party Line app: sign in, servers and channels, chat, friends and private chats, voice and screen sharing. */
 import { api, upload, live, store, setToken, hasToken, absUrl } from './net.js';
 import { latestNews, unseenNews } from './news.js';
-import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize } from './util.js';
+import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize, locale } from './util.js';
 import * as Voice from './voice.js';
 import { initDev, openDev, log } from './dev.js';
 import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './music.js';
 import { builtinSounds, playSound, openClip, clipToWav, previewClip, MAX_CLIP } from './sounds.js';
 import { createDrawLayer, createClipBuffer, clipsSupported } from './stagefx.js';
 import { withDuration } from './webm.js';
+import { LANGS, setLang, startI18n, currentLang, t } from './i18n.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
 const S = {
   me: null, ready: false,
   perks: { achievements: [], unlocks: { flair: {}, bannerFx: {}, nameColor: 5, legend: 20 }, nameColors: [] },
-  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(), voiceStatus: new Map(), bookmarks: new Set(), later: new Map(),
+  users: new Map(), servers: new Map(), friends: new Map(), dms: new Map(), voice: new Map(), music: new Map(), commands: [], events: new Map(), resets: [], notif: {}, sounds: new Map(), soundFlash: new Map(), emoji: new Map(), gifs: [], previews: new Map(), games: new Map(), voiceStatus: new Map(), bookmarks: new Set(), later: new Map(), blocked: new Set(), showBlocked: new Set(), reports: 0,
   view: { kind: 'friends' }, friendTab: 'online',
   msgs: new Map(),          // 'c:<channelId>' or 'd:<userId>' -> { list, loaded, hasMore, loading }
   lastChan: store.get('lastChan', {}) || {},
@@ -51,6 +52,16 @@ function track(key) {
 }
 darkQuery.addEventListener('change', applyTheme);
 applyTheme();
+/* Language: the sign-in screen and Settings → Look both have the picker; each device remembers its own. */
+startI18n().then(() => { if (S.ready) renderAll(); });   // text put together in code is redone once the words have arrived
+for (const sel of [$('#joinLang'), $('#setLang')]) {
+  for (const [code, name] of LANGS) { const o = document.createElement('option'); o.value = code; o.textContent = name; o.dataset.own = '1'; sel.appendChild(o); }
+  sel.value = currentLang();
+  sel.addEventListener('change', () => {
+    for (const x of [$('#joinLang'), $('#setLang')]) x.value = sel.value;
+    setLang(sel.value).then(() => { if (S.ready) renderAll(); });
+  });
+}
 $('#themeToggle').addEventListener('click', () => setTheme(isDark() ? 'light' : 'dark'));
 
 /* ================= small view helpers ================= */
@@ -151,6 +162,7 @@ function showAuth(mode) {
   $('#tabLogin').setAttribute('aria-selected', String(mode === 'login'));
   $('#tabRegister').setAttribute('aria-selected', String(mode === 'register'));
   $('#groupField').hidden = mode !== 'register' || !info.needsGroupPassword;
+  $('#agreeField').hidden = mode !== 'register';
   $('#authPassHint').hidden = mode === 'login';
   $('#authPass').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
   $('#authPassLabel').textContent = mode === 'reset' ? 'New password' : 'Password';
@@ -162,7 +174,7 @@ function showAuth(mode) {
   $('#authError').hidden = true;
 }
 function showJoinScreen() {
-  $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false;
+  $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false; $('#joinLangBox').hidden = false;
   if (S.pendingInvite) { $('#joinInvite').hidden = false; $('#joinInvite').textContent = 'You were invited to a server. Sign in or create an account to join.'; }
   api('/api/info').then((i) => { info = i; showAuth(authMode); }).catch(() => {});
   showAuth(store.get('hadAccount', false) ? 'login' : 'register');
@@ -218,7 +230,8 @@ $('#authForm').addEventListener('submit', async (e) => {
       showResetWait('Your request was sent. An admin gets a notification and confirms it’s really you. You can keep this open, or close it and come back later.');
       return;
     }
-    const body = { name: $('#authName').value, password: $('#authPass').value, groupPassword: $('#authGroup').value, code: $('#authCode').value, device: await appLabel() };
+    if (authMode === 'register' && !$('#authAgree').checked) { err.textContent = 'To make an account, agree to the community rules and the privacy policy (the box above).'; err.hidden = false; return; }
+    const body = { name: $('#authName').value, password: $('#authPass').value, groupPassword: $('#authGroup').value, code: $('#authCode').value, device: await appLabel(), agree: authMode === 'register' };
     const r = await api(authMode === 'register' ? '/api/register' : '/api/login', { body });
     if (r.needCode) { $('#codeField').hidden = false; $('#authCode').focus(); return; }   // 2-step sign-in is on
     setToken(r.token); store.set('hadAccount', true);
@@ -273,11 +286,13 @@ live.on('ready', (d) => {
   S.emoji = new Map((d.emoji || []).map((e) => [e.id, e]));
   S.gifs = d.gifs || [];
   S.bookmarks = new Set(d.bookmarks || []);
+  setBlocked(d.blocked || []);
+  S.reports = d.reports || 0;
   renderResetBar();
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
   S.ready = true;
-  $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true;
+  $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true; $('#joinLangBox').hidden = true;
   if (first) {
     const last = store.get('lastView', null);
     if (last && ((last.kind === 'dm' && S.users.has(last.userId)) || last.kind === 'home')) S.view = last;
@@ -559,7 +574,7 @@ function onMessage(key, msg) {
   if (m && m.loaded && !m.list.some((x) => x.id === msg.id)) m.list.push(msg);
   else if (m && !m.loaded) (m.early ||= []).push(msg);   // history is still loading: add it when that arrives
   if (typing.has(key)) { typing.get(key).delete(msg.userId); renderTyping(); }
-  const mine = msg.userId === S.me.id;
+  const mine = msg.userId === S.me.id || S.blocked.has(msg.userId);   // someone you blocked: no unread count, sound or notification
   const viewing = msgKey() === key && !document.hidden;
   if (key.startsWith('c:')) {
     const f = findChannel(msg.channelId);
@@ -570,7 +585,7 @@ function onMessage(key, msg) {
       if (!mine && !viewing && mentionsMe(msg)) f.channel.mentions = (f.channel.mentions || 0) + 1;
       if (!mine && !viewing && level !== 'mute' && (level === 'all' || mentionsMe(msg))) {
         if (!quiet()) chime('msg', V.deafened);
-        notify(`${nameOf(msg.userId)} in ${where}`, decodeMentions(msg.body) || 'Sent a file', () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
+        notify(t('{0} in {1}', nameOf(msg.userId), where), decodeMentions(msg.body) || t('Sent a file'), () => setView({ kind: 'text', serverId: f.server.id, channelId: f.channel.id }));
       }
     }
   } else {
@@ -578,7 +593,7 @@ function onMessage(key, msg) {
     if (x && !mine && !viewing) x.unread = (x.unread || 0) + 1;
     if (!mine && !viewing && levelFor(key) !== 'mute') {
       if (!quiet()) chime('msg', V.deafened);
-      notify(nameOf(msg.userId), decodeMentions(msg.body) || 'Sent a photo or video', () => setView({ kind: 'dm', userId: msg.userId }));
+      notify(nameOf(msg.userId), decodeMentions(msg.body) || t('Sent a photo or video'), () => setView({ kind: 'dm', userId: msg.userId }));
     }
   }
   if (msgKey() === key) { appendMessage(msg); if (viewing) markViewedRead(); }
@@ -825,7 +840,7 @@ function renderConn() {
   const s = curServer();
   if (s) {
     const on = s.members.filter((id) => user(id).online).length;
-    $('#countText').textContent = `${on} online · ${s.members.length} member${s.members.length === 1 ? '' : 's'}`;
+    $('#countText').textContent = t(s.members.length === 1 ? '{0} online · 1 member' : '{0} online · {1} members', on, s.members.length);
   }
 }
 function renderHeader() {
@@ -838,7 +853,7 @@ function renderHeader() {
   const disSecs = v.kind === 'dm' && !user(v.userId).bot ? (S.dms.get(v.userId) || {}).disappear || 0 : dsrv && dsrv.kind === 'group' ? dsrv.disappear || 0 : null;
   $('#disappearBtn').hidden = disSecs === null;
   $('#disappearBtn').classList.toggle('on', !!disSecs);
-  $('#disappearBtn').title = disSecs ? `Disappearing messages: on (${disSecs >= 604800 ? '7 days' : disSecs >= 86400 ? '24 hours' : `${disSecs} s`})` : 'Disappearing messages: off';
+  $('#disappearBtn').title = disSecs ? t('Disappearing messages: on ({0})', disSecs >= 604800 ? t('7 days') : disSecs >= 86400 ? t('24 hours') : `${disSecs} s`) : t('Disappearing messages: off');
   if (!$('#pinsBtn').hidden) loadLater(); else renderLater();
   if (!$('#gamesBtn').hidden) loadGames();
   else $('#gamesPanel').hidden = true;
@@ -902,7 +917,7 @@ function renderMainView() {
   if (k === 'voice') renderVoiceView();
   if (k === 'text' || k === 'dm') {
     const f = k === 'text' && findChannel(S.view.channelId);
-    $('#chatInput').placeholder = (k === 'dm' ? `Message @${nameOf(S.view.userId)}` : f && isPrivate(f.server) ? `Message ${groupName(f.server)}` : f ? `Message ${f.channel.kind === 'voice' ? '🔊 ' : '#'}${f.channel.name}` : 'Message') + (isPhone() ? '' : ' · type / for commands');
+    $('#chatInput').placeholder = (k === 'dm' ? t('Message {0}', `@${nameOf(S.view.userId)}`) : f && isPrivate(f.server) ? t('Message {0}', groupName(f.server)) : f ? t('Message {0}', `${f.channel.kind === 'voice' ? '🔊 ' : '#'}${f.channel.name}`) : t('Message')) + (isPhone() ? '' : ` ${t('· type / for commands')}`);
   }
 }
 function renderVoiceBits() { renderSide(); renderRail(); renderUserArea(); if (S.view.kind === 'voice') renderVoiceView(); if (S.view.kind === 'home') renderDash(); syncStageExtras(); syncPhoneCall(); syncMusic(); sendOverlay(); syncPreview(); }
@@ -932,7 +947,11 @@ async function appLabel() {
 async function checkAppUpdate() {
   if (!phoneApp || window.Capacitor.getPlatform() !== 'android') return;
   let mine = 0;
-  try { mine = Number((await phoneApp.getVersion()).code) || 0; } catch {}   // builds before the update check report 0
+  try {
+    const v = await phoneApp.getVersion();
+    if (v.fromPlay) return;   // installed from Google Play: Play updates it (and Play apps may not update themselves)
+    mine = Number(v.code) || 0;
+  } catch {}   // builds before the update check report 0
   try {
     const rel = await (await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`)).json();
     const apk = (rel.assets || []).find((x) => x.name === 'Party-Line-android.apk');
@@ -965,7 +984,7 @@ function syncPhoneCall() {
   const key = f ? `${f.channel.id}` : '';
   if (key === phoneInCall) return;
   phoneInCall = key;
-  phoneApp.setInCall({ inCall: !!f, title: f ? `In voice: ${f.channel.name}` : '' }).catch(() => {});
+  phoneApp.setInCall({ inCall: !!f, title: f ? t('In voice: {0}', f.channel.name) : '' }).catch(() => {});
 }
 
 /* ================= messages ================= */
@@ -986,9 +1005,9 @@ const INLINE_RE = new RegExp([
   '<m:([cd]):(\\d+):(\\d+)>',                               // 13, 14, 15 a link to a message (Party Bot's reminders)
 ].join('|'), 'g');
 /* <t:unix> shows a moment in each person's own time zone; <t:unix:R> as "in 15 minutes". */
-const fmtWhen = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmtWhen = (ms) => new Date(ms).toLocaleString(locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 function fmtRelative(ms) {
-  const d = ms - Date.now(), a = Math.abs(d), rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const d = ms - Date.now(), a = Math.abs(d), rtf = new Intl.RelativeTimeFormat(locale(), { numeric: 'auto' });
   const [n, u] = a < 3600_000 ? [Math.round(d / 60_000), 'minute'] : a < 86_400_000 ? [Math.round(d / 3600_000), 'hour'] : [Math.round(d / 86_400_000), 'day'];
   return rtf.format(n, u);
 }
@@ -1083,6 +1102,16 @@ function messageEl(msg, prev, before = prev) {
   li.className = 'msg' + (cont ? ' cont' : '') + (newDay ? ' new-day' : '') + (msg.reply ? ' has-reply' : '') + (mentionsMe(msg) ? ' mentioned' : '');
   li.dataset.id = msg.id;
   if (newDay) { const d = document.createElement('div'); d.className = 'day-line'; d.setAttribute('role', 'separator'); const t = document.createElement('span'); t.textContent = fmtDay(msg.at); d.appendChild(t); li.appendChild(d); }
+  if (S.blocked.has(msg.userId) && !S.showBlocked.has(`${msgKey()}:${msg.userId}`)) {
+    li.classList.add('blocked-msg');
+    if (cont && !newDay) { li.hidden = true; return li; }   // one line for a run of their messages
+    const row = document.createElement('div'); row.className = 'blocked-row';
+    const t = document.createElement('span'); t.textContent = 'Message from someone you blocked'; row.appendChild(t);
+    const show = document.createElement('button'); show.type = 'button'; show.className = 'link-btn'; show.textContent = 'Show';
+    show.addEventListener('click', () => { S.showBlocked.add(`${msgKey()}:${msg.userId}`); renderMessages(true); });
+    row.appendChild(show); li.appendChild(row);
+    return li;
+  }
   if (msg.reply) {
     const r = document.createElement('button'); r.type = 'button'; r.className = 'msg-reply';
     if (msg.reply.deleted) r.textContent = 'Original message was deleted';
@@ -1136,6 +1165,7 @@ function messageEl(msg, prev, before = prev) {
   const saved = S.bookmarks.has(msg.id);
   tool('bookmark', saved ? 'Remove from saved messages' : 'Save for later (only you see it)', () => act(() => live.req('bookmark.set', { id: msg.id, on: !saved }), saved ? null : 'Saved. Find it under Home → Saved messages.'), saved ? 'on' : '');
   tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
+  if (!mine && !user(msg.userId).bot) tool('flag', 'Report', () => openReport({ messageId: msg.id, userId: msg.userId, text: decodeMentions(msg.body) || 'A photo, video or file' }));
   if (mine || S.me.admin || (srv && can(srv, 'messages'))) {
     tool('trash', 'Delete', async (ev) => {
       if (ev.shiftKey || await confirmBox('Delete this message?', 'It’s removed for everyone. Hold Shift while clicking to skip this question.')) act(() => live.req('msg.delete', { id: msg.id }));
@@ -1314,7 +1344,7 @@ function introEl() {
   } else {
     const f = findChannel(S.view.channelId);
     g.textContent = '#'; li.appendChild(g);
-    h.textContent = `Welcome to #${f ? f.channel.name : ''}`;
+    h.textContent = t('Welcome to {0}', `#${f ? f.channel.name : ''}`);
     if (f && isPrivate(f.server)) {
       g.innerHTML = iconSvg('users');
       h.textContent = groupName(f.server);
@@ -1724,16 +1754,16 @@ function renderFriends() {
       const w = document.createElement('span'); w.className = 'av-wrap'; w.appendChild(avEl(id));
       const dot = document.createElement('span'); dot.className = 'status-dot ' + statusOf(id); w.appendChild(dot);
       li.appendChild(w);
-      const t = document.createElement('div'); t.className = 'fr-text';
-      const b = document.createElement('b'); b.textContent = nameOf(id); addCrown(b, id); t.appendChild(b);
+      const txt = document.createElement('div'); txt.className = 'fr-text';
+      const b = document.createElement('b'); b.textContent = nameOf(id); addCrown(b, id); txt.appendChild(b);
       const s = document.createElement('span');
       const vst = S.voice.get(id);
-      s.textContent = st === 'incoming' ? 'Wants to be your friend' : st === 'outgoing' ? 'Friend request sent' : vst ? `In voice: ${(findChannel(vst.channelId) || { channel: { name: '' } }).channel.name}` : presenceLine(id);
-      t.appendChild(s); li.appendChild(t);
+      s.textContent = st === 'incoming' ? 'Wants to be your friend' : st === 'outgoing' ? 'Friend request sent' : vst ? t('In voice: {0}', (findChannel(vst.channelId) || { channel: { name: '' } }).channel.name) : presenceLine(id);
+      txt.appendChild(s); li.appendChild(txt);
       const acts = document.createElement('div'); acts.className = 'fr-actions';
       const btn = (icon, label, cls, fn) => { const x = document.createElement('button'); x.type = 'button'; x.className = 'fr-act ' + cls; x.title = label; x.setAttribute('aria-label', label); x.innerHTML = iconSvg(icon); x.addEventListener('click', fn); acts.appendChild(x); };
       if (st === 'friends') {
-        btn('chat', `Message ${nameOf(id)}`, '', () => setView({ kind: 'dm', userId: id }));
+        btn('chat', t('Message {0}', nameOf(id)), '', () => setView({ kind: 'dm', userId: id }));
         btn('user-x', `Remove ${nameOf(id)}`, 'no', async () => { if (await confirmBox(`Remove ${nameOf(id)} as a friend?`, 'Your private chat stays, but you can’t send new messages until you’re friends again.', 'Remove')) act(() => live.req('friend.remove', { id })); });
       } else if (st === 'incoming') {
         btn('check', 'Accept', 'ok', () => act(() => live.req('friend.accept', { id })));
@@ -1752,11 +1782,11 @@ function renderFriends() {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'home-server';
     const ic = document.createElement('span'); ic.className = 'rail-btn'; ic.style.setProperty('--h', hue(s.name)); ic.textContent = serverInitials(s.name);
     b.appendChild(ic);
-    const t = document.createElement('span'); t.className = 'home-server-text';
-    const nb = document.createElement('b'); nb.textContent = s.name; t.appendChild(nb);
+    const txt = document.createElement('span'); txt.className = 'home-server-text';
+    const nb = document.createElement('b'); nb.textContent = s.name; txt.appendChild(nb);
     const on = s.members.filter((id) => user(id).online).length;
-    const sp = document.createElement('span'); sp.textContent = `${on} online · ${s.members.length} member${s.members.length === 1 ? '' : 's'}`; t.appendChild(sp);
-    b.appendChild(t);
+    const sp = document.createElement('span'); sp.textContent = t(s.members.length === 1 ? '{0} online · 1 member' : '{0} online · {1} members', on, s.members.length); txt.appendChild(sp);
+    b.appendChild(txt);
     b.addEventListener('click', () => openServer(s.id));
     li.appendChild(b); hs.appendChild(li);
   }
@@ -1844,7 +1874,7 @@ function renderVoiceView() {
     if (cam && inThis) { d.classList.add('has-cam'); d.appendChild(camVideo(p.userId, cam, isMe)); }
     else d.appendChild(avEl(p.userId, 'avatar'));
     const meta = document.createElement('div'); meta.className = 'tile-meta';
-    const n = document.createElement('span'); n.className = 'tile-name'; nameInto(n, p.userId, null, nameOf(p.userId) + (isMe ? ' (you)' : '')); addCrown(n, p.userId); meta.appendChild(n);
+    const n = document.createElement('span'); n.className = 'tile-name'; nameInto(n, p.userId, null, nameOf(p.userId) + (isMe ? ` ${t('(you)')}` : '')); addCrown(n, p.userId); meta.appendChild(n);
     if (S.soundFlash.has(p.userId)) { const f = document.createElement('span'); f.className = 'tile-sound'; f.textContent = S.soundFlash.get(p.userId); f.title = 'Played a sound'; n.appendChild(f); }
     const sub = document.createElement('span'); sub.className = 'tile-sub';
     sub.textContent = p.serverMuted ? 'Muted by admin' : p.deafened ? 'Deafened' : p.muted ? 'Muted' : !inThis || isMe ? 'In voice'
@@ -2021,7 +2051,7 @@ $('#mpMic').addEventListener('change', (e) => Voice.chooseMic(e.target.value));
 
 function micStatus() {
   if (V.micIssue && V.channelId) return { bad: true, text: 'Mic not working' };
-  if (!V.channelId) return { text: S.me ? (S.me.custom || { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', invisible: 'Invisible' }[S.me.status || 'online']) : 'Online' };
+  if (!V.channelId) return S.me && S.me.custom ? { text: S.me.custom, own: true } : { text: { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', invisible: 'Invisible' }[(S.me && S.me.status) || 'online'] };
   if (V.serverMuted) return { text: 'Muted by admin' };
   if (V.deafened) return { text: 'Deafened' };
   if (V.muted) return { text: 'Muted' };
@@ -2034,10 +2064,10 @@ function renderUserArea() {
   paintAv($('#meAv'), S.me.id);
   const pref = S.me.status || 'online';
   $('#meDot').className = 'status-dot ' + (pref === 'invisible' ? 'offline' : pref);
-  $('#statusBtn').title = `Status: ${{ online: 'Online', idle: 'Idle', dnd: 'Do not disturb', invisible: 'Invisible' }[pref]}. Click to change`;
+  $('#statusBtn').title = t('Status: {0}. Click to change', t({ online: 'Online', idle: 'Idle', dnd: 'Do not disturb', invisible: 'Invisible' }[pref]));
   $('#meName').textContent = S.me.name; addCrown($('#meName'), S.me.id);
   const st = micStatus();
-  $('#meStatus').textContent = st.text; $('#meStatus').classList.toggle('bad', !!st.bad);
+  $('#meStatus').textContent = st.own ? st.text : t(st.text); $('#meStatus').classList.toggle('bad', !!st.bad);
   const mic = $('#micBtn'), off = V.muted || V.deafened || V.serverMuted;
   mic.classList.toggle('off', off);
   mic.querySelector('use').setAttribute('href', off ? '#i-mic-off' : '#i-mic');
@@ -2068,7 +2098,7 @@ function renderUserArea() {
     syncFx();
     const nb = $('#noiseBtn');
     nb.classList.toggle('active', settings.noiseMode === 'strong');
-    nb.title = `Noise filter: ${{ strong: 'Strong', standard: 'Standard', off: 'Off' }[settings.noiseMode]} (N)`;
+    nb.title = t('Noise filter: {0} (N)', t({ strong: 'Strong', standard: 'Standard', off: 'Off' }[settings.noiseMode]));
   }
   if (!V.channelId && !$('#fxPop').hidden) closeFx();
   $('#pttBtn').hidden = !(settings.ptt && V.channelId);
@@ -2101,7 +2131,7 @@ $('#camBtn').addEventListener('click', async () => {
   if (V.camera) Voice.stopCamera(); else { await Voice.startCamera(); if (V.camera && S.view.kind !== 'voice') { const f = findChannel(V.channelId); if (f) setView({ kind: 'voice', serverId: f.server.id, channelId: f.channel.id }); } }
   renderVoiceBits();
 });
-function cycleNoise() { Voice.setNoiseMode(settings.noiseMode === 'strong' ? 'standard' : 'strong').then(() => { toast(`Noise filter: ${settings.noiseMode === 'strong' ? 'Strong' : 'Standard'}`, 1800); renderUserArea(); syncSettingsForm(); }); }
+function cycleNoise() { Voice.setNoiseMode(settings.noiseMode === 'strong' ? 'standard' : 'strong').then(() => { toast(t('Noise filter: {0}', t(settings.noiseMode === 'strong' ? 'Strong' : 'Standard')), 1800); renderUserArea(); syncSettingsForm(); }); }
 $('#vcLeaveBtn').addEventListener('click', () => { Voice.leaveVoice(); chime('leave'); renderVoiceBits(); });
 $('#vsChan').addEventListener('click', () => { const f = findChannel(V.channelId); if (f) setView({ kind: 'voice', serverId: f.server.id, channelId: f.channel.id }); });
 $('#audioUnlock').addEventListener('click', () => { Voice.unlockAudio(); $('#audioUnlockRow').hidden = true; });
@@ -2155,14 +2185,14 @@ setInterval(() => {
     if (afk) {
       const why = quietLeft <= 0 ? 'quiet for 15 minutes' : 'muted for 30 minutes';
       S.mutedSince = 0; lastSpoke = Date.now();
-      joinVoice(afk).then(() => { if (!V.muted) toggleMute(); toast(`You were ${why}, so you were moved to the AFK channel. Click another voice channel to come back.`, 7000); });
+      joinVoice(afk).then(() => { if (!V.muted) toggleMute(); toast(t('You were {0}, so you were moved to the AFK channel. Click another voice channel to come back.', t(why)), 7000); });
     } else { Voice.leaveVoice(); S.mutedSince = 0; toast('You were muted for 30 minutes, so you left voice.', 6000); renderVoiceBits(); }
     return;
   }
   if (left > 5 * 60_000) { bar.hidden = true; return; }
   const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);
   const what = left === quietLeft ? 'quiet' : V.deafened ? 'deafened' : 'muted';
-  $('#afkText').innerHTML = `You’ve been ${what} a while. ${afk ? 'Moving you to the AFK channel' : 'Leaving voice'} in <b>${m}:${String(sec).padStart(2, '0')}</b>.`;
+  $('#afkText').innerHTML = `<span>You’ve been ${what} a while.</span> <span>${afk ? 'Moving you to the AFK channel in' : 'Leaving voice in'}</span> <b>${m}:${String(sec).padStart(2, '0')}</b>.`;
   $('#afkUnmute').textContent = what === 'quiet' ? 'I’m here' : 'Unmute';
   bar.hidden = false;
 }, 1000);
@@ -2263,6 +2293,8 @@ function openUserPop(id, anchor) {
     $('#volMute').checked = !!pref.mute;
   }
   const isBot = !!user(id).bot;
+  $('#popSafety').hidden = isMe || isBot;
+  $('#popBlock').lastChild.textContent = S.blocked.has(id) ? 'Unblock' : 'Block';
   $('#popWatch').hidden = isMe || !(vst && vst.sharing) || S.watching === id;
   $('#popMsg').hidden = isMe || isBot;
   const fs = S.friends.get(id);
@@ -2296,7 +2328,7 @@ function fillUserPop(id) {
   $('#popDot').className = 'status-dot ' + statusOf(id);
   $('#popBanner').style.background = u.banner || `hsl(${hue(u.name)} 45% 45%)`;
   $('#popBanner').className = 'pop-banner' + (u.bannerFx ? ` fx-${u.bannerFx}` : '');
-  nameInto($('#popName'), id, S.popServer && S.servers.get(S.popServer), nameOf(id) + (isMe ? ' (you)' : '')); addCrown($('#popName'), id);
+  nameInto($('#popName'), id, S.popServer && S.servers.get(S.popServer), nameOf(id) + (isMe ? ` ${t('(you)')}` : '')); addCrown($('#popName'), id);
   $('#popPresence').textContent = u.bot ? 'Bot' : STATUS_TEXT[statusOf(id)];
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
   $('#popActivity').hidden = !(u.online && u.activity); $('#popActivity').textContent = u.activity ? `🎮 Playing ${u.activity}` : '';
@@ -2361,6 +2393,77 @@ $('#volRange').addEventListener('input', (e) => { $('#volOut').textContent = `${
 $('#volMute').addEventListener('change', (e) => { setPref(S.popUser, { mute: e.target.checked }); renderVoiceBits(); });
 $('#volReset').addEventListener('click', () => { $('#volRange').value = 100; $('#volOut').textContent = '100%'; setPref(S.popUser, { vol: 1, mute: false }); $('#volMute').checked = false; });
 $('#popWatch').addEventListener('click', () => { const id = S.popUser; closeUserPop(); watchScreen(id); });
+$('#popReport').addEventListener('click', () => { const id = S.popUser; closeUserPop(); openReport({ userId: id }); });
+$('#popBlock').addEventListener('click', async () => {
+  const id = S.popUser, on = !S.blocked.has(id);
+  closeUserPop();
+  if (on && !await confirmBox(`Block ${nameOf(id)}?`, 'You won’t see their messages, and they can’t message, call or add you. They aren’t told. You can unblock them in Settings → Account.', 'Block')) return;
+  act(() => live.req('block.set', { userId: id, on }), on ? `${nameOf(id)} is blocked.` : `${nameOf(id)} is unblocked.`);
+});
+/* ---------- blocking: their messages are hidden, their voice is muted for you ---------- */
+function setBlocked(ids) {
+  const was = S.blocked;
+  S.blocked = new Set(ids);
+  for (const id of S.blocked) if (!was.has(id)) setPref(id, { mute: true });
+  for (const id of was) if (!S.blocked.has(id)) setPref(id, { mute: false });
+  renderBlockedList();
+}
+live.on('blocks', (d) => { setBlocked(d.blocked); if (S.view.kind === 'text' || S.view.kind === 'dm') renderMessages(true); renderVoiceBits(); });
+function renderBlockedList() {
+  const ul = $('#blockedList'); ul.textContent = '';
+  $('#blockedCount').textContent = String(S.blocked.size);
+  if (!S.blocked.size) { const li = document.createElement('li'); li.className = 'hint'; li.textContent = 'Nobody.'; ul.appendChild(li); return; }
+  for (const id of S.blocked) {
+    const li = document.createElement('li');
+    li.appendChild(avEl(id));
+    const n = document.createElement('span'); n.textContent = nameOf(id); li.appendChild(n);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = 'Unblock';
+    b.addEventListener('click', () => act(() => live.req('block.set', { userId: id, on: false }), `${nameOf(id)} is unblocked.`));
+    li.appendChild(b); ul.appendChild(li);
+  }
+}
+/* ---------- reporting a message or a person to the admins ---------- */
+let reporting = null;
+function openReport(r) {
+  reporting = r;
+  $('#reportTitle').textContent = r.messageId ? 'Report message' : `Report ${nameOf(r.userId)}`;
+  $('#reportWhat').textContent = r.messageId ? `${nameOf(r.userId)}: ${r.text}` : `You’re reporting ${nameOf(r.userId)}.`;
+  $('#reportForm').reset();
+  $('#reportBlockText').textContent = `Also block ${nameOf(r.userId)}`;
+  $('#reportBlock').closest('label').hidden = S.blocked.has(r.userId);
+  $('#reportDlg').showModal();
+}
+$('#reportCancel').addEventListener('click', () => $('#reportDlg').close());
+$('#reportForm').addEventListener('submit', async (e) => {
+  if (e.submitter && e.submitter.value !== 'send') return;
+  e.preventDefault();
+  const reason = ($('#reportForm').querySelector('input[name="reportReason"]:checked') || {}).value;
+  if (!reason || !reporting) return;
+  const ok = await act(() => live.req('report.send', { messageId: reporting.messageId || null, userId: reporting.userId, reason, note: $('#reportNote').value, block: $('#reportBlock').checked }),
+    'Thanks. The admins got your report.');
+  if (ok) $('#reportDlg').close();
+});
+/* ---------- deleting your account ---------- */
+$('#deleteAccountBtn').addEventListener('click', async () => {
+  const password = $('#deletePass').value;
+  if (!password) { toast('Type your password first.', 3000); $('#deletePass').focus(); return; }
+  if (!await confirmBox('Delete your account for good?', 'Your messages, private chats, photos, files and sounds are deleted for everyone. This can’t be undone.', 'Delete my account')) return;
+  try { await live.req('account.delete', { password }); }
+  catch (ex) { toast(ex.message, 4000); return; }
+  if (V.channelId) Voice.leaveVoice(false);
+  live.close(); setToken(''); S.ready = false; store.set('hadAccount', false);
+  $('#settings').close(); $('#deletePass').value = '';
+  showJoinScreen();
+  toast('Your account was deleted.', 6000);
+});
+/* Someone deleted their account: their messages go from every chat here. */
+live.on('user.deleted', (d) => {
+  for (const m of S.msgs.values()) m.list = m.list.filter((x) => x.userId !== d.userId);
+  S.friends.delete(d.userId); S.dms.delete(d.userId);
+  if (S.view.kind === 'dm' && S.view.userId === d.userId) S.view = { kind: 'friends' };
+  renderAll();
+});
+live.on('reports', (d) => { S.reports = d.open; });
 $('#popMsg').addEventListener('click', () => { const id = S.popUser; closeUserPop(); setView({ kind: 'dm', userId: id }); });
 $('#popFriend').addEventListener('click', async () => {
   const id = S.popUser;
@@ -2488,7 +2591,7 @@ function renderTop() {
     li.className = 'top-row' + (id === S.me.id ? ' me' : '');
     const place = document.createElement('span'); place.className = 'top-place'; place.textContent = xp && medals[i] ? medals[i] : String(i + 1);
     const who = document.createElement('div'); who.className = 'top-who';
-    const nm = document.createElement('b'); nameInto(nm, id, null, nameOf(id) + (id === S.me.id ? ' (you)' : ''));
+    const nm = document.createElement('b'); nameInto(nm, id, null, nameOf(id) + (id === S.me.id ? ` ${t('(you)')}` : ''));
     const streak = user(id).streak;
     if (streak) { const f = document.createElement('span'); f.className = 'top-streak'; f.textContent = `🔥 ${streak}`; f.title = `${streak}-day streak`; nm.appendChild(f); }
     const bar = document.createElement('div'); bar.className = 'xp-bar'; bar.title = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
@@ -2505,15 +2608,15 @@ function renderTop() {
 /* Your achievements (the ones you don't have yet say how to get them) and what each level unlocks. */
 function renderAchievements() {
   const mine = S.me.badges || {}, list = S.perks.achievements, grid = $('#achGrid');
-  $('#achCount').textContent = `You have ${list.filter((a) => mine[a.key]).length} of ${list.length}. Everyone sees yours on your profile.`;
+  $('#achCount').textContent = t('You have {0} of {1}. Everyone sees yours on your profile.', list.filter((a) => mine[a.key]).length, list.length);
   grid.textContent = '';
   for (const a of list) {
     const li = document.createElement('li'); li.className = 'ach' + (mine[a.key] ? ' got' : '');
     const e = document.createElement('span'); e.className = 'ach-emoji'; e.textContent = mine[a.key] ? a.emoji : '🔒';
-    const t = document.createElement('div');
-    const n = document.createElement('b'); n.textContent = a.name;
-    const h = document.createElement('small'); h.textContent = mine[a.key] ? `${a.how} Unlocked ${fmtDay(mine[a.key])}.` : a.how;
-    t.append(n, h); li.append(e, t); grid.appendChild(li);
+    const txt = document.createElement('div');
+    const n = document.createElement('b'); n.textContent = t(a.name);
+    const h = document.createElement('small'); h.textContent = mine[a.key] ? t('{0} Unlocked {1}.', t(a.how), fmtDay(mine[a.key])) : t(a.how);
+    txt.append(n, h); li.append(e, txt); grid.appendChild(li);
   }
   const lvl = xpLevel(S.me.xp), u = S.perks.unlocks, rewards = [
     [u.nameColor, '🎨', 'Name colors', 'Settings → Profile → Name color'],
@@ -2524,7 +2627,7 @@ function renderAchievements() {
   const rl = $('#rewardList'); rl.textContent = '';
   for (const [at, emoji, what, where] of rewards) {
     const li = document.createElement('li'); li.className = 'reward' + (lvl >= at ? ' got' : '');
-    li.textContent = `${lvl >= at ? emoji : '🔒'} Level ${at}: ${what}`;
+    li.textContent = `${lvl >= at ? emoji : '🔒'} ${t('Level {0}: {1}', at, t(what))}`;
     const sm = document.createElement('small'); sm.textContent = lvl >= at ? where : `${30 * at * at - (S.me.xp || 0)} XP to go`;
     li.appendChild(sm); rl.appendChild(li);
   }
@@ -2619,9 +2722,9 @@ function renderDash() {
   const top = $('#dashMe'); top.textContent = '';
   const av = avEl(S.me.id, 'avatar');
   const hi = document.createElement('div'); hi.className = 'dash-hi';
-  const h = document.createElement('h2'); h.textContent = `Hi ${nameOf(S.me.id)} 👋`;
+  const h = document.createElement('h2'); h.textContent = t('Hi {0} 👋', nameOf(S.me.id));
   const stats = document.createElement('div'); stats.className = 'dash-stats';
-  stats.textContent = [`Level ${b.level}`, `${b.need - b.into} XP to level ${b.level + 1}`, me.streak ? `🔥 ${me.streak}-day streak` : 'Chat or join voice today to start a 🔥 streak', `🏆 ${got} of ${S.perks.achievements.length}`].join(' · ');
+  stats.textContent = [t('Level {0}', b.level), t('{0} XP to level {1}', b.need - b.into, b.level + 1), me.streak ? t('🔥 {0}-day streak', me.streak) : t('Chat or join voice today to start a 🔥 streak'), t('🏆 {0} of {1}', got, S.perks.achievements.length)].join(' · ');
   const bar = document.createElement('div'); bar.className = 'xp-bar'; const fill = document.createElement('span'); fill.style.width = `${b.pct}%`; bar.appendChild(fill);
   hi.append(h, stats, bar);
   const bdays = [...S.users.values()].filter((u) => !u.bot && isBirthday(u.id));
@@ -2648,7 +2751,7 @@ function renderDash() {
 
   const pl = $('#dashPlaying'); pl.textContent = '';
   for (const u of [...S.users.values()].filter((x) => !x.bot && x.online && x.activity).sort((a, z) => a.name.localeCompare(z.name))) {
-    const li = dashItem(pl, [avEl(u.id), dashText(u.id === S.me.id ? `${u.name} (you)` : u.name, `🎮 ${u.activity}`)], () => openUserPop(u.id, li));
+    const li = dashItem(pl, [avEl(u.id), dashText(u.id === S.me.id ? `${u.name} ${t('(you)')}` : u.name, `🎮 ${u.activity}`)], () => openUserPop(u.id, li));
   }
   if (!pl.childNodes.length) dashEmpty(pl, 'Nobody’s playing anything right now. The desktop app shows the game you’re in.');
 
@@ -2697,8 +2800,8 @@ function pollEl(msg) {
     card.appendChild(b);
   });
   const foot = document.createElement('div'); foot.className = 'poll-foot';
-  foot.textContent = [`${p.people} ${p.people === 1 ? 'person' : 'people'} voted`, p.multi ? 'pick several' : null, p.anon ? 'anonymous' : null,
-    p.closed ? 'final results' : p.endsAt ? `ends ${fmtRelative(p.endsAt)}` : null].filter(Boolean).join(' · ');
+  foot.textContent = [p.people === 1 ? t('1 person voted') : t('{0} people voted', p.people), p.multi ? t('pick several') : null, p.anon ? t('anonymous') : null,
+    p.closed ? t('final results') : p.endsAt ? t('ends {0}', fmtRelative(p.endsAt)) : null].filter(Boolean).join(' · ');
   const f = msg.channelId && findChannel(msg.channelId);
   if (!p.closed && (p.by === S.me.id || (f && can(f.server, 'messages')))) {
     const end = document.createElement('button'); end.type = 'button'; end.className = 'link-btn'; end.textContent = 'End poll';
@@ -4207,7 +4310,7 @@ function renderEvents() {
   for (const e of evs) {
     const li = document.createElement('li'); li.className = 'ev';
     const d = new Date(e.startsAt), isNow = e.startsAt <= Date.now();
-    li.innerHTML = `<div class="ev-date"><b>${d.getDate()}</b><small>${d.toLocaleString(undefined, { month: 'short' })}</small></div><div class="ev-main"></div>`;
+    li.innerHTML = `<div class="ev-date"><b>${d.getDate()}</b><small>${d.toLocaleString(locale(), { month: 'short' })}</small></div><div class="ev-main"></div>`;
     const main = li.querySelector('.ev-main');
     const t = document.createElement('div'); t.className = 'ev-title'; t.textContent = e.title;
     if (isNow) t.insertAdjacentHTML('beforeend', '<span class="chan-live">NOW</span>');
@@ -4345,3 +4448,19 @@ document.addEventListener('keydown', (e) => {
   if (!closed && $('#room').classList.contains('drawer-open')) { $('#room').classList.remove('drawer-open'); $('#drawerScrim').hidden = true; closed = true; }
   if (closed) e.preventDefault();
 });
+/* Android's back button (the app asks this first): close the top window, a pop-up or menu, the screen share you're
+   watching, then show the channel list. True if it did something; false lets the app go to the background. */
+window.plBack = () => {
+  const open = [...document.querySelectorAll('dialog[open]')];
+  if (open.length) { open[open.length - 1].close(); return true; }
+  const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  document.dispatchEvent(esc);
+  if (esc.defaultPrevented) return true;
+  for (const sel of ['#pickPop', '#searchPanel', '#gamesPanel', '#userPop']) {
+    const el = $(sel);
+    if (el && !el.hidden) { if (sel === '#pickPop') closePick(); else if (sel === '#searchPanel') closeSearch(); else if (sel === '#userPop') closeUserPop(); else el.hidden = true; return true; }
+  }
+  if (S.watching && S.view.kind === 'voice') { S.watching = null; renderVoiceView(); syncStageExtras(); return true; }
+  if (S.ready && innerWidth <= 860 && !$('#room').classList.contains('drawer-open')) { $('#room').classList.add('drawer-open'); $('#drawerScrim').hidden = false; return true; }
+  return false;
+};

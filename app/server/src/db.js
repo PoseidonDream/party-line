@@ -344,6 +344,27 @@ CREATE TABLE IF NOT EXISTS lfg_members (
   joined_at INTEGER NOT NULL,
   PRIMARY KEY (lfg_id, user_id)
 );
+-- People you've blocked: you don't see their messages, and they can't message, call or friend you.
+CREATE TABLE IF NOT EXISTS blocks (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, blocked_id)
+);
+-- Reports of messages or people, for the admins (Developer -> Reports). The message's text is kept as it was.
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY,
+  reporter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+  excerpt TEXT,
+  reason TEXT NOT NULL,
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  handled_at INTEGER,
+  handled_by INTEGER,
+  outcome TEXT
+);
 -- How often each feature was used, per person per day (for the admins' weekly report; see usage.js).
 CREATE TABLE IF NOT EXISTS feature_use (
   day TEXT NOT NULL,

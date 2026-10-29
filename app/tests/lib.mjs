@@ -85,6 +85,7 @@ export async function signUp(browser, base, name, opts) {
   await page.fill('#authName', name);
   await page.fill('#authPass', 'pass1234');
   if (await page.isVisible('#authGroup')) await page.fill('#authGroup', 'test');
+  await page.check('#authAgree');
   await page.click('#authBtn');
   await page.waitForSelector('#room:not([hidden])', { timeout: 10000 });
   return page;

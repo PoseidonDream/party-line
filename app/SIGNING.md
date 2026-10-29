@@ -34,7 +34,7 @@ keytool -genkeypair -v -keystore party-line.jks -alias partyline -keyalg RSA -ke
 Keep `party-line.jks` somewhere safe. If you lose it, phones can't update to new versions, and everyone has to reinstall.
 
 ### Google Play (optional)
-To put Party Line on the Play Store, you need a Google Play developer account ($25, one time). Upload a signed build made with the key above. Most friend groups just share the `.apk` instead.
+With the key above set up, each build also makes the `.aab` file Google Play takes (the **party-line-google-play** download). [PLAY_STORE.md](PLAY_STORE.md) walks through the rest: the $25 developer account, the forms, the store texts and pictures. Friends can also just share the `.apk`.
 
 ## iPhone app
 

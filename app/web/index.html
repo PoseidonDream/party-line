@@ -45,6 +45,8 @@
     <symbol id="i-soundboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M15 15.5v4l3-2z"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></symbol>
+    <symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
@@ -90,6 +92,7 @@
 
 <!-- ================= SIGN IN ================= -->
 <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch dark or light mode" title="Switch dark or light mode" hidden><svg class="ic"><use href="#i-sun"/></svg></button>
+<label class="join-lang" id="joinLangBox" hidden><span class="sr">Language</span><span aria-hidden="true">🌐</span><select id="joinLang" class="lang-select" aria-label="Language"></select></label>
 <main id="join" class="join" hidden>
   <section>
     <h1 class="wordmark"><span>Party</span><span class="lit">Line</span></h1>
@@ -132,6 +135,7 @@
         <input type="text" id="resetNote" class="input" maxlength="200" placeholder="e.g. it's me, I got a new phone">
         <p class="hint">An admin gets your request and confirms it's really you. No email needed.</p>
       </div>
+      <label class="check agree-check" id="agreeField" hidden><input type="checkbox" id="authAgree"><span>I agree to the <a href="/rules" target="_blank" rel="noopener">community rules</a> and the <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</span></label>
       <p class="error" id="authError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="authBtn">Sign in</button>
       <button type="button" class="link-btn auth-forgot" id="authForgot">Forgot your password?</button>
@@ -143,7 +147,7 @@
       <p id="resetWaitText">Your request to reset the password was sent. An admin gets a notification and confirms it's really you. You can keep this open, or close it and come back later.</p>
       <div class="row-btns"><button type="button" class="btn" id="resetCancel">Cancel request</button></div>
     </div>
-    <p class="fineprint">Messages and pictures are kept on your group's Party Line server. Voice and screen shares go straight between you and your friends. Use headphones to avoid echo.</p>
+    <p class="fineprint">Messages and pictures are kept on your group's Party Line server. Voice and screen shares go straight between you and your friends. Use headphones to avoid echo. <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/rules" target="_blank" rel="noopener">Rules</a></p>
   </section>
 </main>
 
@@ -538,6 +542,28 @@
   <label class="check"><input type="checkbox" id="fxHear"><span><b>Hear myself</b><small>Wear headphones, or it echoes.</small></span></label>
 </div>
 
+<!-- ================= REPORT ================= -->
+<dialog id="reportDlg" aria-labelledby="reportTitle">
+  <form method="dialog" id="reportForm">
+    <div class="set-head"><h2 id="reportTitle">Report</h2><button class="btn icon-btn" value="cancel" formnovalidate aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <div class="set-body">
+      <p class="report-what" id="reportWhat"></p>
+      <fieldset class="field report-reasons">
+        <legend class="flabel">What’s wrong?</legend>
+        <label class="radio"><input type="radio" name="reportReason" value="spam" required><span>Spam</span></label>
+        <label class="radio"><input type="radio" name="reportReason" value="harassment"><span>Harassment or bullying</span></label>
+        <label class="radio"><input type="radio" name="reportReason" value="hate"><span>Hate or violence</span></label>
+        <label class="radio"><input type="radio" name="reportReason" value="sexual"><span>Sexual content</span></label>
+        <label class="radio"><input type="radio" name="reportReason" value="other"><span>Something else</span></label>
+      </fieldset>
+      <div class="field"><label class="flabel" for="reportNote">Anything to add? (optional)</label><textarea id="reportNote" class="input" rows="2" maxlength="500"></textarea></div>
+      <label class="check"><input type="checkbox" id="reportBlock"><span id="reportBlockText">Also block them</span></label>
+      <p class="hint">The admins of this Party Line get your report, with your name, and can delete the message or remove them.</p>
+      <div class="row-btns"><button type="button" class="btn" id="reportCancel">Cancel</button><button type="submit" class="btn danger" id="reportSend" value="send">Send report</button></div>
+    </div>
+  </form>
+</dialog>
+
 <!-- ================= LEADERBOARD ================= -->
 <dialog id="topDlg" aria-labelledby="topTitle">
   <form method="dialog">
@@ -846,6 +872,11 @@
         </div>
       </section>
       <section class="set-tab" data-settab="look" role="tabpanel" hidden>
+        <div class="field">
+          <label class="flabel" for="setLang">Language</label>
+          <select id="setLang" class="input lang-select"></select>
+          <p class="hint">The app’s buttons and menus. What people write stays as they wrote it.</p>
+        </div>
         <fieldset class="field">
           <legend class="flabel">Theme</legend>
           <div class="theme-pick" role="radiogroup">
@@ -951,6 +982,21 @@
             <p class="hint" id="pwNote" hidden></p>
           </div>
         </details>
+        <details class="pw-box" id="blockedBox">
+          <summary>Blocked people <span class="pill" id="blockedCount">0</span></summary>
+          <div class="pw-form">
+            <p class="hint">You don’t see their messages, and they can’t message, call or add you. To block someone, click their name and press Block.</p>
+            <ul class="blocked-list" id="blockedList"></ul>
+          </div>
+        </details>
+        <details class="pw-box danger-box" id="deleteBox">
+          <summary>Delete my account</summary>
+          <div class="pw-form">
+            <p class="hint">This deletes your account and everything that’s yours, for everyone: your messages, private chats, photos, files and sounds. Servers you own go to the member who joined first. It can’t be undone.</p>
+            <input type="password" id="deletePass" class="input" placeholder="Your password" autocomplete="current-password">
+            <button type="button" class="btn danger" id="deleteAccountBtn">Delete my account</button>
+          </div>
+        </details>
         <div class="keys">
           <span class="flabel">Shortcuts</span>
           <dl>
@@ -965,6 +1011,7 @@
         <p class="hint" id="appInfo"></p>
         <button type="button" class="link-btn" id="devOpen" hidden><svg class="ic"><use href="#i-code"/></svg>Developer panel (Ctrl+Shift+D)</button>
         <button type="button" class="link-btn" id="signOut"><svg class="ic"><use href="#i-leave"/></svg>Sign out on this device</button>
+        <p class="hint legal-links"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="/rules" target="_blank" rel="noopener">Community rules</a></p>
       </section>
     </div>
   </form>
@@ -1033,6 +1080,10 @@
     <button type="button" class="btn small primary" id="popWatch" hidden><svg class="ic"><use href="#i-screen"/></svg>Watch screen</button>
     <button type="button" class="btn small" id="popMsg"><svg class="ic"><use href="#i-chat"/></svg>Message</button>
     <button type="button" class="btn small" id="popFriend"><svg class="ic"><use href="#i-user-plus"/></svg>Add friend</button>
+  </div>
+  <div class="pop-btns pop-safety" id="popSafety">
+    <button type="button" class="btn small" id="popReport"><svg class="ic"><use href="#i-flag"/></svg>Report</button>
+    <button type="button" class="btn small" id="popBlock"><svg class="ic"><use href="#i-block"/></svg><span>Block</span></button>
   </div>
   <div class="pop-admin" id="popAdmin" hidden>
     <span class="flabel"><svg class="ic"><use href="#i-crown"/></svg>Admin</span>

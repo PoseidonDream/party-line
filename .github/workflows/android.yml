@@ -1,4 +1,5 @@
-# Builds the Party Line Android app (an .apk you can install on any Android phone).
+# Builds the Party Line Android app: an .apk you can install on any Android phone, and (when it's signed) an .aab
+# bundle for Google Play (see app/PLAY_STORE.md).
 # Run it from the Actions tab ("Run workflow"), or push a tag like android-v1.0.1 to publish a release.
 # Needs the repository variable PARTY_LINE_SERVER (your server's address), like the desktop app.
 # Optional signing secrets (see app/SIGNING.md): ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.
@@ -55,13 +56,22 @@ jobs:
           PL_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/android-v') && github.ref_name || format('1.0.{0}', github.run_number) }}
         run: |
           chmod +x gradlew
-          if [ -n "$PL_KEYSTORE" ]; then ./gradlew --no-daemon assembleRelease; else ./gradlew --no-daemon assembleDebug; fi
-          mkdir -p ../dist
+          # The bundle is built either way (so a broken one shows up early), but only a signed one is kept: Play takes no other.
+          if [ -n "$PL_KEYSTORE" ]; then ./gradlew --no-daemon assembleRelease bundleRelease; else ./gradlew --no-daemon assembleDebug bundleRelease; fi
+          mkdir -p ../dist ../play
           cp app/build/outputs/apk/*/*.apk "../dist/Party-Line-${PL_VERSION_NAME#android-v}.apk"
+          # Google Play takes a signed bundle (.aab) instead of an .apk.
+          if [ -n "$PL_KEYSTORE" ]; then cp app/build/outputs/bundle/release/*.aab "../play/Party-Line-${PL_VERSION_NAME#android-v}.aab"; fi
       - uses: actions/upload-artifact@v4
         with:
           name: party-line-android
           path: app/mobile/dist/*.apk
+      - name: The Google Play bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: party-line-google-play
+          path: app/mobile/play/*.aab
+          if-no-files-found: ignore
       - name: Add it to the newest release
         # Started from the Actions tab: put the .apk next to the desktop installers on the Releases page.
         if: github.event_name == 'workflow_dispatch'

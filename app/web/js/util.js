@@ -11,7 +11,7 @@ export const settings = Object.assign(
   store.get('settings', {}) || {},
 );
 if (!['off', 'standard', 'strong'].includes(settings.noiseMode)) settings.noiseMode = 'strong';
-if (!['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio'].includes(settings.voiceFx)) settings.voiceFx = 'none';
+if (!['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch', 'slowmo'].includes(settings.voiceFx)) settings.voiceFx = 'none';   // the same list as VOICE_FX in voice.js
 if (!['system', 'dark', 'light'].includes(settings.theme)) settings.theme = 'dark';
 if (!['amber', 'cyan', 'violet', 'green', 'pink', 'white'].includes(settings.accent)) settings.accent = 'amber';
 // Party Line went black: "match my device" from before becomes dark once (people can switch back in Settings).
@@ -86,12 +86,13 @@ export function makeAnalyser(stream) {
     return { source, analyser };
   } catch { return { source: null, analyser: null }; }
 }
-export const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+export const locale = () => (settings.lang && settings.lang !== 'en' ? settings.lang : []);   // dates in the chosen language (English: the device's own style)
+export const fmtTime = (ts) => new Date(ts).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
 export function fmtDay(ts) {
   const d = new Date(ts), n = new Date();
   if (d.toDateString() === n.toDateString()) return 'Today';
   const y = new Date(n); y.setDate(n.getDate() - 1);
   if (d.toDateString() === y.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: d.getFullYear() === n.getFullYear() ? undefined : 'numeric' });
+  return d.toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: d.getFullYear() === n.getFullYear() ? undefined : 'numeric' });
 }
 export const fmtSize = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
