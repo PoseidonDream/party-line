@@ -67,7 +67,25 @@ To remake the pictures after the app changes: `cd app/tests && node ../mobile/st
 
 The first time, Play asks to manage your signing key (**Play App Signing**): accept. The key from SIGNING.md becomes your "upload key".
 
-For updates: run the workflow again and upload the new `.aab` the same way.
+For updates: run the workflow again and upload the new `.aab` the same way, or let GitHub do it (below).
+
+## Automatic uploads (set up once)
+
+**Most updates never need a new Play release.** The Android app shows your server's website, and the server updates itself, so new features and fixes reach phones right away. A new `.aab` is only needed when the Android part itself changes (`app/mobile`), which is rare.
+
+For those, GitHub can send each new build to **internal testing** by itself, and friends' phones update from the Play Store. Google only allows this after the **first** upload was done by hand (step 5 above). Then:
+
+1. **A Google Cloud project:** at [console.cloud.google.com](https://console.cloud.google.com), sign in with the same Google account → project menu (top left) → **New project**, name it `party-line-play` → **Create**.
+2. **Turn on the Play API:** search the top bar for **Google Play Android Developer API** → **Enable**.
+3. **A robot account for GitHub:** menu → **IAM & Admin → Service accounts → Create service account**, name it `github-upload` → **Create and continue** → skip the roles → **Done**. Click the new account → **Keys → Add key → Create new key → JSON → Create**. A `.json` file downloads. Keep it private: it can upload versions of your app.
+4. **Let it upload to Party Line:** copy the robot account's email (ends in `iam.gserviceaccount.com`). In the [Play Console](https://play.google.com/console) → **Users and permissions → Invite new users** → paste the email → **App permissions → Add app → Party Line** → tick **Release apps to testing tracks** → **Apply → Invite user**.
+5. **Give the key to GitHub,** in Terminal (change the file name to yours):
+   ```
+   gh secret set PLAY_SERVICE_ACCOUNT_JSON -R PoseidonDream/party-line < ~/Downloads/party-line-play-1234abcd.json
+   ```
+   Then delete the `.json` file from Downloads.
+
+From then on, every new Android build goes to internal testing on its own. To make one by hand: GitHub → **Actions → Android app → Run workflow**.
 
 ## Data safety answers
 
