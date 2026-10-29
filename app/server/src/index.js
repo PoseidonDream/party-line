@@ -24,7 +24,39 @@ app.disable('x-powered-by');
 if (config.trustProxy) app.set('trust proxy', 1);
 app.use(express.json({ limit: '64kb' }));
 
-/* Too many wrong passwords from one address: slow down. */
+/* What pages may load and run: only this server's own scripts (plus YouTube's player, for watching together), so
+   text slipped into a page can't run as code. The app can't be shown inside another site (which could trick
+   clicks), and once it's on HTTPS, browsers stay on HTTPS. Uploads and link pictures set stricter rules of their own. */
+const livekitOrigins = (() => { try { const o = new URL(config.livekit.url).origin; return [o, o.replace(/^ws/, 'http')]; } catch { return []; } })();
+function contentPolicy(req) {
+  // The Android app (Capacitor, in Android's WebView) adds its bridge to the page as an inline script.
+  const inline = /; wv\)/.test(req.get('user-agent') || '') ? " 'unsafe-inline'" : '';
+  const testEval = process.env.CSP_TEST_EVAL === '1' ? " 'unsafe-eval'" : '';   // tests only: the test tool's waitForFunction
+  return [
+    "default-src 'self'",
+    `script-src 'self' https://www.youtube.com${inline}${testEval}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob:",
+    "media-src 'self' data: blob:",
+    ["connect-src 'self' https://api.github.com", ...livekitOrigins].join(' '),
+    'frame-src https://www.youtube.com https://www.youtube-nocookie.com',
+    "worker-src 'self' blob:",
+    "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+  ].join('; ');
+}
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', contentPolicy(req));
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), midi=()');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  next();
+});
+
+/* Too many tries from one address (signing in, making accounts, password resets): slow down. */
 const attempts = new Map();
 function throttle(req, res, next) {
   const k = req.ip, t = Date.now();
@@ -33,6 +65,7 @@ function throttle(req, res, next) {
   a.push(t); attempts.set(k, a);
   next();
 }
+setInterval(() => { const t = Date.now(); for (const [k, a] of attempts) if (!a.some((x) => t - x < 10 * 60_000)) attempts.delete(k); }, 10 * 60_000).unref();
 const bearer = (req) => (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
 function auth(req, res, next) {
   const u = M.userForToken(bearer(req));
@@ -79,7 +112,12 @@ app.post('/api/reset-request/:id', wrap((req) => M.resetStatus(Number(req.params
 app.post('/api/logout', wrap((req) => { M.logout(bearer(req)); return { ok: true }; }));
 /* Deleting your account from the web page (/delete-account), for people without the app: sign in there, then this. */
 app.post('/api/account/delete', throttle, auth, wrap((req) => { hub.deleteAccount(req.user.id, (req.body || {}).password); return { ok: true }; }));
-app.post('/api/password', auth, wrap((req) => { M.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword); return { ok: true }; }));
+/* Changing your password signs out your other devices. */
+app.post('/api/password', throttle, auth, wrap((req) => {
+  const b = req.body || {};
+  hub.closeSessions(req.user.id, M.changePassword(req.user.id, b.oldPassword, b.newPassword, M.sessionKey(bearer(req))));
+  return { ok: true };
+}));
 
 /* ICE servers for voice. TURN passwords are short-lived and signed with TURN_SECRET (coturn "use-auth-secret"). */
 app.get('/api/ice', auth, wrap((req) => {
@@ -112,9 +150,11 @@ app.get('/vendor/livekit-client.js', (req, res) => {
   res.sendFile(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js'));
 });
 
+/* A channel (text, or a voice channel's chat) in one of your servers, or null. */
+const myChannel = (userId, id) => { const c = M.getChannel(Number(id)); return c && M.isMember(userId, c.server_id) ? c : null; };
 app.get('/api/channels/:id/messages', auth, wrap((req) => {
-  const c = M.getChannel(Number(req.params.id));
-  if (!c || !M.isMember(req.user.id, c.server_id)) return { messages: [] };   // voice channels have a chat too
+  const c = myChannel(req.user.id, req.params.id);
+  if (!c) return { messages: [] };
   return { messages: M.addMyVotes(M.history('channel_id', c.id, Number(req.query.before) || 0), req.user.id) };
 }));
 app.get('/api/dms/:userId/messages', auth, wrap((req) => {
@@ -174,9 +214,8 @@ app.get('/api/bookmarks', auth, wrap((req) => { Usage.countOnce(req.user.id, 'bo
 app.get('/api/media', auth, wrap((req) => {
   Usage.countOnce(req.user.id, 'gallery');
   if (req.query.channelId) {
-    const c = M.getChannel(Number(req.query.channelId));
-    if (!c || !M.isMember(req.user.id, c.server_id)) return { items: [], before: null };
-    return M.mediaOf('channel_id', c.id, req.query.before);
+    const c = myChannel(req.user.id, req.query.channelId);
+    return c ? M.mediaOf('channel_id', c.id, req.query.before) : { items: [], before: null };
   }
   const d = M.dmWith(req.user.id, Number(req.query.userId), false);
   return d ? M.mediaOf('dm_id', d.id, req.query.before) : { items: [], before: null };
@@ -186,9 +225,8 @@ app.get('/api/media', auth, wrap((req) => {
 app.get('/api/pins', auth, wrap((req) => {
   Usage.countOnce(req.user.id, 'pins');
   if (req.query.channelId) {
-    const c = M.getChannel(Number(req.query.channelId));
-    if (!c || !M.isMember(req.user.id, c.server_id)) return { messages: [] };
-    return { messages: M.pins('channel_id', c.id) };
+    const c = myChannel(req.user.id, req.query.channelId);
+    return { messages: c ? M.pins('channel_id', c.id) : [] };
   }
   const d = M.dmWith(req.user.id, Number(req.query.userId), false);
   return { messages: d ? M.pins('dm_id', d.id) : [] };
@@ -211,7 +249,9 @@ function receive(req, res, max, okType, done) {
   if (!okType(type)) return res.status(415).json({ error: 'Only photos can be used here.' });
   const len = Number(req.get('content-length') || 0);
   if (len > max) return res.status(413).json({ error: `That file is too big. The limit is ${Math.round(max / 1048576)} MB.` });
-  const name = decodeURIComponent(String(req.get('x-file-name') || 'file')).replace(/[\u0000-\u001f/\\]/g, '').slice(0, 120) || 'file';
+  let name;
+  try { name = decodeURIComponent(String(req.get('x-file-name') || 'file')); } catch { name = 'file'; }
+  name = name.replace(/[\u0000-\u001f\u007f/\\]/g, '').slice(0, 120) || 'file';
   const tmp = path.join(uploadDir, `.tmp-${crypto.randomBytes(8).toString('hex')}`);
   const out = fs.createWriteStream(tmp);
   let size = 0, aborted = false;
@@ -230,12 +270,13 @@ function receive(req, res, max, okType, done) {
   });
   out.on('error', () => { if (!aborted) res.status(500).json({ error: 'Could not save the file.' }); });
 }
-app.post('/api/upload', auth, (req, res) => {
+const uploadLimit = perMinute(60, 'That’s a lot of files at once. Wait a minute and try again.');
+app.post('/api/upload', auth, uploadLimit, (req, res) => {
   const type = String(req.get('content-type') || '').toLowerCase();
   const max = VIDEO.test(type) ? config.maxVideo : IMAGE.test(type) ? config.maxImage : config.maxFile;
   receive(req, res, max, () => true, (f) => res.json(f));
 });
-app.post('/api/avatar', auth, (req, res) => {
+app.post('/api/avatar', auth, uploadLimit, (req, res) => {
   receive(req, res, config.maxAvatar, (t) => IMAGE.test(t), (f) => {
     const u = M.setAvatar(req.user.id, f.url);
     hub.userChanged(u);
@@ -284,8 +325,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong on the server.' });
 });
 
-/* Hourly: delete photos and videos nothing uses any more, and half-finished uploads. */
+/* Hourly: delete photos and videos nothing uses any more, half-finished uploads, and sign-ins unused for months. */
 function cleanUploads() {
+  M.expireSessions();
   let n = 0;
   for (const id of M.unusedUploads()) { fs.rm(path.join(uploadDir, id), { force: true }, () => {}); M.forgetUpload(id); n++; }
   for (const f of fs.readdirSync(uploadDir)) {

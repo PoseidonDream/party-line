@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Files the app may hand to other apps (a photo taken with the camera for a message): only its own folders,
+     never the rest of the phone's storage. -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
+    <external-files-path name="my_images" path="." />
     <cache-path name="my_cache_images" path="." />
 </paths>

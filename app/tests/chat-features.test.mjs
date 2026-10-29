@@ -2,7 +2,7 @@
 import { startServer, launchBrowser, signUp, RESULTS } from './lib.mjs';
 
 export default async function (ok) {
-  const srv = await startServer();
+  const srv = await startServer({ MSG_BURST: '500' });   // it types 60 messages in a row
   const browser = await launchBrowser();
   try {
     const a = await signUp(browser, srv.url, 'Poseidon');

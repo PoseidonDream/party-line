@@ -1,9 +1,11 @@
 /* Accessibility: axe-core checks the main screens in the dark and the light look (labels, roles, contrast, keyboard
    access to scrolling areas, heading order). */
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { startServer, launchBrowser, signUp } from './lib.mjs';
 
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+// Run through the test tool, not as a <script> in the page: the page only runs the server's own scripts.
+const AXE = fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
 
 export default async function (ok) {
   const srv = await startServer({ XP_GAP_MS: '1' });
@@ -24,7 +26,7 @@ export default async function (ok) {
       const found = [];
       const audit = async (where) => {
         await a.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));   // they fade in and go away
-        await a.addScriptTag({ path: AXE }).catch(() => {});
+        await a.evaluate(AXE).catch(() => {});
         const v = await a.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes[0].target.join(' ')})`));
         for (const x of v) found.push(`${where}: ${x}`);
       };

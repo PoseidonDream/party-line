@@ -4,6 +4,7 @@
    friends' drawings on top of your shared screen, a tray icon, unread badges and automatic updates. */
 const { app, BrowserWindow, Tray, Menu, ipcMain, session, desktopCapturer, shell, nativeImage, dialog, nativeTheme, globalShortcut, screen } = require('electron');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
 const pkg = require('../package.json');
 const { watchGames } = require('./games');
@@ -22,6 +23,10 @@ function loadCfg() {
 }
 const saveCfg = () => { try { fs.writeFileSync(cfgFile(), JSON.stringify(cfg, null, 2)); } catch {} };
 const origin = () => { try { return new URL(cfg.server).origin; } catch { return ''; } };
+/* Exactly your server (https://friends.example.org, not https://friends.example.org.evil.com). */
+const fromServer = (url) => { try { return !!origin() && new URL(String(url)).origin === origin(); } catch { return false; } };
+/* The app's own pages (setup, offline), not other files on the computer. */
+const ownPage = (url) => String(url).startsWith(pathToFileURL(__dirname + path.sep).href);
 
 let win = null, tray = null, quitting = false, picker = null;
 const icon = () => nativeImage.createFromPath(path.join(__dirname, 'icon.png'));
@@ -45,7 +50,7 @@ function createWindow() {
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, url) => {
-    if (url.startsWith('file:') || (origin() && url.startsWith(origin()))) return;
+    if (ownPage(url) || fromServer(url)) return;
     e.preventDefault();
     if (/^https?:/.test(url)) shell.openExternal(url);
   });
@@ -62,7 +67,7 @@ function openApp() {
 /* ---------- only your server gets the microphone, notifications and screen sharing ---------- */
 function setupPermissions() {
   const ses = session.defaultSession;
-  const trusted = (url) => !!origin() && String(url || '').startsWith(origin());
+  const trusted = fromServer;
   const allowed = new Set(['media', 'notifications', 'clipboard-sanitized-write', 'clipboard-read', 'fullscreen', 'display-capture', 'speaker-selection']);
   ses.setPermissionRequestHandler((wc, perm, cb, details) => cb(allowed.has(perm) && trusted(details.requestingUrl || wc.getURL())));
   ses.setPermissionCheckHandler((wc, perm, reqOrigin) => allowed.has(perm) && trusted(reqOrigin));

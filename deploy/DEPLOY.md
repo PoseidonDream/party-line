@@ -128,6 +128,24 @@ To put a backup back, copy the `.tgz` to the server and run `/opt/party-line/dep
 
 Updates keep everything. People in voice are dropped for a few seconds and reconnect on their own.
 
+## Keeping it safe
+
+What Party Line does by itself:
+
+- **Passwords:** stored scrambled (never readable, not even by you). New passwords need at least 8 characters; older, shorter ones still work. After 10 wrong passwords for one account, that account waits 15 minutes, and anyone trying many passwords from one address is slowed down too.
+- **Signing in:** changing your password signs you out on every other device. A phone or computer that hasn't opened Party Line for 4 months is signed out. Settings → Account lists every device you're signed in on, and **2-step sign-in** adds a code from an app on your phone. Turn it on for your admin account.
+- **Pages only run Party Line's own code**, so a message or a name can't be turned into a script, and other websites can't show Party Line inside theirs to trick clicks. Photos and files people upload can never run as code: anything that isn't a photo, video or sound only downloads. With HTTPS (set up automatically), browsers keep using HTTPS.
+- **Limits against floods:** at most 30 messages per person every 30 seconds, a cap on how fast one app can send requests, on uploads per minute, feedback, and guessing invite links.
+- **Link previews** and the voice relay never reach addresses inside your server's own network.
+- **The Android app** doesn't copy its sign-in into phone backups. On a new phone, you just sign in again.
+
+What's up to you:
+
+- Pick a **group password** that isn't easy to guess, and change it (`GROUP_PASSWORD` in `.env`) if it leaks. Accounts already made keep working.
+- Keep the **automatic updates** on (they are by default), so safety fixes arrive by themselves.
+- Keep **backups** private: a backup holds everyone's messages.
+- Give admin (`ADMIN_NAMES`) only to people you trust: admins can read reports and feedback, and remove messages and people.
+
 ## How much can it handle?
 
 - **Text chat, friends and private messages** go through your server. The smallest server handles hundreds of people.

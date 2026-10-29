@@ -29,6 +29,24 @@ function checkPass(pass, stored) {
   const got = crypto.scryptSync(String(pass), Buffer.from(s, 'hex'), 32);
   return crypto.timingSafeEqual(got, Buffer.from(h, 'hex'));
 }
+/* Checked against when nobody has that name, so a wrong name takes as long as a wrong password (the answer time
+   doesn't tell who has an account). */
+const NOBODY_HASH = hashPass(crypto.randomBytes(16).toString('hex'));
+/* New passwords: at least 8 characters (older, shorter ones still sign in), at most 200. */
+function newPassOk(pass, msg) {
+  const p = String(pass || '');
+  if (p.length < 8) fail(msg);
+  if (p.length > 200) fail('That password is too long (200 characters at most).');
+}
+/* Wrong passwords (or 2-step codes) for one account, from anywhere: after 10 in 15 minutes it waits. This stops
+   guessing spread over many addresses; the per-address limit in index.js stops guessing many accounts. */
+const FAIL_WINDOW = 15 * 60_000, FAIL_MAX = 10;
+const failures = new Map();   // name key -> times of recent failures
+const recentFailures = (key) => (failures.get(key) || []).filter((t) => now() - t < FAIL_WINDOW);
+function noteFailure(key) {
+  failures.set(key, [...recentFailures(key), now()]);
+  if (failures.size > 2000) for (const [k] of failures) if (!recentFailures(k).length) failures.delete(k);
+}
 export function groupPasswordOk(pass) {
   if (!config.groupPassword) return true;
   const a = Buffer.from(foldPass(pass)), b = Buffer.from(foldPass(config.groupPassword));
@@ -66,7 +84,7 @@ export function register(name, pass, groupPass, agree) {
   if (!groupPasswordOk(groupPass)) fail('That group password is wrong. Ask whoever invited you.');
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
-  if (String(pass || '').length < 4) fail('Pick a password with at least 4 characters.');
+  newPassOk(pass, 'Pick a password with at least 8 characters.');
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
   if (agree !== true) fail('To make an account, agree to the community rules and the privacy policy.');
   // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
@@ -77,12 +95,16 @@ export function register(name, pass, groupPass, agree) {
   return { user: getUser(id), token: newSession(id) };
 }
 export function login(name, pass, code, device) {
+  const key = foldKey(name);
+  if (recentFailures(key).length >= FAIL_MAX) fail('Too many wrong tries for this account. Wait 15 minutes, or press “Forgot your password?”.');
   const u = userByName(name);
-  if (!u || !checkPass(pass, u.pass_hash)) fail('Wrong name or password.');
+  const passOk = checkPass(pass, u ? u.pass_hash : NOBODY_HASH);
+  if (!u || !passOk) { noteFailure(key); fail('Wrong name or password.'); }
   if (u.totp_secret) {
     if (!code) return { needCode: true };
-    if (!totpOk(u.totp_secret, code)) fail('That code is wrong or too old. Check the time on your phone and try the newest code.');
+    if (!totpOk(u.totp_secret, code)) { noteFailure(key); fail('That code is wrong or too old. Check the time on your phone and try the newest code.'); }
   }
+  failures.delete(key);
   return { user: u, token: newSession(u.id, device) };
 }
 
@@ -145,19 +167,33 @@ function newSession(userId, device) {
   run('INSERT INTO sessions (token_hash, user_id, created_at, last_seen, device) VALUES (?, ?, ?, ?, ?)', sha(t), userId, now(), now(), device ? String(device).slice(0, 60) : null);
   return t;
 }
+/* A device that hasn't opened Party Line for 4 months is signed out (a lost or sold phone doesn't stay signed in). */
+const SESSION_IDLE = Number(process.env.SESSION_IDLE_MS) || 120 * 86_400_000;
 export function userForToken(t) {
-  if (!t || typeof t !== 'string') return null;
+  if (!t || typeof t !== 'string' || t.length > 100) return null;
   const s = one('SELECT * FROM sessions WHERE token_hash = ?', sha(t));
   if (!s) return null;
+  if (now() - s.last_seen > SESSION_IDLE) { endSessions(s.user_id, [s.token_hash]); return null; }
   if (now() - s.last_seen > 60_000) run('UPDATE sessions SET last_seen = ? WHERE token_hash = ?', now(), s.token_hash);
   return getUser(s.user_id);
 }
+/* Hourly (index.js): forget sign-ins that went unused for too long. */
+export function expireSessions() {
+  const old = all('SELECT user_id, token_hash FROM sessions WHERE last_seen < ?', now() - SESSION_IDLE);
+  for (const s of old) endSessions(s.user_id, [s.token_hash]);
+  return old.length;
+}
 export function logout(t) { const k = sha(String(t || '')); run('DELETE FROM sessions WHERE token_hash = ?', k); run('DELETE FROM push_subs WHERE session = ?', k); }
-export function changePassword(userId, oldPass, newPass) {
+/* A new password signs out every other device (keepKey is this device's sign-in): whoever knew the old one is out.
+   Returns the signed-out sign-ins, so their open apps can be closed. */
+export function changePassword(userId, oldPass, newPass, keepKey) {
   const u = getUser(userId);
   if (!checkPass(oldPass, u.pass_hash)) fail('Your current password is wrong.');
-  if (String(newPass || '').length < 4) fail('Pick a password with at least 4 characters.');
+  newPassOk(newPass, 'Pick a password with at least 8 characters.');
   run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(newPass), userId);
+  const others = all('SELECT token_hash FROM sessions WHERE user_id = ? AND token_hash != ?', userId, String(keepKey || '')).map((r) => r.token_hash);
+  endSessions(userId, others);
+  return others;
 }
 /* Admin reset: a new temporary password, and the person is signed out everywhere. */
 const WORDS = ['amber', 'brass', 'comet', 'falcon', 'harbor', 'lantern', 'meteor', 'otter', 'pixel', 'radio', 'raven', 'signal', 'tiger', 'velvet'];
@@ -175,7 +211,7 @@ const RESET_TTL = 24 * 3600_000;
 export function createResetRequest(name, newPass, note, device) {
   const u = userByName(name);
   if (!u || u.is_bot) fail('There’s no account with that name. Check the spelling.');
-  if (String(newPass || '').length < 4) fail('Pick a new password with at least 4 characters.');
+  newPassOk(newPass, 'Pick a new password with at least 8 characters.');
   run("UPDATE reset_requests SET state = 'replaced' WHERE user_id = ? AND state = 'pending'", u.id);
   const secret = token();
   const id = Number(run('INSERT INTO reset_requests (user_id, secret_hash, pass_hash, note, device, created_at) VALUES (?, ?, ?, ?, ?, ?)',

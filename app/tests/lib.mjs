@@ -17,7 +17,7 @@ fs.mkdirSync(RESULTS, { recursive: true });
 export async function startServer(env = {}) {
   let port = 0;   // the first start lets the system pick a free port; restarts reuse it
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pl-test-'));
-  const fullEnv = { ...process.env, DATA_DIR: dataDir, GROUP_PASSWORD: 'test', ADMIN_NAMES: 'Poseidon', REPORT_DAY: '7', ...env };   // no weekly report in the middle of a test (usage.test.mjs asks for one)
+  const fullEnv = { ...process.env, DATA_DIR: dataDir, GROUP_PASSWORD: 'test', ADMIN_NAMES: 'Poseidon', REPORT_DAY: '7', CSP_TEST_EVAL: '1', ...env };   // no weekly report in the middle of a test (usage.test.mjs asks for one)
   let proc = null, log = '';
   const launch = async () => {
     log = '';
@@ -75,6 +75,8 @@ export async function openPage(browser, base, opts = {}) {
   const page = await ctx.newPage();
   page.errors = [];
   page.on('pageerror', (e) => page.errors.push(e.message));
+  // Something the page's safety rules (Content-Security-Policy) blocked counts as an error too.
+  page.on('console', (m) => { if (m.type() === 'error' && /Content Security Policy/.test(m.text())) page.errors.push(m.text()); });
   await page.goto(base);
   return page;
 }

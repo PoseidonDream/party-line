@@ -8,7 +8,7 @@ const BRIDGE = `window.partyLineDesktop = {
 };`;
 
 export default async function (ok) {
-  const srv = await startServer({ XP_GAP_MS: '1', HOF_STARS: '1' });
+  const srv = await startServer({ XP_GAP_MS: '1', HOF_STARS: '1', MSG_BURST: '500' });   // it sends 75 messages in a row
   const browser = await launchBrowser();
   try {
     const a = await signUp(browser, srv.url, 'Poseidon');

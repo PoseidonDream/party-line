@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="/app.css">
-<script>try { var s = JSON.parse(localStorage.getItem('pl:settings')) || {}, t = s.theme; if (!t || (t === 'system' && !s.themeV)) t = 'dark'; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; if (s.accent && s.accent !== 'amber') document.documentElement.dataset.accent = s.accent; } catch (e) { document.documentElement.dataset.theme = 'dark'; }</script>
+<script src="/js/theme.js"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -118,7 +118,7 @@
           <input type="password" id="authPass" class="input" autocomplete="current-password">
           <button type="button" class="btn icon-btn" id="authShow" aria-label="Show password" aria-pressed="false" title="Show password"><svg class="ic"><use href="#i-eye"/></svg></button>
         </div>
-        <p class="hint" id="authPassHint" hidden>At least 4 characters. You type it once on each device.</p>
+        <p class="hint" id="authPassHint" hidden>At least 8 characters. You type it once on each device.</p>
       </div>
       <div class="field" id="codeField" hidden>
         <label class="flabel" for="authCode">6-digit code</label>

@@ -18,6 +18,18 @@ const voice = new Map();     // userId -> { channelId, serverId, connId, muted, 
 const voiceStatus = new Map();   // voice channelId -> { text, by }: a line like "ranked Valorant 🔥", until the channel empties
 let nextConn = 1;
 const cmdTimes = new Map();   // userId -> times of recent bot commands
+const msgTimes = new Map();   // userId -> times of recent messages
+const MSG_BURST = Number(process.env.MSG_BURST) || 30;   // messages per person every 30 s
+const feedbackTimes = new Map();   // userId -> times of recent feedback
+const inviteMisses = new Map();    // userId -> times of recent invite codes that didn't work
+const devAsks = new Map();   // "friendId:adminId" -> when an admin asked for that friend's voice numbers
+/* Keeps the times in `map` for `key` that are newer than `ms`; false (and nothing kept) when there are already `max`. */
+function allow(map, key, ms, max) {
+  const t = Date.now(), recent = (map.get(key) || []).filter((x) => t - x < ms);
+  if (recent.length >= max) { map.set(key, recent); return false; }
+  recent.push(t); map.set(key, recent);
+  return true;
+}
 const drawTimes = new Map();  // userId -> times of recent drawing messages
 const startedAt = Date.now();
 /* Developer log: voice events and errors reported by everyone's app, newest last. Kept in memory only. */
@@ -106,6 +118,8 @@ export const hub = {
   userChanged(u) { toWatchers(u.id, { t: 'user', user: userView(u.id) }); toUser(u.id, { t: 'me', me: M.selfView(u) }); announce(u.id); },
   joinedServers(userId) { for (const s of M.serverIdsOf(userId)) toServer(s, { t: 'member', serverId: s, userId, user: userView(userId) }); },
   deleteAccount: (userId, password) => deleteAccount(userId, password),
+  /* Signed-out sign-ins (M.sessionKey values): their open apps go back to the sign-in screen. */
+  closeSessions(userId, keys) { for (const x of [...(byUser.get(userId) || [])]) if (keys.includes(x.session)) x.ws.close(4001, 'auth'); },
 };
 /* Deleting an account (see M.deleteAccount): out of voice, its data gone, everyone's apps drop its messages, and its
    own apps are signed out. */
@@ -227,12 +241,9 @@ const handlers = {
   /* ---- messages ---- */
   'msg.send'(c, user, d) {
     const command = Bot.isCommand(d.body) && !(d.attachments || []).length;
-    if (command) {
-      // At most 8 bot commands per person every 10 s.
-      const now = Date.now(), recent = (cmdTimes.get(user.id) || []).filter((t) => now - t < 10_000);
-      if (recent.length >= 8) return { command: true, ephemeral: 'Slow down a little. Try that again in a few seconds.' };
-      recent.push(now); cmdTimes.set(user.id, recent);
-    }
+    // At most 8 bot commands per person every 10 s, and 30 messages every 30 s.
+    if (command && !allow(cmdTimes, user.id, 10_000, 8)) return { command: true, ephemeral: 'Slow down a little. Try that again in a few seconds.' };
+    if (!command && !allow(msgTimes, user.id, 30_000, MSG_BURST)) fail('Slow down a little. Wait a few seconds before sending more.');
     if (d.channelId) {
       const ch = M.getChannel(Number(d.channelId));
       if (!ch || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');   // text channels, and voice channels' own chat
@@ -440,8 +451,10 @@ const handlers = {
   },
   'server.join'(c, user, d) {
     const code = String(d.invite || '').trim().replace(/^.*\/invite\//, '');
+    // Guessing invite codes: after 10 that don't work in 10 minutes, it waits.
+    if ((inviteMisses.get(user.id) || []).filter((t) => Date.now() - t < 600_000).length >= 10) fail('Too many invite links that didn’t work. Wait a few minutes and try again.');
     const found = M.serverForInvite(code), s = found && found.server;
-    if (!s || (s.kind || 'server') !== 'server') fail('That invite doesn’t work. Ask for a new one.');
+    if (!s || (s.kind || 'server') !== 'server') { allow(inviteMisses, user.id, 600_000, 1000); fail('That invite doesn’t work. Ask for a new one.'); }
     if (!M.isMember(user.id, s.id)) {
       if (found.invite) M.useInvite(found.invite.code);
       M.joinServer(user.id, s.id);
@@ -967,7 +980,7 @@ const handlers = {
     const mine = M.sessionsOf(user.id).filter((s) => s.key !== c.session);
     const keys = (d.others ? mine : mine.filter((s) => s.id === String(d.id || ''))).map((s) => s.key);
     M.endSessions(user.id, keys);
-    for (const x of [...(byUser.get(user.id) || [])]) if (keys.includes(x.session)) x.ws.close(4001, 'auth');
+    hub.closeSessions(user.id, keys);
     return { ended: keys.length };
   },
   'totp.start'(c, user) {
@@ -1009,12 +1022,16 @@ const handlers = {
     if (!user.is_admin) fail('Admins only.');
     const target = Number(d.userId);
     if (!online(target)) fail('They’re not online.');
+    devAsks.set(`${target}:${user.id}`, Date.now());
     toUser(target, { t: 'dev.ask', from: user.id });
     return {};
   },
   'dev.answer'(c, user, d) {
     const admin = M.getUser(Number(d.to));
     if (!admin || !admin.is_admin) return {};
+    // Only an answer to an admin who just asked (nobody can push numbers to an admin unasked).
+    const asked = devAsks.get(`${user.id}:${admin.id}`);
+    if (!asked || Date.now() - asked > 60_000) return {};
     let data = d.data;
     try { if (JSON.stringify(data).length > 60_000) data = { error: 'too big' }; } catch { data = { error: 'unreadable' }; }
     toUser(admin.id, { t: 'dev.answer', userId: user.id, device: c.id, data });
@@ -1023,6 +1040,7 @@ const handlers = {
 
   /* ---- feedback ---- */
   'feedback.send'(c, user, d) {
+    if (!allow(feedbackTimes, user.id, 600_000, 5)) fail('Thanks! That’s plenty of feedback for now. Try again in a few minutes.');
     const id = M.addFeedback(d.anonymous ? null : user.id, d.kind, d.body);
     for (const u of M.allUsers()) if (u.admin) toUser(u.id, { t: 'feedback.new', id });
     return { id };
@@ -1224,7 +1242,7 @@ export function attachHub(server) {
     const url = new URL(req.url, 'http://x');
     const user = M.userForToken(url.searchParams.get('token'));
     if (!user) { ws.close(4001, 'auth'); return; }
-    const c = { id: nextConn++, ws, userId: user.id, alive: true, idle: false, activity: null, session: M.sessionKey(url.searchParams.get('token')) };
+    const c = { id: nextConn++, ws, userId: user.id, alive: true, idle: false, activity: null, session: M.sessionKey(url.searchParams.get('token')), over: 0 };
     conns.set(c.id, c);
     const first = !online(user.id);
     M.touchUser(user.id);
@@ -1239,6 +1257,16 @@ export function attachHub(server) {
       let d;
       try { d = JSON.parse(raw); } catch { return; }
       if (!d || typeof d.t !== 'string') return;
+      // Each connection may send 60 requests a second, in bursts of up to 300: plenty for voice handshakes and
+      // drawing, not enough to flood the server. Far over that for a while, the connection is closed.
+      const t = Date.now();
+      c.budget = Math.min(300, (c.budget ?? 300) + ((t - (c.budgetAt || t)) / 1000) * 60); c.budgetAt = t;
+      if (c.budget < 1) {
+        if (++c.over > 600) { ws.close(4008, 'too many requests'); return; }
+        if (d.rid) send(c, { t: 'ack', rid: d.rid, error: 'Slow down a little.' });
+        return;
+      }
+      c.budget -= 1; c.over = 0;
       const h = Object.prototype.hasOwnProperty.call(handlers, d.t) ? handlers[d.t] : null;
       const fresh = M.getUser(c.userId);
       if (!fresh) { ws.close(4001, 'auth'); return; }
