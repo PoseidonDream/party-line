@@ -39,9 +39,9 @@ GitHub → **Actions → Android app → Run workflow**. After about 5 minutes t
 | Card | What to enter |
 |---|---|
 | Privacy policy | `https://poseidonparty.duckdns.org/privacy` |
-| App access | "All or some functionality is restricted". Make an account for Google's reviewers first (any name, e.g. `PlayReview`, and a password of at least 8 characters). Give them that name and password, and write: *"Sign in with the name and password above. Voice: open a voice channel (🔊 Lobby). Report: point at a message → flag. Block: click a name → Block."* |
+| App access (now called "Sign-in details") | "Does your app have restricted parts?" **Yes**, "All or some functionality is restricted". Make an account for Google's reviewers first: open the website in a private window (Safari or Chrome: Shift+Cmd+N), Create account, name `PlayReview`, a password of at least 8 characters. Give them that name and password, and write: *"Sign in with the name and password above. Voice: open the Lobby voice channel. Report a message: tap it, then press the flag. Block or report a person: tap their name, then Block or Report."* |
 | Ads | No ads |
-| Content rating | Fill in the questionnaire honestly: a communication app, people can talk and share photos with each other, no gambling, no purchases. |
+| Content rating | Fill in the questionnaire honestly: a communication app, people can talk and share photos with each other, no gambling, no purchases. Can people block others or what they post? **Yes.** Report them? **Yes.** Is chat moderated? **No** (admins act on reports, nobody reads chats in advance). Can interactions be limited to invited friends only? **No** (new accounts join your main server). Digital purchases? **No.** |
 | Target audience | 13 and older (leave out the under-13 groups). "Appeals to children": No. |
 | News app | No |
 | Data safety | See [below](#data-safety-answers) |
@@ -94,6 +94,7 @@ Party Line keeps data on **your own server**; it sells nothing and shows no ads.
 - **Does your app collect or share user data?** Yes, it collects. It does not share (the GIF search and Party Bot's `/ask`, if you turned them on, only run through your server as service providers).
 - **Is all data encrypted in transit?** Yes (HTTPS).
 - **Can people ask for their data to be deleted?** Yes (in the app and at `/delete-account`).
+- **Can people ask to delete some data without deleting their account?** No (it's optional and needs a page of its own; people can still delete their own messages in the app).
 
 | Data type | Collected | Why | Optional? |
 |---|---|---|---|
