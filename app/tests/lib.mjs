@@ -81,6 +81,27 @@ export async function openPage(browser, base, opts = {}) {
   return page;
 }
 
+/* The Android app, as close as a browser gets: Android WebView's user agent, no web notifications (WebView has none),
+   and Capacitor's real bridge script, the one the app adds to every page, talking to a stand-in for the app's own Java
+   code. `answers` maps a PartyLine method to what it returns; every call is listed in window.__native. */
+export const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 16; SM-S928B Build/BP2A.250605.031; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.7390.122 Mobile Safari/537.36';
+const NATIVE_BRIDGE = path.join(here, '..', 'mobile', 'node_modules', '@capacitor', 'android', 'capacitor', 'src', 'main', 'assets', 'native-bridge.js');
+export async function androidContext(browser, base, answers = {}, opts = {}) {
+  const ctx = await browser.newContext(Object.assign({ userAgent: ANDROID_UA, viewport: { width: 400, height: 800 }, isMobile: true, hasTouch: true, permissions: ['microphone'] }, opts));
+  const headers = [{ name: 'PartyLine', methods: [{ name: 'setInCall', rtype: 'promise' }, { name: 'getVersion', rtype: 'promise' }] }];
+  await ctx.addInitScript({ content: [
+    `delete window.Notification; delete window.PushManager;`,
+    `window.__native = []; const __answers = ${JSON.stringify(answers)};`,
+    `window.androidBridge = { postMessage(s) { const d = JSON.parse(s); window.__native.push({ method: d.methodName, options: d.options });
+      setTimeout(() => window.androidBridge.onmessage({ data: JSON.stringify({ callbackId: d.callbackId, pluginId: d.pluginId, methodName: d.methodName, success: true, data: __answers[d.methodName] || {} }) }), 10); } };`,
+    `window.Capacitor = { DEBUG: false, isLoggingEnabled: false, Plugins: {} };`,
+    `window.WEBVIEW_SERVER_URL = ${JSON.stringify(base)};`,
+    fs.readFileSync(NATIVE_BRIDGE, 'utf8'),
+    `window.Capacitor.PluginHeaders = ${JSON.stringify(headers)};`,
+  ].join('\n') });
+  return ctx;
+}
+
 export async function signUp(browser, base, name, opts) {
   const page = await openPage(browser, base, opts);
   await page.click('#tabRegister');

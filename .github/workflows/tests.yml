@@ -22,6 +22,8 @@ jobs:
         working-directory: app/server
       - run: npm ci
         working-directory: app/tests
+      - run: npm ci   # Capacitor's bridge script, for the Android app test
+        working-directory: app/mobile
       - run: npx playwright-core install --with-deps chromium
         working-directory: app/tests
       - name: Tests with voice going directly between people

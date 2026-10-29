@@ -1,13 +1,10 @@
 /* The "new version" card. Android: shown when GitHub's newest release has a newer build than the app, not
    when it's up to date, and "Later" hides it for that build. Desktop: shown when the app has downloaded an
    update, and "Restart now" asks the app to restart. */
-import { startServer, launchBrowser, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, androidContext, RESULTS } from './lib.mjs';
 
 async function open(browser, url, myBuild, latestBuild) {
-  const ctx = await browser.newContext({ viewport: { width: 400, height: 800 } });
-  await ctx.addInitScript((code) => {
-    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', registerPlugin: () => ({ setInCall: async () => {}, getVersion: async () => ({ code, name: `1.0.${code}` }) }) };
-  }, myBuild);
+  const ctx = await androidContext(browser, url, { getVersion: { code: myBuild, name: `1.0.${myBuild}`, fromPlay: false } });
   await ctx.route('https://api.github.com/**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({
     tag_name: 'v1.1.0', assets: [{ name: 'Party-Line-android.apk', label: `Party Line for Android (build ${latestBuild})`, browser_download_url: 'https://github.com/x/y/releases/download/v1.1.0/Party-Line-android.apk' }] }) }));
   const p = await ctx.newPage();

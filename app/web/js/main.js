@@ -944,7 +944,17 @@ function syncMusic() {
   $('#musicBack').hidden = !st || listening();
 }
 /* Android app: while you're in voice, a notification keeps it running when the phone locks or you switch apps. */
-const phoneApp = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor.registerPlugin('PartyLine') : null;
+/* The app's own Android code, reached through Capacitor's bridge. The page comes from the server without Capacitor's
+   JavaScript library, so it calls the bridge directly (registerPlugin only exists in that library). */
+const phoneApp = (() => {
+  const cap = window.Capacitor;
+  if (!cap || typeof cap.isNativePlatform !== 'function' || !cap.isNativePlatform()) return null;
+  if (typeof cap.nativePromise === 'function') {
+    const call = (method) => (options = {}) => cap.nativePromise('PartyLine', method, options);
+    return { getVersion: call('getVersion'), setInCall: call('setInCall') };
+  }
+  return typeof cap.registerPlugin === 'function' ? cap.registerPlugin('PartyLine') : null;
+})();
 /* Android app: new features arrive from the server by themselves, but when the app itself has a newer build
    (on the GitHub releases page), offer it. Tapping Update downloads it; Android then asks to install. */
 const UPDATE_REPO = 'PoseidonDream/party-line';
