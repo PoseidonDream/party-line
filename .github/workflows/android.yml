@@ -61,10 +61,17 @@ jobs:
           if ! keytool -list "${ks[@]}" -alias "$PL_KEY_ALIAS" >/dev/null 2>&1; then
             echo "::error title=Signing key::The key file has no key called \"$PL_KEY_ALIAS\" (ANDROID_KEY_ALIAS). It has: $(keytool -list "${ks[@]}" 2>/dev/null | grep -i 'PrivateKeyEntry' | cut -d, -f1 | tr '\n' ' ')"; exit 1
           fi
-          if ! keytool -certreq "${ks[@]}" -alias "$PL_KEY_ALIAS" -keypass "$PL_KEY_PASSWORD" -file /dev/null >/dev/null 2>&1; then
-            echo "::error title=Signing key::ANDROID_KEY_PASSWORD is wrong. If you pressed Enter when keytool asked for a key password, it is the same as ANDROID_KEYSTORE_PASSWORD."; exit 1
+          keypass() { keytool -certreq "${ks[@]}" -alias "$PL_KEY_ALIAS" -keypass "$1" -file /dev/null >/dev/null 2>&1; }
+          if ! keypass "$PL_KEY_PASSWORD"; then
+            # Pressing Enter at keytool's "key password" question gives the key the file's password: use that.
+            if keypass "$PL_KEYSTORE_PASSWORD"; then
+              echo "PL_KEY_SAME=1" >> "$GITHUB_ENV"
+              echo "::warning title=Signing key::ANDROID_KEY_PASSWORD is wrong, but the key opens with ANDROID_KEYSTORE_PASSWORD, so that is used."
+            else
+              echo "::error title=Signing key::ANDROID_KEY_PASSWORD is wrong (and the key doesn't open with ANDROID_KEYSTORE_PASSWORD either)."; exit 1
+            fi
           fi
-          echo "The signing key and both passwords work."
+          echo "The signing key works."
       - name: Build
         working-directory: app/mobile/android
         env:
@@ -75,6 +82,7 @@ jobs:
           PL_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/android-v') && github.ref_name || format('1.0.{0}', github.run_number) }}
         run: |
           chmod +x gradlew
+          if [ "$PL_KEY_SAME" = 1 ]; then export PL_KEY_PASSWORD="$PL_KEYSTORE_PASSWORD"; fi
           # The bundle is built either way (so a broken one shows up early), but only a signed one is kept: Play takes no other.
           if [ -n "$PL_KEYSTORE" ]; then tasks="assembleRelease bundleRelease"; else tasks="assembleDebug bundleRelease"; fi
           # If it fails, the reason goes in the run's summary (GitHub's own log only says "exit code 1").
