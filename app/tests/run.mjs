@@ -29,7 +29,8 @@ for (const f of files) {
     failed++;
     // One line, with the browser tool's reasons (like "… intercepts pointer events"), so CI's summary shows why.
     const lines = [...new Set(e.message.split('\n').map((l) => l.replace(/\x1b\[[0-9;]*m/g, '').trim()).filter((l) => l && !/^=+/.test(l) && !/Call log/.test(l)))];
-    console.log(`  ✗ ${[...lines.slice(0, 2), ...lines.slice(2).filter((l) => !/retrying|waiting \d+ms/.test(l)).slice(0, 5)].join(' — ')}`);
+    const routine = /retrying|waiting \d+ms|locator resolved|attempting .* action|waiting for element to be|element is visible, enabled|scrolling into view|done scrolling|performing .* action|navigations have finished/;
+    console.log(`  ✗ ${[...lines.slice(0, 2), ...lines.slice(2).filter((l) => !routine.test(l)).slice(0, 4)].join(' — ')}`);
     if (process.env.VERBOSE) console.log(e.stack);
   }
 }
