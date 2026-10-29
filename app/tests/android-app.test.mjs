@@ -20,9 +20,9 @@ export default async function (ok) {
     await p.waitForSelector('#room:not([hidden])', { timeout: 10000 });
     ok('making an account in the app gets you in', true);
     const db = openDb(srv);
-    const device = db.prepare('SELECT device FROM sessions ORDER BY created_at DESC LIMIT 1').get().device;
+    const devices = db.prepare("SELECT s.device FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.name = 'Phone'").all().map((r) => r.device);
     db.close();
-    ok('the app reports its build through the bridge (“Android app build 20”)', device === 'Android app build 20', device);
+    ok(`the app reports its build through the bridge (“Android app build 20”)${devices.includes('Android app build 20') ? '' : `: got ${JSON.stringify(devices)}`}`, devices.includes('Android app build 20'));
 
     await p.tap('#drawerBtn');
     await p.tap('#voiceList .chan:has-text("Lobby")');

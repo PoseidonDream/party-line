@@ -126,8 +126,8 @@ const SYNTH = {
   },
   bonk(c, out, t) {
     tone(c, out, { type: 'sine', freq: 520, to: 170, at: t, dur: 0.28, vol: 0.6, attack: 0.002 });
-    tone(c, out, { type: 'triangle', freq: 1250, to: 880, at: t, dur: 0.1, vol: 0.35, attack: 0.001 });
-    hit(c, out, { at: t, dur: 0.06, freq: 2500, q: 1.2, vol: 0.4 });
+    tone(c, out, { type: 'triangle', freq: 1250, to: 880, at: t, dur: 0.1, vol: 0.3, attack: 0.001 });
+    hit(c, out, { at: t, dur: 0.06, freq: 2500, q: 1.2, vol: 0.3 });   // random noise: kept low enough that no strike clips
   },
   scratch(c, out, t) {
     // The record is pushed back and forth by hand: the pitch and the hiss follow it, then it stops dead.
