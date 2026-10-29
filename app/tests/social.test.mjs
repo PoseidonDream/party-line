@@ -17,7 +17,6 @@ export default async function (ok) {
     const b = await ctx.newPage(); b.errors = []; b.on('pageerror', (e) => b.errors.push(e.message));
     await b.goto(srv.url);
     await b.click('#tabRegister'); await b.fill('#authName', 'Bora'); await b.fill('#authPass', 'pass1234');
-    if (await b.isVisible('#authGroup')) await b.fill('#authGroup', 'test');
     await b.check('#authAgree'); await b.click('#authBtn'); await b.waitForSelector('#room:not([hidden])');
 
     const say = async (p, text) => { await p.fill('#chatInput', text); await p.keyboard.press('Enter'); };

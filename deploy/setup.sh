@@ -26,13 +26,11 @@ if [ ! -f .env ]; then
   IP=$(curl -4 -fsS https://api.ipify.org || true)
   exec 3</dev/tty
   read -r -u 3 -p "Your server's address (e.g. mygroup.duckdns.org): " DOMAIN
-  read -r -u 3 -p "Group password friends need to sign up: " GROUP_PASSWORD
   read -r -u 3 -p "Admin account name [Poseidon]: " ADMIN_NAMES
   read -r -u 3 -p "Public IP [$IP]: " PUBLIC_IP
   cat > .env <<ENV
 DOMAIN=${DOMAIN#https://}
 PUBLIC_IP=${PUBLIC_IP:-$IP}
-GROUP_PASSWORD=$GROUP_PASSWORD
 ADMIN_NAMES=${ADMIN_NAMES:-Poseidon}
 TURN_SECRET=$(openssl rand -hex 32)
 LIVEKIT_KEY=PL$(openssl rand -hex 6)

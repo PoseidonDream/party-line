@@ -57,8 +57,17 @@ export default async function (ok) {
     ok('muting shows for others', true);
     await a.keyboard.press('m');
 
+    // What the app asks the browser for: the shared sound without Party Line's own (friends' voices), so watchers
+    // don't hear everyone twice
+    await a.evaluate(() => {
+      const md = navigator.mediaDevices, real = md.getDisplayMedia.bind(md);
+      md.getDisplayMedia = (c) => { window.__shareAsk = c; return real(c); };
+    });
     await a.click('#shareBtn');
     await a.waitForSelector('#shareBtn.on', { timeout: 8000 });
+    const ask = await a.evaluate(() => ({ audio: window.__shareAsk.audio, leaveOut: !!navigator.mediaDevices.getSupportedConstraints().restrictOwnAudio }));
+    ok(`a shared screen’s sound leaves out Party Line’s own voices (${ask.leaveOut ? 'left out of the capture' : 'echo cancellation'})`,
+      ask.audio.restrictOwnAudio === true && ask.audio.echoCancellation === !ask.leaveOut);
     await b.waitForSelector('#tiles .tile:has-text("Poseidon") .live', { timeout: 8000 });
     await b.click('#tiles .tile:has-text("Poseidon") .live');
     await b.waitForFunction(() => { const v = document.querySelector('#stageVideo'); return v && v.srcObject && v.srcObject.getVideoTracks().length && v.videoWidth > 0; }, null, { timeout: 15000 });

@@ -111,7 +111,7 @@ function renderOverview() {
   card('Server version', commit || 'unknown', commit ? `from ${date || '?'}` : 'updates set it automatically');
   card('Your app', ctx.appLabel() || 'unknown', 'what you’re using right now');
   card('Online now', String(s.online), `${s.connections} open app${s.connections === 1 ? '' : 's'}`);
-  card('Accounts', String(s.users), s.groupPassword ? 'group password on' : 'anyone can sign up', !s.groupPassword);
+  card('Accounts', String(s.users), 'anyone with the address can sign up');
   card('Memory', fmtSize(s.rss), `${fmtSize(s.heap)} in use`);
   card('Database', fmtSize(s.dbBytes));
   card('Photos and videos', fmtSize(s.uploads.bytes), `${s.uploads.files} file${s.uploads.files === 1 ? '' : 's'}`);

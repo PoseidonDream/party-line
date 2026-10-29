@@ -10,7 +10,6 @@ const fail = (msg) => { throw new UserError(msg); };
 /* ---------- names and passwords ---------- */
 export const foldKey = (s) => String(s || '').toLowerCase().replace(/ı/g, 'i').normalize('NFKD')
   .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
-const foldPass = (s) => foldKey(s).replace(/\s+/g, '');
 export const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
 export const cleanChannel = (s, kind) => {
   const t = String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32);
@@ -47,11 +46,6 @@ function noteFailure(key) {
   failures.set(key, [...recentFailures(key), now()]);
   if (failures.size > 2000) for (const [k] of failures) if (!recentFailures(k).length) failures.delete(k);
 }
-export function groupPasswordOk(pass) {
-  if (!config.groupPassword) return true;
-  const a = Buffer.from(foldPass(pass)), b = Buffer.from(foldPass(config.groupPassword));
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const token = () => crypto.randomBytes(32).toString('base64url');
 const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-_]/g, 'x').slice(0, 8);
@@ -79,9 +73,8 @@ export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
 
-export function register(name, pass, groupPass, agree) {
+export function register(name, pass, agree) {
   name = cleanName(name);
-  if (!groupPasswordOk(groupPass)) fail('That group password is wrong. Ask whoever invited you.');
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   newPassOk(pass, 'Pick a password with at least 8 characters.');

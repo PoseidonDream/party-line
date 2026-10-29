@@ -9,7 +9,6 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-}
     restart: unless-stopped
     environment:
-      GROUP_PASSWORD: ${GROUP_PASSWORD}
       ADMIN_NAMES: ${ADMIN_NAMES:-Poseidon}
       TURN_URLS: turn:${DOMAIN}:3478?transport=udp,turn:${DOMAIN}:3478?transport=tcp
       TURN_SECRET: ${TURN_SECRET}

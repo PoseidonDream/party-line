@@ -528,6 +528,14 @@ function addScreenTo(p) {
     }
   }
 }
+/* The sound of a shared screen leaves out Party Line's own sound (friends' voices, the soundboard, music), or
+   watchers would hear everyone twice. Browsers that can leave it out of the capture do (restrictOwnAudio); elsewhere
+   (like the Windows desktop app, which shares the whole computer's sound) echo cancellation takes it out, the same
+   way it keeps friends' voices out of your microphone. */
+export function shareAudio() {
+  const supported = navigator.mediaDevices.getSupportedConstraints ? navigator.mediaDevices.getSupportedConstraints() : {};
+  return { restrictOwnAudio: true, echoCancellation: !supported.restrictOwnAudio, noiseSuppression: false, autoGainControl: false };
+}
 export async function startShare() {
   if (!V.channelId || V.sharing) return;
   const q = QUALITY[settings.quality] || QUALITY.motion;
@@ -535,7 +543,7 @@ export async function startShare() {
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: { frameRate: { ideal: q.fps, max: q.fps }, height: { ideal: q.height, max: q.height } },
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      audio: shareAudio(),
     });
   } catch (e) {
     if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast("Couldn't start screen sharing.", 4000);

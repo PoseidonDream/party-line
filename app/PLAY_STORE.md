@@ -39,7 +39,7 @@ GitHub → **Actions → Android app → Run workflow**. After about 5 minutes t
 | Card | What to enter |
 |---|---|
 | Privacy policy | `https://poseidonparty.duckdns.org/privacy` |
-| App access | "All or some functionality is restricted". Make an account for Google's reviewers first (any name, e.g. `PlayReview`, and a password). Give them that name and password, and the group password, and write: *"Sign in with the name and password above. Voice: open a voice channel (🔊 Lobby). Report: point at a message → flag. Block: click a name → Block."* |
+| App access | "All or some functionality is restricted". Make an account for Google's reviewers first (any name, e.g. `PlayReview`, and a password of at least 8 characters). Give them that name and password, and write: *"Sign in with the name and password above. Voice: open a voice channel (🔊 Lobby). Report: point at a message → flag. Block: click a name → Block."* |
 | Ads | No ads |
 | Content rating | Fill in the questionnaire honestly: a communication app, people can talk and share photos with each other, no gambling, no purchases. |
 | Target audience | 13 and older (leave out the under-13 groups). "Appeals to children": No. |
@@ -133,7 +133,7 @@ YOUR GROUP
 • Block and report, and admins who can act on reports
 • 7 languages: English, Deutsch, Español, Français, Italiano, Русский, Türkçe
 
-Party Line needs a Party Line server. Ask whoever invited you for the address and the group password.
+Open the app and make an account with any name and password, then ask your friends to add you.
 ```
 
 ### Türkçe
@@ -164,11 +164,11 @@ GRUBUN
 • Engelleme ve bildirme, bildirimlerle ilgilenen yöneticiler
 • 7 dil: English, Deutsch, Español, Français, Italiano, Русский, Türkçe
 
-Party Line bir Party Line sunucusu gerektirir. Adresi ve grup şifresini seni davet eden kişiye sor.
+Uygulamayı aç, istediğin bir ad ve şifreyle hesap oluştur, sonra arkadaşlarından seni eklemelerini iste.
 ```
 
 ## If Google says no
 
 - **"Minimum functionality" / "just a website"**: reply that the app keeps voice calls running in the background with a foreground service and notification, which a website can't do, and point to the video.
 - **"User-generated content"**: point to the rules people agree to at sign-up (`/rules`), Report and Block in the app, and the admins' Reports tab.
-- **"Couldn't sign in"**: check the reviewer account still works and that the App access instructions include the group password.
+- **"Couldn't sign in"**: check the reviewer account still works and that its name and password in App access are right.

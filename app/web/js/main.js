@@ -156,12 +156,11 @@ async function act(fn, okText) {
 }
 
 /* ================= sign in ================= */
-let authMode = 'login', info = { needsGroupPassword: false };
+let authMode = 'login';
 function showAuth(mode) {
   authMode = mode;
   $('#tabLogin').setAttribute('aria-selected', String(mode === 'login'));
   $('#tabRegister').setAttribute('aria-selected', String(mode === 'register'));
-  $('#groupField').hidden = mode !== 'register' || !info.needsGroupPassword;
   $('#agreeField').hidden = mode !== 'register';
   $('#authPassHint').hidden = mode === 'login';
   $('#authPass').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
@@ -176,7 +175,6 @@ function showAuth(mode) {
 function showJoinScreen() {
   $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false; $('#joinLangBox').hidden = false;
   if (S.pendingInvite) { $('#joinInvite').hidden = false; $('#joinInvite').textContent = 'You were invited to a server. Sign in or create an account to join.'; }
-  api('/api/info').then((i) => { info = i; showAuth(authMode); }).catch(() => {});
   showAuth(store.get('hadAccount', false) ? 'login' : 'register');
   if (store.get('resetReq', null)) showResetWait(); else setTimeout(() => $('#authName').focus(), 50);
 }
@@ -231,11 +229,11 @@ $('#authForm').addEventListener('submit', async (e) => {
       return;
     }
     if (authMode === 'register' && !$('#authAgree').checked) { err.textContent = 'To make an account, agree to the community rules and the privacy policy (the box above).'; err.hidden = false; return; }
-    const body = { name: $('#authName').value, password: $('#authPass').value, groupPassword: $('#authGroup').value, code: $('#authCode').value, device: await appLabel(), agree: authMode === 'register' };
+    const body = { name: $('#authName').value, password: $('#authPass').value, code: $('#authCode').value, device: await appLabel(), agree: authMode === 'register' };
     const r = await api(authMode === 'register' ? '/api/register' : '/api/login', { body });
     if (r.needCode) { $('#codeField').hidden = false; $('#authCode').focus(); return; }   // 2-step sign-in is on
     setToken(r.token); store.set('hadAccount', true);
-    $('#authPass').value = ''; $('#authGroup').value = '';
+    $('#authPass').value = '';
     start();
   } catch (ex) { err.textContent = ex.message; err.hidden = false; }
   finally { btn.disabled = false; }

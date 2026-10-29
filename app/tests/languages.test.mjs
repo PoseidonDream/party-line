@@ -33,7 +33,7 @@ export default async function (report) {
     // Make an account in Turkish. The name "Robot" is also a word the app uses (a voice effect), so it must not change.
     await p.click('#tabRegister');
     ok('…the button follows the tab, still in Turkish', (await p.textContent('#authBtn')) === 'Hesap oluştur');
-    await p.fill('#authName', 'Robot'); await p.fill('#authPass', 'pass1234'); await p.fill('#authGroup', 'test');
+    await p.fill('#authName', 'Robot'); await p.fill('#authPass', 'pass1234');
     await p.click('#authBtn');
     await p.waitForSelector('#authError:not(:empty)');
     ok('…errors are in Turkish too', (await p.textContent('#authError')).includes('topluluk kurallarını'));

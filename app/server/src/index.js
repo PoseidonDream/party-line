@@ -80,7 +80,7 @@ const wrap = (fn) => async (req, res) => {
   }
 };
 
-app.get('/api/info', wrap(() => ({ name: 'Party Line', needsGroupPassword: !!config.groupPassword, version: 1, contact: config.contactEmail || null })));
+app.get('/api/info', wrap(() => ({ name: 'Party Line', version: 1, contact: config.contactEmail || null })));
 /* For the auto-updater on the server itself (deploy/auto-update.sh): how many people are in voice right now.
    Only answers requests from inside the machine; through Caddy the request comes from another address. */
 app.get('/api/local/voice-count', (req, res) => {
@@ -89,8 +89,8 @@ app.get('/api/local/voice-count', (req, res) => {
   res.json({ inVoice: voiceCount() });
 });
 app.post('/api/register', throttle, wrap((req) => {
-  const { name, password, groupPassword, agree } = req.body || {};
-  const r = M.register(name, password, groupPassword, agree);
+  const { name, password, agree } = req.body || {};
+  const r = M.register(name, password, agree);
   hub.userChanged(r.user);
   hub.joinedServers(r.user.id);
   return { token: r.token, user: M.publicUser(r.user) };

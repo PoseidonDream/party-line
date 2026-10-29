@@ -1007,7 +1007,6 @@ const handlers = {
         rss: mem.rss, heap: mem.heapUsed, dbBytes, uploads: folderSize(path.join(config.dataDir, 'uploads')),
         users: M.allUsers().length, online: byUser.size, connections: conns.size,
         turn: !!(config.turnUrls.length && config.turnSecret), sfu: !!(config.livekit.url && config.livekit.secret),
-        groupPassword: !!config.groupPassword,
         health: Bot.healthProblems().map(([, text]) => text),
         backup: Bot.readJson('backup-status.json'),   // written by deploy/backup.sh
       },

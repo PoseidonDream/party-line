@@ -49,9 +49,8 @@ Back on DuckDNS, paste the server's IPv4 address into the **current ip** box nex
    ```
    curl -fsSL https://raw.githubusercontent.com/PoseidonDream/party-line/app/deploy/setup.sh | bash
    ```
-4. It asks four questions:
+4. It asks three questions:
    - **Your server's address:** `mygroup.duckdns.org`
-   - **Group password:** the password friends need to make an account. Pick something only your group knows.
    - **Admin account name:** press Enter to keep `Poseidon`.
    - **Public IP:** press Enter. It fills this in for you.
 5. Wait for **Done!**. The first time takes a few minutes.
@@ -60,7 +59,7 @@ Back on DuckDNS, paste the server's IPv4 address into the **current ip** box nex
 
 Open `https://mygroup.duckdns.org`, press **Create account** and sign up with the name **Poseidon** (or whatever you chose as admin). Do this before you share the link, so nobody else takes the admin name.
 
-Then send your friends the address and the group password. Each person picks their own name and password once, and their devices remember them after that.
+Then send your friends the address. Each person picks their own name and password once, and their devices remember them after that.
 
 ## Step 6: Build the desktop app
 
@@ -103,7 +102,6 @@ Connect with `ssh root@YOUR-IP`, then:
 | Put a backup back | `/opt/party-line/deploy/backup.sh restore /opt/party-line/deploy/backups/FILE.tgz` |
 | See what the server is doing | `cd /opt/party-line/deploy && docker compose logs -f --tail 100` |
 | Restart it | `cd /opt/party-line/deploy && docker compose restart` |
-| Change the group password | edit `/opt/party-line/deploy/.env`, then run `docker compose up -d` in that folder |
 
 **Updates install by themselves.** Every 10 minutes the server checks GitHub for a newer Party Line and installs it, but only while nobody is in voice, so calls aren't cut off. (If someone stays in voice for 2 hours straight, often a forgotten open tab, it updates anyway; everyone reconnects within seconds.) To turn this off, add the line `AUTO_UPDATE=0` to `/opt/party-line/deploy/.env`.
 
@@ -141,7 +139,7 @@ What Party Line does by itself:
 
 What's up to you:
 
-- Pick a **group password** that isn't easy to guess, and change it (`GROUP_PASSWORD` in `.env`) if it leaks. Accounts already made keep working.
+- Anyone with your server's address can make an account and join the main server, so share the address only with friends. If a stranger shows up, remove them (click their name → Remove from server) and block them.
 - Keep the **automatic updates** on (they are by default), so safety fixes arrive by themselves.
 - Keep **backups** private: a backup holds everyone's messages.
 - Give admin (`ADMIN_NAMES`) only to people you trust: admins can read reports and feedback, and remove messages and people.

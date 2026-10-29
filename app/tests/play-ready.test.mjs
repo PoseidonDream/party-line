@@ -9,10 +9,11 @@ export default async function (ok) {
     const api = (p, body, token) => fetch(srv.url + p, { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, token ? { authorization: `Bearer ${token}` } : {}), body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
 
     // Agreeing to the rules
-    const noAgree = await api('/api/register', { name: 'Nope', password: 'pass1234', groupPassword: 'test' });
+    const noAgree = await api('/api/register', { name: 'Nope', password: 'pass1234' });
     ok('making an account needs agreeing to the rules', noAgree.status === 400 && /community rules/.test(noAgree.error));
     const p = await openPage(browser, srv.url);
-    await p.click('#tabRegister'); await p.fill('#authName', 'Lale'); await p.fill('#authPass', 'pass1234'); await p.fill('#authGroup', 'test');
+    await p.click('#tabRegister'); await p.fill('#authName', 'Lale'); await p.fill('#authPass', 'pass1234');
+    ok('making an account asks only for a name and a password (no group password)', (await p.locator('#join input:visible:not([type=checkbox])').count()) === 2);
     ok('…the box is on the Create account form, with links to the rules and the privacy policy', await p.isVisible('#agreeField a[href="/rules"]') && await p.isVisible('#agreeField a[href="/privacy"]'));
     await p.click('#authBtn');
     ok('…and without ticking it, it says so', /agree to the community rules/.test(await p.textContent('#authError')));
@@ -93,7 +94,7 @@ export default async function (ok) {
     ok('…with nothing of it left on the server', left === 0);
 
     // Deleting an account on the web page
-    await api('/api/register', { name: 'Temp', password: 'pass1234', groupPassword: 'test', agree: true });
+    await api('/api/register', { name: 'Temp', password: 'pass1234', agree: true });
     const page = await browser.newPage(); await page.goto(`${srv.url}/delete-account`);
     await page.fill('#name', 'Temp'); await page.fill('#pass', 'pass1234'); await page.check('#sure'); await page.click('#go');
     await page.waitForSelector('#done:not([hidden])');

@@ -12,7 +12,7 @@ Party Line as its own app: a server your group runs, a website and a desktop app
 
 ## What changed from the peer-to-peer site
 
-- **Real accounts:** each person has their own name and password, so nobody can use someone else's name. Making an account needs the group password.
+- **Real accounts:** each person has their own name and password, so nobody can use someone else's name.
 - **Chats are saved on the server:** history, friends and private messages are there on every device, even when nobody else is online.
 - **Messages reach people who are offline.** They see them next time they open Party Line.
 - **Photos and videos are saved** and can be opened later.
@@ -26,7 +26,7 @@ The original site (`index.html` at the top of the repository) is untouched and s
 ```
 cd app/server
 npm install
-GROUP_PASSWORD=test npm start
+npm start
 ```
 
 Open http://localhost:3000. Settings (environment variables):
@@ -35,7 +35,6 @@ Open http://localhost:3000. Settings (environment variables):
 |---|---|---|
 | `PORT` | Port to listen on | `3000` |
 | `DATA_DIR` | Where the database and uploads go | `server/data` |
-| `GROUP_PASSWORD` | Needed to make an account. Empty means anyone can sign up. | empty |
 | `ADMIN_NAMES` | Comma-separated account names with admin powers | `Poseidon` |
 | `TURN_URLS`, `TURN_SECRET` | Voice relay for strict networks (set up for you by `deploy/`) | none |
 | `TRUST_PROXY` | Set to `1` behind a reverse proxy such as Caddy | off |

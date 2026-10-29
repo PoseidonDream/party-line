@@ -31,7 +31,7 @@ export default async function (ok) {
   const srv = await startServer();
   const browser = await launchBrowser();
   try {
-    const reg = await fetch(`${srv.url}/api/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'party BOT', password: 'pass1234', groupPassword: 'test' }) });
+    const reg = await fetch(`${srv.url}/api/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'party BOT', password: 'pass1234' }) });
     ok('nobody can take the bot’s name', reg.status === 400 && /bot/i.test((await reg.json()).error));
 
     const a = await signUp(browser, srv.url, 'Poseidon');

@@ -49,9 +49,9 @@ export default async function (ok) {
     page.errors.length = 0;
 
     // Passwords
-    const short = await post('/api/register', { name: 'Shorty', password: 'abc1234', groupPassword: 'test', agree: true });
+    const short = await post('/api/register', { name: 'Shorty', password: 'abc1234', agree: true });
     ok('new passwords need at least 8 characters', short.status === 400 && /at least 8 characters/.test(short.error));
-    const ana = await post('/api/register', { name: 'Ana', password: 'goodpass1', groupPassword: 'test', agree: true });
+    const ana = await post('/api/register', { name: 'Ana', password: 'goodpass1', agree: true });
     const second = await post('/api/login', { name: 'Ana', password: 'goodpass1' });
     const noOne = await post('/api/login', { name: 'Nobody here', password: 'goodpass1' });
     const wrong = await post('/api/login', { name: 'Ana', password: 'nope-nope' });
@@ -84,7 +84,7 @@ export default async function (ok) {
     ok('feedback: 5 in 10 minutes', fb.slice(0, 5).every((r) => r.id) && /plenty of feedback/.test(fb[5].error || ''));
 
     // A friend can't push "voice numbers" to an admin who didn't ask
-    const admin = await connect((await post('/api/register', { name: 'Poseidon', password: 'adminpass1', groupPassword: 'test', agree: true })).token);
+    const admin = await connect((await post('/api/register', { name: 'Poseidon', password: 'adminpass1', agree: true })).token);
     const adminId = admin.seen.find((d) => d.t === 'ready').me.id;
     await live.req('dev.answer', { to: adminId, data: { fake: true } });
     await new Promise((r) => setTimeout(r, 300));
@@ -111,7 +111,7 @@ export default async function (ok) {
   // Sign-ins unused for a long time are forgotten (here: 1.5 seconds)
   const srv2 = await startServer({ SESSION_IDLE_MS: '1500' });
   try {
-    const r = await (await fetch(`${srv2.url}/api/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Ece', password: 'goodpass1', groupPassword: 'test', agree: true }) })).json();
+    const r = await (await fetch(`${srv2.url}/api/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Ece', password: 'goodpass1', agree: true }) })).json();
     const fresh = await fetch(`${srv2.url}/api/bookmarks`, { headers: { authorization: `Bearer ${r.token}` } });
     await new Promise((res) => setTimeout(res, 2000));
     const stale = await fetch(`${srv2.url}/api/bookmarks`, { headers: { authorization: `Bearer ${r.token}` } });

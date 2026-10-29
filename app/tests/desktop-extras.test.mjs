@@ -16,7 +16,6 @@ export default async function (ok) {
     const a = await ctx.newPage(); a.errors = []; a.on('pageerror', (e) => a.errors.push(e.message));
     await a.goto(srv.url);
     await a.click('#tabRegister'); await a.fill('#authName', 'Poseidon'); await a.fill('#authPass', 'pass1234');
-    if (await a.isVisible('#authGroup')) await a.fill('#authGroup', 'test');
     await a.check('#authAgree'); await a.click('#authBtn'); await a.waitForSelector('#room:not([hidden])');
     const b = await signUp(browser, srv.url, 'Bora');
 

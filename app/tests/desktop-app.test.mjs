@@ -36,7 +36,6 @@ export default async function (ok) {
     const win = await app.firstWindow();
     const errors = []; win.on('pageerror', (e) => errors.push(e.message));
     await win.click('#tabRegister'); await win.fill('#authName', 'Poseidon'); await win.fill('#authPass', 'pass1234');
-    if (await win.isVisible('#authGroup')) await win.fill('#authGroup', 'test');
     await win.check('#authAgree'); await win.click('#authBtn'); await win.waitForSelector('#room:not([hidden])', { timeout: 15000 });
     const version = JSON.parse(fs.readFileSync(path.join(here, '..', 'desktop', 'package.json'), 'utf8')).version;
     ok('the desktop app opens the server and offers the page its bridge', await win.evaluate((v) => window.partyLineDesktop.version === v && typeof window.partyLineDesktop.drawOnScreen === 'function', version));
