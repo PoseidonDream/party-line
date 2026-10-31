@@ -39,20 +39,20 @@ export default async function (ok) {
       && await a.isVisible('#achGrid .ach.got:has-text("First words")') && await a.isVisible('#achGrid .ach:not(.got):has-text("Chatterbox")'));
     await a.keyboard.press('Escape');
 
-    // Level rewards
-    const locked = await a.evaluate(async () => { const { live } = await import('/js/net.js'); try { await live.req('profile.set', { nameColor: '#ff6b6b' }); return ''; } catch (e) { return e.message; } });
+    // Level rewards (for everyone but admins, who are level ∞ with every reward)
+    const locked = await b.evaluate(async () => { const { live } = await import('/js/net.js'); try { await live.req('profile.set', { nameColor: '#ff6b6b' }); return ''; } catch (e) { return e.message; } });
     ok('name colors stay locked until level 5', /level 5/.test(locked));
-    await a.evaluate(async (ch) => { const { live } = await import('/js/net.js'); for (let i = 0; i < 75; i++) await live.req('msg.send', { channelId: ch, body: `grinding ${i}`, attachments: [] }); }, general);
-    await a.waitForSelector('.toast:has-text("You reached level 5")');
-    await clearToasts(a);
-    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="profile"]');
-    ok('…then unlock in Settings, while higher rewards still show a lock', await a.isEnabled('#setNameColor .swatch[aria-label="Name color #ff6b6b"]')
-      && await a.isVisible('#setFlair .flair-opt.locked:has-text("Lv 10")') && await a.isDisabled('input[name="bannerFx"][value="matrix"]'));
-    await a.click('#setNameColor .swatch[aria-label="Name color #ff6b6b"]');
-    await a.click('#setProfileSave');
-    await a.waitForSelector('.toast:has-text("Profile saved")');
-    await a.keyboard.press('Escape');
-    await b.waitForFunction(() => [...document.querySelectorAll('#messages .msg-name')].some((n) => n.textContent.includes('Poseidon') && getComputedStyle(n).color === 'rgb(255, 107, 107)'));
+    await b.evaluate(async (ch) => { const { live } = await import('/js/net.js'); for (let i = 0; i < 75; i++) await live.req('msg.send', { channelId: ch, body: `grinding ${i}`, attachments: [] }); }, general);
+    await b.waitForSelector('.toast:has-text("You reached level 5")');
+    await clearToasts(b);
+    await b.click('#setBtn'); await b.click('#settings [role="tab"][data-settab="profile"]');
+    ok('…then unlock in Settings, while higher rewards still show a lock', await b.isEnabled('#setNameColor .swatch[aria-label="Name color #ff6b6b"]')
+      && await b.isVisible('#setFlair .flair-opt.locked:has-text("Lv 10")') && await b.isDisabled('input[name="bannerFx"][value="matrix"]'));
+    await b.click('#setNameColor .swatch[aria-label="Name color #ff6b6b"]');
+    await b.click('#setProfileSave');
+    await b.waitForSelector('.toast:has-text("Profile saved")');
+    await b.keyboard.press('Escape');
+    await a.waitForFunction(() => [...document.querySelectorAll('#messages .msg-name')].some((n) => n.textContent.includes('Bora') && getComputedStyle(n).color === 'rgb(255, 107, 107)'));
     ok('everyone sees your name in your color', true);
 
     // Hall of fame

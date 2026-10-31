@@ -64,8 +64,8 @@ export default async function (ok) {
     await a.keyboard.press('Escape'); await a.mouse.click(700, 300);
     await a.click('#serverBtn'); await a.click('#mTop');
     await a.waitForSelector('#topDlg[open] .top-row');
-    const first = await a.textContent('#topList .top-row:first-child');
-    ok('the leaderboard puts the most active first', /🥇/.test(first) && /Bora/.test(first) && /Lv 2/.test(first) && /120 XP/.test(first));
+    const first = await a.textContent('#topList .top-row:first-child'), second = await a.textContent('#topList .top-row:nth-child(2)');
+    ok('the leaderboard puts the admin (level ∞) on top, then the most active', /Poseidon/.test(first) && /Lv ∞/.test(first) && /Bora/.test(second) && /Lv 2/.test(second) && /120 XP/.test(second));
     await a.screenshot({ path: `${RESULTS}/leaderboard.png` });
     await a.keyboard.press('Escape');
     await say(b, '/rank');
