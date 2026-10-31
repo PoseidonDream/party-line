@@ -100,6 +100,8 @@ Party Line keeps data on **your own server**; it sells nothing and shows no ads.
 |---|---|---|---|
 | Personal info → Name | Yes (the display name) | App functionality, account management | Required |
 | Personal info → User IDs | Yes | App functionality, account management | Required |
+| Personal info → Email address | Yes (only if someone adds one, to send codes) | Account management | Optional |
+| Personal info → Other info | Yes (birth date, only if someone confirms their age, for 18+ channels) | App functionality | Optional |
 | Messages → Other in-app messages | Yes | App functionality | Required to chat |
 | Photos and videos → Photos, Videos | Yes (what people post) | App functionality | Optional |
 | Audio → Voice or sound recordings | Yes (voice messages, soundboard sounds; live voice isn't recorded) | App functionality | Optional |

@@ -115,6 +115,11 @@ db.exec('CREATE UNIQUE INDEX IF NOT EXISTS servers_pair ON servers(pair_key) WHE
 if (!columns('servers').includes('afk_channel_id')) db.exec('ALTER TABLE servers ADD COLUMN afk_channel_id INTEGER');
 if (!columns('sessions').includes('device')) db.exec('ALTER TABLE sessions ADD COLUMN device TEXT');
 if (!columns('users').includes('totp_secret')) db.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT; ALTER TABLE users ADD COLUMN totp_pending TEXT;');
+// Optional email (confirmed with a code; also for password resets) and a private birth date (for 18+ channels)
+for (const [col, def] of [['email', 'TEXT'], ['email_pending', 'TEXT'], ['email_code', 'TEXT'], ['email_code_at', 'INTEGER'], ['email_tries', 'INTEGER NOT NULL DEFAULT 0'], ['born', 'TEXT']]) {
+  if (!columns('users').includes(col)) db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+}
+if (!columns('channels').includes('adult')) db.exec('ALTER TABLE channels ADD COLUMN adult INTEGER NOT NULL DEFAULT 0');
 if (!columns('users').includes('is_bot')) db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS reactions (

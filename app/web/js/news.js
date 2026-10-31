@@ -2,6 +2,11 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 12, items: [
+    ['📧', 'Add your email (optional)', 'Settings → Account → Email. Confirm it with a code, and if you ever forget your password, “Forgot your password?” can email you a code instead of waiting for an admin.'],
+    ['🔞', '18+ channels', 'Admins can mark a channel 18+ in its settings. To open one, confirm your age in Settings → Account → Age. Nobody sees your birth date.'],
+    ['✉️', 'Invite only', 'New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).'],
+  ] },
   { id: 11, items: [
     ['🌍', 'Languages', 'Party Line now speaks English, Deutsch, Español, Français, Italiano, Русский and Türkçe. Change it any time in Settings → Look → Language (or on the sign-in screen). What people write stays as they wrote it.'],
     ['🛡️', 'Block and report', 'Click someone’s name to block them: you won’t see their messages and they can’t reach you. Point at a message and press the 🚩 to report it to the admins.'],

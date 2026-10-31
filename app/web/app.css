@@ -1518,3 +1518,9 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .join-lang:focus-within { border-color: var(--lamp); }
 /* Phones and tablets: no keyboard, so no keyboard shortcuts list in Settings. */
 @media (hover: none) and (pointer: coarse) { #settings .keys { display: none; } }
+/* 18+ channels: a 🔞 next to the name, and a note instead of the chat for people who haven't confirmed they're 18+. */
+.chan-adult { margin-left: auto; font-size: 12px; opacity: .8; }
+.adult-gate { list-style: none; display: grid; justify-items: center; gap: 8px; text-align: center; margin: auto; padding: 48px 16px; max-width: 380px; }
+.adult-gate-icon { font-size: 44px; }
+.adult-gate p { margin: 0; color: var(--dim); }
+#chatForm.locked { display: none; }

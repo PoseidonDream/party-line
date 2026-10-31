@@ -164,11 +164,13 @@ function showAuth(mode) {
   $('#agreeField').hidden = mode !== 'register';
   $('#authPassHint').hidden = mode === 'login';
   $('#authPass').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-  $('#authPassLabel').textContent = mode === 'reset' ? 'New password' : 'Password';
+  $('#authPassLabel').textContent = mode === 'reset' || mode === 'mailreset' ? 'New password' : 'Password';
   $('#resetNoteField').hidden = mode !== 'reset';
+  $('#mailCodeField').hidden = mode !== 'mailreset';
   $('#authForgot').hidden = mode !== 'login';
-  $('#authBackToLogin').hidden = mode !== 'reset';
-  $('#authBtn').textContent = { register: 'Create account', login: 'Sign in', reset: 'Ask an admin to reset it' }[mode];
+  $('#authMailReset').hidden = mode !== 'reset' || !mailOn;
+  $('#authBackToLogin').hidden = mode !== 'reset' && mode !== 'mailreset';
+  $('#authBtn').textContent = { register: 'Create account', login: 'Sign in', reset: 'Ask an admin to reset it', mailreset: 'Set the new password and sign in' }[mode];
   $('#codeField').hidden = true; $('#authCode').value = '';
   $('#authError').hidden = true;
 }
@@ -180,6 +182,14 @@ function showJoinScreen() {
 }
 $('#tabLogin').addEventListener('click', () => showAuth('login'));
 $('#authForgot').addEventListener('click', () => { showAuth('reset'); $('#authPass').value = ''; $('#authPass').focus(); });
+/* Forgot password, with a confirmed email: a code goes there, and the code with a new password signs you in. */
+let mailOn = false;
+$('#authMailReset').addEventListener('click', async () => {
+  const err = $('#authError');
+  if ($('#authName').value.trim().length < 2) { err.textContent = t('Type your name first.'); err.hidden = false; $('#authName').focus(); return; }
+  try { await api('/api/reset-email', { body: { name: $('#authName').value } }); showAuth('mailreset'); $('#mailCode').value = ''; $('#mailCode').focus(); }
+  catch (ex) { err.textContent = ex.message; err.hidden = false; }
+});
 $('#authBackToLogin').addEventListener('click', () => showAuth('login'));
 /* Forgot password: wait for an admin to approve, checking every 3 s. */
 let resetPoll = null;
@@ -226,6 +236,13 @@ $('#authForm').addEventListener('submit', async (e) => {
       store.set('resetReq', { id: r.id, secret: r.secret });
       $('#authPass').value = ''; $('#resetNote').value = '';
       showResetWait('Your request was sent. An admin gets a notification and confirms it’s really you. You can keep this open, or close it and come back later.');
+      return;
+    }
+    if (authMode === 'mailreset') {
+      const r = await api('/api/reset-email/confirm', { body: { name: $('#authName').value, code: $('#mailCode').value, newPassword: $('#authPass').value, device: await appLabel() } });
+      setToken(r.token); store.set('hadAccount', true); $('#authPass').value = ''; $('#mailCode').value = '';
+      toast('Your password is changed. You’re signed in.', 4000);
+      start();
       return;
     }
     if (authMode === 'register' && !$('#authAgree').checked) { err.textContent = 'To make an account, agree to the community rules and the privacy policy (the box above).'; err.hidden = false; return; }
@@ -348,7 +365,7 @@ live.on('presence', (d) => {
   if (S.view.kind === 'dm') renderHeader();
   if (S.popUser === d.userId && !$('#userPop').hidden) fillUserPop(d.userId);
 });
-live.on('me', (d) => { Object.assign(S.me, d.me); renderUserArea(); });
+live.on('me', (d) => { Object.assign(S.me, d.me); renderUserArea(); if ($('#emailBox').open) syncEmail(); if ($('#ageBox').open) syncAge(); });
 /* Status: what others see (online, idle, dnd, offline) and a one-line description for lists. */
 const statusOf = (id) => { const u = user(id); return u.bot ? 'online' : u.online ? (u.status || 'online') : 'offline'; };
 const STATUS_TEXT = { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', offline: 'Offline' };
@@ -713,6 +730,7 @@ function renderSide() {
       if (muted) b.classList.add('muted');
       b.innerHTML = '<span class="glyph" aria-hidden="true">#</span>';
       const n = document.createElement('span'); n.className = 'chan-name'; n.textContent = c.name; b.appendChild(n);
+      if (c.adult) b.appendChild(adultMark());
       if (c.mentions && !current) { const bd = document.createElement('span'); bd.className = 'chan-badge'; bd.title = 'Mentions of you'; bd.textContent = c.mentions > 99 ? '99+' : c.mentions; b.appendChild(bd); }
       b.addEventListener('click', () => setView({ kind: 'text', serverId: s.id, channelId: c.id }));
       li.appendChild(b);
@@ -722,6 +740,7 @@ function renderSide() {
       if (V.channelId === c.id) b.classList.add('in-voice');
       b.innerHTML = iconSvg('volume');
       const n = document.createElement('span'); n.className = 'chan-name'; n.textContent = c.name; b.appendChild(n);
+      if (c.adult) b.appendChild(adultMark());
       if (c.id === s.afkChannelId) { const z = document.createElement('span'); z.className = 'chan-afk'; z.textContent = '💤'; z.title = 'AFK channel: quiet people are moved here'; b.appendChild(z); }
       if (people.some((p) => p.sharing)) { const l = document.createElement('span'); l.className = 'chan-live'; l.textContent = 'LIVE'; b.appendChild(l); }
       const tune = S.music && S.music.get(c.id);
@@ -1386,9 +1405,25 @@ function introEl() {
   li.appendChild(h); li.appendChild(p);
   return li;
 }
+/* 🔞 next to an 18+ channel's name. */
+function adultMark() { const a = document.createElement('span'); a.className = 'chan-adult'; a.textContent = '🔞'; a.title = t('18+ only'); return a; }
+/* An 18+ channel for someone who hasn't confirmed they're 18 or older: a note instead of the chat. */
+const adultLocked = () => { const f = S.view.channelId && findChannel(S.view.channelId); return !!(f && f.channel.adult && !(S.me && S.me.adult)); };
 function renderMessages(keepScroll) {
   const key = msgKey(), box = $('#messages');
   if (!key) return;
+  $('#chatForm').classList.toggle('locked', adultLocked());
+  if (adultLocked()) {
+    box.textContent = '';
+    const li = document.createElement('li'); li.className = 'adult-gate';
+    li.innerHTML = '<div class="adult-gate-icon" aria-hidden="true">🔞</div><b></b><p></p><button type="button" class="btn"></button>';
+    li.querySelector('b').textContent = t('This channel is for people 18 and older');
+    li.querySelector('p').textContent = t('Confirm your age in Settings → Account → Age to open it. Nobody sees your birth date.');
+    const go = li.querySelector('button'); go.textContent = t('Confirm my age');
+    go.addEventListener('click', () => { openSettings('account'); $('#ageBox').open = true; syncAge(); });
+    box.appendChild(li);
+    return;
+  }
   const m = S.msgs.get(key) || { list: [], loaded: false };
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
   const top = box.scrollTop;
@@ -2337,6 +2372,7 @@ function openUserPop(id, anchor) {
     $('#admMute').textContent = vst && vst.serverMuted ? 'Unmute for everyone' : 'Mute for everyone';
     $('#admKick').hidden = !canKick || (srv.isDefault && !S.me.admin);
     $('#admReset').hidden = !S.me.admin;
+    $('#admAge').hidden = !S.me.admin;
   }
   pop.hidden = false;
   const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
@@ -2505,6 +2541,11 @@ $('#admKick').addEventListener('click', async () => {
 });
 
 $('#admReset').addEventListener('click', () => { const id = S.popUser; closeUserPop(); resetPassword(id); });
+/* A wrongly entered birth date: an admin clears it, and the person can confirm their age again. */
+$('#admAge').addEventListener('click', async () => {
+  const id = S.popUser; closeUserPop();
+  if (await confirmBox(t('Clear {0}’s confirmed age?', nameOf(id)), 'They can confirm it again in Settings → Account → Age. Use this when they entered the wrong birth date.', 'Clear')) act(() => live.req('age.clear', { userId: id }), 'Cleared.');
+});
 async function resetPassword(id, name) {
   if (name && !S.users.has(id)) S.users.set(id, { id, name, avatar: null, online: false });
   if (!await confirmBox(`Reset ${nameOf(id)}'s password?`, 'They’re signed out everywhere and get a temporary password from you. They can change it in Settings.', 'Reset')) return;
@@ -3795,6 +3836,44 @@ $('#twoStepConfirm').addEventListener('click', async () => {
 $('#twoStepStop').addEventListener('click', async () => {
   if (await act(() => live.req('totp.stop', { password: $('#twoStepPass').value }), '2-step sign-in is off.')) { S.me.twoStep = false; $('#twoStepPass').value = ''; syncTwoStep(); }
 });
+/* What this server offers (email needs SMTP set up on the server). */
+const serverInfo = api('/api/info').catch(() => ({}));
+/* Settings → Email (optional): a code confirms it; then "Forgot your password?" can send a code there. */
+serverInfo.then((i) => { $('#emailBox').hidden = !i.mail; mailOn = !!i.mail; if (authMode === 'reset') $('#authMailReset').hidden = !mailOn; });
+function syncEmail() {
+  const e = S.me && S.me.email, pending = S.me && S.me.emailPending;
+  $('#emailState').textContent = e ? 'Confirmed' : 'None'; $('#emailState').classList.toggle('on', !!e);
+  $('#emailNow').hidden = !e; $('#emailNow').textContent = e ? t('Confirmed: {0}', e) : '';
+  $('#emailRemove').hidden = !e;
+  $('#emailCodeRow').hidden = !pending;
+  $('#emailSentTo').textContent = pending ? t('We sent a 6-digit code to {0}. Type it here (check spam too):', pending) : '';
+}
+$('#emailBox').addEventListener('toggle', syncEmail);
+$('#emailSend').addEventListener('click', async () => {
+  if (await act(() => live.req('email.start', { email: $('#emailInput').value }, 30000))) { syncEmail(); $('#emailCode').value = ''; $('#emailCode').focus(); }   // the server's 'me' update came first
+});
+$('#emailConfirm').addEventListener('click', async () => {
+  if (await act(() => live.req('email.confirm', { code: $('#emailCode').value }), 'Your email is confirmed.')) { $('#emailInput').value = ''; syncEmail(); }
+});
+$('#emailRemove').addEventListener('click', async () => {
+  if (await confirmBox('Remove your email?', 'You won’t be able to reset your password by email any more.', 'Remove') && await act(() => live.req('email.remove', {}), 'Email removed.')) syncEmail();
+});
+/* Settings → Age (optional, self-declared): opens 18+ channels. */
+function syncAge() {
+  const born = S.me && S.me.born;
+  $('#ageState').textContent = !born ? 'Not confirmed' : S.me.adult ? '18+' : 'Under 18';
+  $('#ageState').classList.toggle('on', !!born);
+  $('#ageForm').hidden = !!born; $('#ageDone').hidden = !born;
+  $('#ageDone').textContent = !born ? '' : S.me.adult ? 'Confirmed: 18 or older. 🔞 channels are open for you.' : 'Confirmed: under 18. 🔞 channels stay closed until you turn 18.';
+  $('#ageBorn').max = new Date().toISOString().slice(0, 10);
+}
+$('#ageBox').addEventListener('toggle', syncAge);
+$('#ageSave').addEventListener('click', async () => {
+  const born = $('#ageBorn').value;
+  if (!born) { toast(t('Pick your full birth date.'), 3000); return; }
+  if (!await confirmBox('Confirm your birth date?', t('{0}. You can set it once.', born), 'Confirm')) return;
+  if (await act(() => live.req('age.set', { born }), 'Your age is confirmed.')) syncAge();
+});
 $('#pwSave').addEventListener('click', async () => {
   const note = $('#pwNote');
   try { await api('/api/password', { body: { oldPassword: $('#pwOld').value, newPassword: $('#pwNew').value } }); note.textContent = 'Password changed.'; $('#pwOld').value = ''; $('#pwNew').value = ''; }
@@ -4048,12 +4127,12 @@ let editingChan = null;
 function editChannel(c) {
   editingChan = c;
   $('#chTitle').textContent = `${c.kind === 'text' ? '#' : '🔊 '}${c.name}`;
-  $('#chName').value = c.name; $('#chTopic').value = c.topic || '';
+  $('#chName').value = c.name; $('#chTopic').value = c.topic || ''; $('#chAdult').checked = !!c.adult;
   $('#chanDlg').showModal();
 }
 $('#chanForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const r = await act(() => live.req('chan.edit', { id: editingChan.id, name: $('#chName').value, topic: $('#chTopic').value }), 'Channel saved.');
+  const r = await act(() => live.req('chan.edit', { id: editingChan.id, name: $('#chName').value, topic: $('#chTopic').value, adult: $('#chAdult').checked }), 'Channel saved.');
   if (r) $('#chanDlg').close();
 });
 async function editCategory(cat) {

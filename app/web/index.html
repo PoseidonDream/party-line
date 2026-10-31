@@ -130,10 +130,16 @@
         <input type="text" id="resetNote" class="input" maxlength="200" placeholder="e.g. it's me, I got a new phone">
         <p class="hint">An admin gets your request and confirms it's really you. No email needed.</p>
       </div>
+      <div class="field" id="mailCodeField" hidden>
+        <label class="flabel" for="mailCode">Code from your email</label>
+        <input type="text" id="mailCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+        <p class="hint">If this account has a confirmed email, a 6-digit code is on its way there (check spam too). It works for 15 minutes.</p>
+      </div>
       <label class="check agree-check" id="agreeField" hidden><input type="checkbox" id="authAgree"><span>I agree to the <a href="/rules" target="_blank" rel="noopener">community rules</a> and the <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</span></label>
       <p class="error" id="authError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="authBtn">Sign in</button>
       <button type="button" class="link-btn auth-forgot" id="authForgot">Forgot your password?</button>
+      <button type="button" class="link-btn auth-forgot" id="authMailReset" hidden>Email me a code instead</button>
       <button type="button" class="link-btn auth-forgot" id="authBackToLogin" hidden>Back to sign in</button>
     </form>
     <div class="reset-wait" id="resetWait" hidden>
@@ -771,6 +777,7 @@
   <form class="set-body" id="chanForm">
     <div class="field"><label class="flabel" for="chName">Name</label><input class="input" id="chName" maxlength="32" required></div>
     <div class="field"><label class="flabel" for="chTopic">Topic</label><input class="input" id="chTopic" maxlength="200" placeholder="What this channel is for (shown at the top)"></div>
+    <label class="check"><input type="checkbox" id="chAdult"><span><b>🔞 18+ only</b><small>Only people who confirmed they’re 18 or older (Settings → Account → Age) can read, post or join here.</small></span></label>
     <div class="row-btns"><button type="submit" class="btn primary">Save</button></div>
   </form>
 </dialog>
@@ -975,6 +982,30 @@
             </div>
           </div>
         </details>
+        <details class="pw-box" id="emailBox" hidden>
+          <summary>Email <span class="pill" id="emailState">None</span></summary>
+          <div class="pw-form">
+            <p class="hint">Optional. With a confirmed email you can reset a forgotten password yourself, without waiting for an admin. Nobody else sees it.</p>
+            <p class="hint" id="emailNow" hidden></p>
+            <div class="row"><input type="email" id="emailInput" class="input" placeholder="you@example.com" autocomplete="email"><button type="button" class="btn" id="emailSend">Send code</button></div>
+            <div id="emailCodeRow" hidden>
+              <p class="hint" id="emailSentTo"></p>
+              <div class="row"><input type="text" id="emailCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"><button type="button" class="btn primary" id="emailConfirm">Confirm</button></div>
+            </div>
+            <button type="button" class="link-btn" id="emailRemove" hidden>Remove my email</button>
+          </div>
+        </details>
+        <details class="pw-box" id="ageBox">
+          <summary>Age <span class="pill" id="ageState">Not confirmed</span></summary>
+          <div class="pw-form">
+            <p class="hint">Optional. Some channels are for people 18 and older (🔞); confirming your age opens them. Only your age group is used: nobody sees your birth date.</p>
+            <div id="ageForm">
+              <div class="row"><input type="date" id="ageBorn" class="input" aria-label="Your birth date"><button type="button" class="btn" id="ageSave">Confirm</button></div>
+              <p class="hint">You can set it once. If it’s wrong, ask an admin.</p>
+            </div>
+            <p class="hint" id="ageDone" hidden></p>
+          </div>
+        </details>
         <details class="pw-box" id="pwBox">
           <summary>Change password</summary>
           <div class="pw-form">
@@ -1093,6 +1124,7 @@
     <button type="button" class="btn small" id="admMute">Mute for everyone</button>
     <button type="button" class="btn small adm-danger" id="admKick">Remove from server</button>
     <button type="button" class="btn small" id="admReset">Reset password</button>
+    <button type="button" class="btn small" id="admAge">Clear confirmed age</button>
   </div>
 </div>
 <dialog id="confirmDlg" aria-labelledby="cfTitle">

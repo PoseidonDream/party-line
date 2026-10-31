@@ -133,6 +133,15 @@ What Party Line does by itself:
 - **Passwords:** stored scrambled (never readable, not even by you). New passwords need at least 8 characters; older, shorter ones still work. After 10 wrong passwords for one account, that account waits 15 minutes, and anyone trying many passwords from one address is slowed down too.
 - **Signing in:** changing your password signs you out on every other device. A phone or computer that hasn't opened Party Line for 4 months is signed out. Settings → Account lists every device you're signed in on, and **2-step sign-in** adds a code from an app on your phone. Turn it on for your admin account.
 - **Pages only run Party Line's own code**, so a message or a name can't be turned into a script, and other websites can't show Party Line inside theirs to trick clicks. Photos and files people upload can never run as code: anything that isn't a photo, video or sound only downloads. With HTTPS (set up automatically), browsers keep using HTTPS.
+- **Email (optional):** people can add an email in Settings → Account and confirm it with a code; then "Forgot your password?" can email them a code instead of waiting for you. It needs a way to send email. With Gmail: turn on 2-Step Verification in your Google account, then Security → **App passwords** → make one called "Party Line". Add to `.env`:
+  ```
+  SMTP_HOST=smtp.gmail.com
+  SMTP_PORT=465
+  SMTP_USER=you@gmail.com
+  SMTP_PASS=the 16-letter app password
+  ```
+  then `cd /opt/party-line/deploy && docker compose up -d`. Without these lines, the email options simply don't show.
+- **Age (optional):** people can confirm their birth date in Settings → Account → Age (it's self-declared; nobody sees the date). Channels you mark **18+ only** (channel settings) open only for people who confirmed they're 18 or older; nothing from them reaches anyone else. If someone typed a wrong date, click their name → **Clear confirmed age**.
 - **Only invited people get into your group:** anyone can make an account, but a new account joins no server by itself. Send friends an invite link (server menu → **Copy invite link**); opening it puts them in. To let every new account in automatically, add `AUTO_JOIN=1` to `.env`.
 - **Limits against floods:** at most 30 messages per person every 30 seconds, a cap on how fast one app can send requests, on uploads per minute, feedback, and guessing invite links.
 - **Link previews** and the voice relay never reach addresses inside your server's own network.

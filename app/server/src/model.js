@@ -68,7 +68,8 @@ export const NAME_COLORS = ['#ff6b6b', '#ffa94d', '#ffd43b', '#8ce99a', '#66d9e8
 export const UNLOCKS = { flair: { galaxy: 10, plasma: 15 }, bannerFx: { matrix: 10 }, nameColor: 5, legend: 20 };
 const needLevel = (userId, lvl, what) => { if (levelOf(getUser(userId).xp) < lvl) fail(`Reach level ${lvl} to unlock ${what}.`); };
 /* What only you see about yourself. */
-export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret });
+export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret,
+  email: u.email || null, emailPending: u.email_pending || null, born: u.born || null, adult: isAdult(u) });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
@@ -143,6 +144,88 @@ export function stopTotp(userId, pass) {
   if (!checkPass(pass, getUser(userId).pass_hash)) fail('Your password is wrong.');
   run('UPDATE users SET totp_secret = NULL, totp_pending = NULL WHERE id = ?', userId);
 }
+
+/* ---------- optional email: confirmed with a code, then usable for password resets ---------- */
+const CODE_TTL = 15 * 60_000, CODE_TRIES = 5, CODE_GAP = 60_000;
+const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+const cleanEmail = (e) => String(e || '').trim().toLowerCase();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function issueCode(u) {
+  if (u.email_code_at && Date.now() - u.email_code_at < CODE_GAP) fail('A code was just sent. Wait a minute before asking for another.');
+  const code = newCode();
+  run('UPDATE users SET email_code = ?, email_code_at = ?, email_tries = 0 WHERE id = ?', sha(code), Date.now(), u.id);
+  return code;
+}
+function codeOk(u, code) {
+  if (!u.email_code || !u.email_code_at || Date.now() - u.email_code_at > CODE_TTL) fail('That code has expired. Ask for a new one.');
+  if (u.email_tries >= CODE_TRIES) fail('Too many wrong codes. Ask for a new one.');
+  if (sha(String(code || '').replace(/\D/g, '')) !== u.email_code) { run('UPDATE users SET email_tries = email_tries + 1 WHERE id = ?', u.id); fail('That code doesn’t match. Check the email and try again.'); }
+  run('UPDATE users SET email_code = NULL, email_code_at = NULL, email_tries = 0 WHERE id = ?', u.id);
+}
+/* Step 1: someone types their address; a code goes to it (the caller sends the email). */
+export function startEmail(userId, email) {
+  email = cleanEmail(email);
+  if (!EMAIL_RE.test(email) || email.length > 200) fail('That doesn’t look like an email address.');
+  if (one('SELECT id FROM users WHERE email = ? AND id != ?', email, userId)) fail('Another account already uses that email.');
+  const u = getUser(userId);
+  const code = issueCode(u);
+  run('UPDATE users SET email_pending = ? WHERE id = ?', email, userId);
+  return { email, code };
+}
+/* Step 2: the code from the email confirms the address. */
+export function confirmEmail(userId, code) {
+  const u = getUser(userId);
+  if (!u.email_pending) fail('Type your email first, then the code we send to it.');
+  codeOk(u, code);
+  if (one('SELECT id FROM users WHERE email = ? AND id != ?', u.email_pending, userId)) fail('Another account already uses that email.');
+  run('UPDATE users SET email = email_pending, email_pending = NULL WHERE id = ?', userId);
+  return getUser(userId);
+}
+export function removeEmail(userId) {
+  run('UPDATE users SET email = NULL, email_pending = NULL, email_code = NULL, email_code_at = NULL WHERE id = ?', userId);
+  return getUser(userId);
+}
+/* Forgot password, for accounts with a confirmed email: a code goes there (null when the account has none, which the
+   caller doesn't reveal), and the code with a new password signs you in. */
+export function startEmailReset(name) {
+  const u = userByName(name);
+  if (!u || !u.email || u.is_bot) return null;
+  return { email: u.email, code: issueCode(u), name: u.name };
+}
+export function finishEmailReset(name, code, newPass, device) {
+  const u = userByName(name);
+  if (!u || !u.email) fail('That code doesn’t match. Check the email and try again.');
+  newPassOk(newPass, 'Pick a password with at least 8 characters.');
+  codeOk(u, code);
+  run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(newPass), u.id);
+  const ended = all('SELECT token_hash FROM sessions WHERE user_id = ?', u.id).map((r) => r.token_hash);
+  signOutEverywhere(u.id);
+  return { user: getUser(u.id), token: newSession(u.id, device), ended };
+}
+
+/* ---------- optional age (self-declared birth date, kept private): 18+ channels ---------- */
+export function ageOf(born, now = new Date()) {
+  const [y, m, d] = String(born).split('-').map(Number);
+  let age = now.getFullYear() - y;
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) age--;
+  return age;
+}
+export const isAdult = (u) => !!(u && u.born && ageOf(u.born) >= 18);
+export function setBorn(userId, born) {
+  const u = getUser(userId);
+  if (u.born) fail('Your age is already confirmed. Ask an admin if it’s wrong.');
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(born || ''));
+  const date = m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  if (!m || !date || date.getUTCMonth() !== +m[2] - 1 || date.getUTCDate() !== +m[3]) fail('Pick your full birth date.');
+  const age = ageOf(born);
+  if (age < 0 || age > 120) fail('Pick your real birth date.');
+  if (age < 13) fail('Party Line is for people 13 and older.');
+  run('UPDATE users SET born = ? WHERE id = ?', born, userId);
+  return getUser(userId);
+}
+export function clearBorn(userId) { run('UPDATE users SET born = NULL WHERE id = ?', userId); return getUser(userId); }
+/* 18+ channels open only for people who confirmed they're 18 or older. */
+export const canOpenChannel = (userId, ch) => !!ch && isMember(userId, ch.server_id) && (!ch.adult || isAdult(getUser(userId)));
 
 /* ---------- devices you're signed in on ---------- */
 export const sessionKey = (t) => sha(String(t || ''));
@@ -473,6 +556,7 @@ export function editChannel(id, d) {
   const ch = getChannel(id);
   if (d.name !== undefined) { const name = cleanChannel(d.name, ch.kind); if (!name) fail('Give the channel a name.'); run('UPDATE channels SET name = ? WHERE id = ?', name, id); }
   if (d.topic !== undefined) run('UPDATE channels SET topic = ? WHERE id = ?', String(d.topic || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200) || null, id);
+  if (d.adult !== undefined) run('UPDATE channels SET adult = ? WHERE id = ?', d.adult ? 1 : 0, id);
 }
 /* Moves a channel before another one (or to the end) and into a category (or none). */
 export function moveChannel(id, categoryId, beforeId) {
@@ -499,7 +583,7 @@ export function createChannel(serverId, kind, name) {
   return getChannel(id);
 }
 export const deleteChannel = (id) => run('DELETE FROM channels WHERE id = ?', id);
-const publicChannel = (c) => ({ id: c.id, serverId: c.server_id, kind: c.kind, name: c.name, position: c.position, topic: c.topic || '', categoryId: c.category_id || null });
+const publicChannel = (c) => ({ id: c.id, serverId: c.server_id, kind: c.kind, name: c.name, position: c.position, topic: c.topic || '', categoryId: c.category_id || null, adult: !!c.adult });
 
 export function serverView(serverId, viewerId) {
   const s = getServer(serverId);
@@ -712,6 +796,7 @@ export function search(userId, text, serverId) {
       LEFT JOIN members mb ON mb.server_id = c.server_id AND mb.user_id = ?
       LEFT JOIN dms d ON d.id = m.dm_id
     WHERE (mb.user_id IS NOT NULL OR d.user_a = ? OR d.user_b = ?)
+      AND (c.id IS NULL OR c.adult = 0 OR ${isAdult(getUser(userId)) ? 1 : 0})
       AND (? = 0 OR c.server_id = ?)
       AND (? != -1 OR m.dm_id IS NOT NULL)
       ${where.map((w) => `AND ${w}`).join(' ')}

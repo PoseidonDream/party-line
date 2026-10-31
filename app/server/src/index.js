@@ -8,6 +8,7 @@ import express from 'express';
 import { config } from './config.js';
 import * as M from './model.js';
 import { db } from './db.js';
+import { mailReady, sendMail } from './mail.js';
 import { proxyImage, signatureOk } from './preview.js';
 import * as Push from './push.js';
 import * as Gifs from './gifs.js';
@@ -80,7 +81,7 @@ const wrap = (fn) => async (req, res) => {
   }
 };
 
-app.get('/api/info', wrap(() => ({ name: 'Party Line', version: 1, contact: config.contactEmail || null })));
+app.get('/api/info', wrap(() => ({ name: 'Party Line', version: 1, contact: config.contactEmail || null, mail: mailReady() })));
 /* For the auto-updater on the server itself (deploy/auto-update.sh): how many people are in voice right now.
    Only answers requests from inside the machine; through Caddy the request comes from another address. */
 app.get('/api/local/voice-count', (req, res) => {
@@ -107,6 +108,20 @@ app.post('/api/reset-request', throttle, wrap((req) => {
   const r = M.createResetRequest(b.name, b.newPassword, b.note, b.device);
   hub.resetRequested(r.request);
   return { id: r.id, secret: r.secret };
+}));
+/* Forgot password, for accounts with a confirmed email: a code goes there. The answer is the same either way, so
+   nobody can find out which accounts have an email. The code and a new password then sign you in. */
+app.post('/api/reset-email', throttle, wrap(async (req) => {
+  if (!mailReady()) throw new M.UserError('Email isn’t set up on this server.');
+  const r = M.startEmailReset((req.body || {}).name);
+  if (r) await sendMail(r.email, `Your Party Line reset code: ${r.code}`, `Hi ${r.name},\n\nSomeone (hopefully you) asked to reset your Party Line password. Your code is: ${r.code}\n\nIt works for 15 minutes. If it wasn’t you, ignore this email: your password stays the same.`).catch(() => {});
+  return { ok: true };
+}));
+app.post('/api/reset-email/confirm', throttle, wrap((req) => {
+  const b = req.body || {};
+  const r = M.finishEmailReset(b.name, b.code, b.newPassword, b.device);
+  hub.closeSessions(r.user.id, r.ended);   // every other device goes back to the sign-in screen
+  return { token: r.token, user: M.publicUser(r.user) };
 }));
 app.post('/api/reset-request/:id', wrap((req) => M.resetStatus(Number(req.params.id), (req.body || {}).secret)));
 app.post('/api/logout', wrap((req) => { M.logout(bearer(req)); return { ok: true }; }));
@@ -151,7 +166,7 @@ app.get('/vendor/livekit-client.js', (req, res) => {
 });
 
 /* A channel (text, or a voice channel's chat) in one of your servers, or null. */
-const myChannel = (userId, id) => { const c = M.getChannel(Number(id)); return c && M.isMember(userId, c.server_id) ? c : null; };
+const myChannel = (userId, id) => { const c = M.getChannel(Number(id)); return M.canOpenChannel(userId, c) ? c : null; };
 app.get('/api/channels/:id/messages', auth, wrap((req) => {
   const c = myChannel(req.user.id, req.params.id);
   if (!c) return { messages: [] };

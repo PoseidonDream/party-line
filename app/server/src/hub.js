@@ -11,6 +11,7 @@ import * as Push from './push.js';
 import * as P from './progress.js';
 import * as Usage from './usage.js';
 import QRCode from 'qrcode';
+import { mailReady, sendMail } from './mail.js';
 
 const conns = new Map();     // connId -> { id, ws, userId }
 const byUser = new Map();    // userId -> Set(conn)
@@ -48,7 +49,12 @@ function folderSize(dir) {
 const send = (c, msg) => { if (c && c.ws.readyState === 1) c.ws.send(JSON.stringify(msg)); };
 const toUser = (userId, msg, except) => { for (const c of byUser.get(userId) || []) if (c !== except) send(c, msg); };
 const toUsers = (ids, msg) => { for (const id of new Set(ids)) toUser(id, msg); };
-const toServer = (serverId, msg) => toUsers(M.memberIds(serverId), msg);
+/* Everyone in a server; something from an 18+ channel only reaches people who confirmed they're 18 or older. */
+const toServer = (serverId, msg) => {
+  const chId = msg.channelId || (msg.msg && msg.msg.channelId);
+  const ch = chId ? M.getChannel(chId) : null;
+  toUsers(ch && ch.adult ? M.memberIds(serverId).filter((id) => M.isAdult(M.getUser(id))) : M.memberIds(serverId), msg);
+};
 const userView = (id) => { const u = M.getUser(id); return u && Object.assign(M.publicUser(u), presenceOf(id, u)); };
 /* What others see: offline when no app is open or the person chose Invisible; idle when they chose it or every
    open app has been untouched for 10 minutes; plus what game the desktop app says they're playing. */
@@ -247,6 +253,7 @@ const handlers = {
     if (d.channelId) {
       const ch = M.getChannel(Number(d.channelId));
       if (!ch || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');   // text channels, and voice channels' own chat
+      if (!M.canOpenChannel(user.id, ch)) fail('This channel is for people 18 and older. Confirm your age in Settings → Account.');
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
       const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
@@ -585,6 +592,7 @@ const handlers = {
     if (!ch || !M.can(user, M.getServer(ch.server_id), 'channels')) fail('You need the Manage channels permission.');
     log(user, ch.server_id, 'Edited a channel', `${ch.kind === 'text' ? '#' : '🔊 '}${ch.name}${d.name && d.name !== ch.name ? ` → ${d.name}` : ''}${d.topic !== undefined ? ' (topic)' : ''}`);
     M.editChannel(ch.id, d);
+    if (d.adult) for (const [uid, v] of voice) if (v.channelId === ch.id && !M.isAdult(M.getUser(uid))) leaveVoice(uid, 'deleted');   // now 18+
     refreshServer(ch.server_id);
     return {};
   },
@@ -683,6 +691,7 @@ const handlers = {
   'voice.join'(c, user, d) {
     const ch = M.getChannel(Number(d.channelId));
     if (!ch || ch.kind !== 'voice' || !M.isMember(user.id, ch.server_id)) fail('You can’t join that voice channel.');
+    if (!M.canOpenChannel(user.id, ch)) fail('This channel is for people 18 and older. Confirm your age in Settings → Account.');
     const old = voice.get(user.id);
     if (old && old.connId !== c.id) leaveVoice(user.id, 'other-device');
     else if (old) leaveVoice(user.id);
@@ -982,6 +991,26 @@ const handlers = {
     M.endSessions(user.id, keys);
     hub.closeSessions(user.id, keys);
     return { ended: keys.length };
+  },
+  /* Optional email: a code confirms the address; then it can reset a forgotten password. */
+  'email.start'(c, user, d) {
+    if (!mailReady()) fail('Email isn’t set up on this server yet.');
+    const r = M.startEmail(user.id, d.email);
+    hub.userChanged(M.getUser(user.id));
+    return sendMail(r.email, `Your Party Line code: ${r.code}`, `Hi ${user.name},\n\nYour code to confirm this email for Party Line is: ${r.code}\n\nIt works for 15 minutes. If you didn’t ask for it, ignore this email.`)
+      .then(() => ({ sent: true }), () => { throw new M.UserError('The email couldn’t be sent. Check the address, or try again later.'); });
+  },
+  'email.confirm'(c, user, d) { hub.userChanged(M.confirmEmail(user.id, d.code)); return {}; },
+  'email.remove'(c, user) { hub.userChanged(M.removeEmail(user.id)); return {}; },
+  /* Optional age: a private birth date. 18+ channels open for people 18 or older. Set once (an admin can clear it). */
+  'age.set'(c, user, d) { hub.userChanged(M.setBorn(user.id, d.born)); return {}; },
+  'age.clear'(c, user, d) {
+    if (!user.is_admin) fail('Admins only.');
+    const target = M.getUser(Number(d.userId));
+    if (!target) fail('That person doesn’t exist.');
+    log(user, null, 'Cleared a confirmed age', target.name);
+    hub.userChanged(M.clearBorn(target.id));
+    return {};
   },
   'totp.start'(c, user) {
     if (user.totp_secret) fail('2-step sign-in is already on.');
