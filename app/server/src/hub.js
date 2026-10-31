@@ -1046,16 +1046,6 @@ const handlers = {
       audit: M.auditLog(300),
     };
   },
-  /* Admins: set anyone's level (yourself too). Level rewards and the Legend look follow right away. */
-  'dev.setLevel'(c, user, d) {
-    if (!user.is_admin) fail('Admins only.');
-    const u = M.setLevel(Number(d.userId), d.level);
-    log(user, null, 'Set a level', `${u.name} → level ${M.levelOf(u.xp)}`);
-    toWatchers(u.id, { t: 'xp', userId: u.id, xp: u.xp });
-    if (M.levelOf(u.xp) >= 10) progress(u.id, P.once(u.id, 'double_digits'));
-    hub.userChanged(u);
-    return { level: M.levelOf(u.xp) };
-  },
   'dev.ask'(c, user, d) {
     if (!user.is_admin) fail('Admins only.');
     const target = Number(d.userId);

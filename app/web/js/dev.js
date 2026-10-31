@@ -203,9 +203,6 @@ function renderEveryone() {
         d.addEventListener('click', () => { tab = 'people'; render(); live.req('dev.ask', { userId: u.id }).catch((e) => toast(e.message, 3000)); });
         acts.appendChild(d);
       }
-      const lv = el('button', 'btn small', 'Set level'); lv.type = 'button';
-      lv.addEventListener('click', () => ctx.setLevel(u.id, u.name).then((ok) => { if (ok) render(); }));
-      acts.appendChild(lv);
       if (!ctx.isMe(u.id)) {
         const r = el('button', 'btn small', 'Reset password'); r.type = 'button';
         r.addEventListener('click', () => ctx.resetPassword(u.id, u.name));

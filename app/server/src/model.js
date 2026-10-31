@@ -66,7 +66,8 @@ export const BANNER_FX = ['aurora', 'stars', 'scan', 'matrix'];
 export const NAME_COLORS = ['#ff6b6b', '#ffa94d', '#ffd43b', '#8ce99a', '#66d9e8', '#74c0fc', '#b197fc', '#f783ac'];
 /* The level each reward needs (the app shows the rest locked). At level 20 your name shimmers. */
 export const UNLOCKS = { flair: { galaxy: 10, plasma: 15 }, bannerFx: { matrix: 10 }, nameColor: 5, legend: 20 };
-const needLevel = (userId, lvl, what) => { if (levelOf(getUser(userId).xp) < lvl) fail(`Reach level ${lvl} to unlock ${what}.`); };
+/* Admins are level ∞: every level reward is theirs. */
+const needLevel = (userId, lvl, what) => { const u = getUser(userId); if (!u.is_admin && levelOf(u.xp) < lvl) fail(`Reach level ${lvl} to unlock ${what}.`); };
 /* What only you see about yourself. */
 export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret,
   email: u.email || null, emailPending: u.email_pending || null, born: u.born || null, adult: isAdult(u) });
@@ -617,15 +618,6 @@ export function addXp(userId, amount, fromMessage) {
   const xp = u.xp + amount;
   run('UPDATE users SET xp = ?, xp_msg_at = ? WHERE id = ?', xp, fromMessage ? now() : u.xp_msg_at, userId);
   return { xp, up: levelOf(xp) > levelOf(u.xp) ? levelOf(xp) : 0 };
-}
-/* An admin sets someone's level (0 to 100): their XP becomes the start of that level. */
-export function setLevel(userId, level) {
-  level = Math.round(Number(level));
-  if (!Number.isFinite(level) || level < 0 || level > 100) fail('Pick a level from 0 to 100.');
-  const u = getUser(userId);
-  if (!u || u.is_bot) fail('That person doesn’t exist.');
-  run('UPDATE users SET xp = ? WHERE id = ?', 30 * level * level, userId);
-  return getUser(userId);
 }
 /* Place among everyone in the app (1 = the most XP). */
 export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot = 0 AND xp > ?', xp).n + 1;

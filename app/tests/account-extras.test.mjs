@@ -115,12 +115,11 @@ export default async function (ok) {
     await admin.fill('#chatInput', 'grown-up talk'); await admin.keyboard.press('Enter');
     await admin.waitForSelector('#messages .msg:has-text("grown-up talk")');
     ok('someone confirmed 18+ reads and posts there', true);
-    // Admins can set anyone's level, themselves too; nobody else can.
-    const adminId = adminLive.ready.me.id;
-    const set = await adminLive.req('dev.setLevel', { userId: adminId, level: 100 });
+    // Admins are level ∞, with every level reward; others aren't.
     await admin.waitForSelector('#messages .msg-name .name-legend:has-text("Poseidon")');
-    ok('an admin can set their own level to 100 (Legend look right away)', set.level === 100);
-    ok('…and others can’t', /Admins only/.test(await tryReq(teenLive, 'dev.setLevel', { userId: teenLive.ready.me.id, level: 100 })));
+    ok('the admin is level ∞: the Legend look without any XP', true);
+    ok('…and can use level rewards straight away', (await tryReq(adminLive, 'profile.set', { flair: 'plasma', nameColor: '#ff6b6b' })) === 'ok');
+    ok('…while others still need the levels', /Reach level/.test(await tryReq(teenLive, 'profile.set', { flair: 'plasma' })));
     await teen.waitForTimeout(800);
     ok('nothing posted there reaches people under 18', !teenLive.seen.some((d) => d.t === 'msg' && d.msg && d.msg.channelId === chId));
     const search = await (await fetch(`${srv.url}/api/search?q=grown-up`, { headers: { authorization: `Bearer ${teenLive.token}` } })).json();

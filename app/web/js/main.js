@@ -73,7 +73,7 @@ function nameInto(el, id, srv, text = nameOf(id)) {
   const u = user(id), color = u.nameColor || (srv && roleColor(srv, id)) || '';
   el.textContent = '';
   const t = document.createElement('span'); t.className = 'nm'; t.textContent = text;
-  if (!u.bot && xpLevel(u.xp) >= S.perks.unlocks.legend) { t.classList.add('name-legend'); t.title = 'Legend: level 20 or higher'; }
+  if (!u.bot && xpLevelOf(u) >= S.perks.unlocks.legend) { t.classList.add('name-legend'); t.title = 'Legend: level 20 or higher'; }
   el.style.color = color;
   if (color) t.style.setProperty('--nc', color);
   el.appendChild(t);
@@ -346,7 +346,7 @@ live.on('ready', (d) => {
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
 /* What a person's messages show of them: only a change here redraws the chat (not their XP or streak). */
-const looks = (u) => u ? [u.name, u.avatar, u.flair, u.nameColor, u.admin, u.bot, u.birthday, xpLevel(u.xp) >= S.perks.unlocks.legend].join('|') : '';
+const looks = (u) => u ? [u.name, u.avatar, u.flair, u.nameColor, u.admin, u.bot, u.birthday, xpLevelOf(u) >= S.perks.unlocks.legend].join('|') : '';
 live.on('user', (d) => {
   const before = looks(S.users.get(d.user.id));
   S.users.set(d.user.id, d.user);
@@ -2407,8 +2407,8 @@ function fillUserPop(id) {
   $('#popBadges').hidden = !got.length; $('#popBadges').textContent = '';
   for (const a of got) { const c = document.createElement('span'); c.className = 'badge-chip'; c.textContent = a.emoji; c.title = `${a.name}: ${a.how}`; c.setAttribute('aria-label', a.name); $('#popBadges').appendChild(c); }
   if (!u.bot) {
-    const b = levelBits(u.xp || 0);
-    $('#popLevelText').textContent = `Level ${b.level}`; $('#popLevelXp').textContent = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
+    const b = levelBits(u.xp || 0, u);
+    $('#popLevelText').textContent = `Level ${b.level}`; $('#popLevelXp').textContent = b.inf ? t('Admin: every level reward unlocked') : `${b.into} / ${b.need} XP to level ${b.level + 1}`;
     $('#popLevelBar').style.width = `${b.pct}%`;
   }
   const pop = $('#userPop');   // keep it on screen if it grew
@@ -2546,13 +2546,6 @@ $('#admAge').addEventListener('click', async () => {
   const id = S.popUser; closeUserPop();
   if (await confirmBox(t('Clear {0}’s confirmed age?', nameOf(id)), 'They can confirm it again in Settings → Account → Age. Use this when they entered the wrong birth date.', 'Clear')) act(() => live.req('age.clear', { userId: id }), 'Cleared.');
 });
-/* Admins: set anyone's level (Developer panel → Everyone), yourself included. */
-async function setLevel(id, name) {
-  if (name && !S.users.has(id)) S.users.set(id, { id, name, avatar: null, online: false });
-  const lvl = await confirmBox(t('Set {0}’s level', nameOf(id)), 'A number from 0 to 100. Level 20 and up has the Legend look; rewards unlock right away.', 'Set level', '100', 3);
-  if (lvl === false || lvl === null || lvl === undefined || String(lvl).trim() === '') return false;
-  return !!(await act(() => live.req('dev.setLevel', { userId: id, level: Number(lvl) }), t('Level set to {0}.', String(Number(lvl)))));
-}
 async function resetPassword(id, name) {
   if (name && !S.users.has(id)) S.users.set(id, { id, name, avatar: null, online: false });
   if (!await confirmBox(`Reset ${nameOf(id)}'s password?`, 'They’re signed out everywhere and get a temporary password from you. They can change it in Settings.', 'Reset')) return;
@@ -2640,7 +2633,12 @@ document.addEventListener('pointerdown', (e) => { if (!$('#moreMenu').hidden && 
 
 /* ================= XP and levels (one total per person for the whole app; the server adds it, see M.addXp) ================= */
 const xpLevel = (xp) => Math.floor(Math.sqrt((xp || 0) / 30));
-function levelBits(xp) {
+/* Admins are level ∞: every level reward is theirs. */
+const isInfinite = (u) => !!(u && u.admin && !u.bot);
+const xpLevelOf = (u) => (isInfinite(u) ? Infinity : xpLevel(u && u.xp));
+const myLevel = () => xpLevelOf(S.me);
+function levelBits(xp, u) {
+  if (isInfinite(u)) return { level: '∞', into: 0, need: 0, pct: 100, inf: true };
   const level = xpLevel(xp), from = 30 * level ** 2, to = 30 * (level + 1) ** 2;
   return { level, into: xp - from, need: to - from, pct: Math.round(((xp - from) / (to - from)) * 100) };
 }
@@ -2650,7 +2648,7 @@ live.on('xp', (d) => {
   const before = xpLevel(u.xp), lookBefore = looks(u);
   u.xp = d.xp;
   if (looks(u) !== lookBefore) rerenderMessagesSoft();   // reached (or left) the Legend look
-  if (d.userId === S.me.id) { S.me.xp = d.xp; if (xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)}!`, 4000); }
+  if (d.userId === S.me.id) { S.me.xp = d.xp; if (!isInfinite(S.me) && xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)}!`, 4000); }
   if (S.popUser === d.userId) fillUserPop(d.userId);
   if ($('#topDlg').open) { renderTop(); if (!$('#topAch').hidden) renderAchievements(); }
 });
@@ -2658,17 +2656,18 @@ live.on('xp', (d) => {
 function renderTop() {
   const list = $('#topList'), medals = ['🥇', '🥈', '🥉'];
   list.textContent = '';
+  const rank = (id) => (isInfinite(user(id)) ? Infinity : user(id).xp || 0);   // admins (level ∞) first
   const rows = [...S.users.values()].filter((u) => !u.bot).map((u) => [u.id, u.xp || 0])
-    .sort((a, b) => b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0])));
+    .sort((a, b) => (rank(b[0]) === rank(a[0]) ? 0 : rank(b[0]) > rank(a[0]) ? 1 : -1) || nameOf(a[0]).localeCompare(nameOf(b[0])));
   rows.forEach(([id, xp], i) => {
-    const b = levelBits(xp), li = document.createElement('li');
+    const b = levelBits(xp, user(id)), li = document.createElement('li');
     li.className = 'top-row' + (id === S.me.id ? ' me' : '');
     const place = document.createElement('span'); place.className = 'top-place'; place.textContent = xp && medals[i] ? medals[i] : String(i + 1);
     const who = document.createElement('div'); who.className = 'top-who';
     const nm = document.createElement('b'); nameInto(nm, id, null, nameOf(id) + (id === S.me.id ? ` ${t('(you)')}` : ''));
     const streak = user(id).streak;
     if (streak) { const f = document.createElement('span'); f.className = 'top-streak'; f.textContent = `🔥 ${streak}`; f.title = `${streak}-day streak`; nm.appendChild(f); }
-    const bar = document.createElement('div'); bar.className = 'xp-bar'; bar.title = `${b.into} / ${b.need} XP to level ${b.level + 1}`;
+    const bar = document.createElement('div'); bar.className = 'xp-bar'; bar.title = b.inf ? t('Admin: every level reward unlocked') : `${b.into} / ${b.need} XP to level ${b.level + 1}`;
     const fill = document.createElement('span'); fill.style.width = `${b.pct}%`; bar.appendChild(fill);
     who.append(nm, bar);
     const lv = document.createElement('span'); lv.className = 'top-level';
@@ -2692,7 +2691,7 @@ function renderAchievements() {
     const h = document.createElement('small'); h.textContent = mine[a.key] ? t('{0} Unlocked {1}.', t(a.how), fmtDay(mine[a.key])) : t(a.how);
     txt.append(n, h); li.append(e, txt); grid.appendChild(li);
   }
-  const lvl = xpLevel(S.me.xp), u = S.perks.unlocks, rewards = [
+  const lvl = myLevel(), u = S.perks.unlocks, rewards = [
     [u.nameColor, '🎨', 'Name colors', 'Settings → Profile → Name color'],
     [u.flair.galaxy, '🌌', 'Galaxy picture ring and Matrix banner', 'Settings → Profile'],
     [u.flair.plasma, '⚡', 'Plasma picture ring', 'Settings → Profile'],
@@ -2792,13 +2791,13 @@ const dashBtn = (label, fn, cls = '') => { const b = document.createElement('but
 const dashEmpty = (list, text) => { const li = document.createElement('li'); li.className = 'dash-empty'; li.textContent = text; list.appendChild(li); };
 function renderDash() {
   if (!S.me) return;
-  const me = user(S.me.id), b = levelBits(me.xp || 0), got = S.perks.achievements.filter((a) => (me.badges || {})[a.key]).length;
+  const me = user(S.me.id), b = levelBits(me.xp || 0, me), got = S.perks.achievements.filter((a) => (me.badges || {})[a.key]).length;
   const top = $('#dashMe'); top.textContent = '';
   const av = avEl(S.me.id, 'avatar');
   const hi = document.createElement('div'); hi.className = 'dash-hi';
   const h = document.createElement('h2'); h.textContent = t('Hi {0} 👋', nameOf(S.me.id));
   const stats = document.createElement('div'); stats.className = 'dash-stats';
-  stats.textContent = [t('Level {0}', b.level), t('{0} XP to level {1}', b.need - b.into, b.level + 1), me.streak ? t('🔥 {0}-day streak', me.streak) : t('Chat or join voice today to start a 🔥 streak'), t('🏆 {0} of {1}', got, S.perks.achievements.length)].join(' · ');
+  stats.textContent = [t('Level {0}', b.level), b.inf ? t('Admin: every level reward unlocked') : t('{0} XP to level {1}', b.need - b.into, b.level + 1), me.streak ? t('🔥 {0}-day streak', me.streak) : t('Chat or join voice today to start a 🔥 streak'), t('🏆 {0} of {1}', got, S.perks.achievements.length)].join(' · ');
   const bar = document.createElement('div'); bar.className = 'xp-bar'; const fill = document.createElement('span'); fill.style.width = `${b.pct}%`; bar.appendChild(fill);
   hi.append(h, stats, bar);
   const bdays = [...S.users.values()].filter((u) => !u.bot && isBirthday(u.id));
@@ -3356,7 +3355,7 @@ function renderFlairs() {
   for (const [k, label] of FLAIRS) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'flair-opt'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === profileFlair));
     const av = avEl(S.me.id); for (const c of [...av.classList]) if (c.startsWith('flair-')) av.classList.remove(c); if (k) av.classList.add(`flair-${k}`);
-    const need = S.perks.unlocks.flair[k], locked = need && xpLevel(S.me.xp) < need;
+    const need = S.perks.unlocks.flair[k], locked = need && myLevel() < need;
     const t = document.createElement('small'); t.textContent = locked ? `🔒 Lv ${need}` : label;
     b.append(av, t); b.title = locked ? `${label}: unlocks at level ${need}` : label;
     b.classList.toggle('locked', !!locked);
@@ -3365,7 +3364,7 @@ function renderFlairs() {
   }
 }
 function renderNameColors() {
-  const box = $('#setNameColor'), need = S.perks.unlocks.nameColor, locked = xpLevel(S.me.xp) < need;
+  const box = $('#setNameColor'), need = S.perks.unlocks.nameColor, locked = myLevel() < need;
   box.textContent = '';
   for (const c of ['', ...S.perks.nameColors]) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch' + (c ? '' : ' none'); b.setAttribute('role', 'radio');
@@ -3382,7 +3381,7 @@ function fillFlair() {
   profileNameColor = S.me.nameColor || ''; renderNameColors();
   for (const r of document.querySelectorAll('input[name="bannerFx"]')) {
     r.checked = r.value === (S.me.bannerFx || '');
-    const need = S.perks.unlocks.bannerFx[r.value], locked = need && xpLevel(S.me.xp) < need;
+    const need = S.perks.unlocks.bannerFx[r.value], locked = need && myLevel() < need;
     r.disabled = !!locked;
     r.nextElementSibling.textContent = locked ? `🔒 Lv ${need}` : { '': 'None', aurora: 'Aurora', stars: 'Stars', scan: 'Scanlines', matrix: 'Matrix' }[r.value];
   }
@@ -4511,7 +4510,6 @@ initDev({
   appLabel: () => S.appLabel || '',
   avatar: (u) => { if (!S.users.has(u.id)) S.users.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, admin: u.admin, online: false }); return avEl(u.id); },
   resetPassword,
-  setLevel,
   voiceLab: { effects: VOICE_FX, current: () => settings.voiceFx, use: (k) => Voice.setVoiceFx(k).then(syncFx), build: Voice.buildEffect, mic: Voice.testMic },
 });
 $('#mDev').addEventListener('click', () => { closeMenu(); openDev(); });

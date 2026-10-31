@@ -1169,9 +1169,5 @@
 "Invite only": "Sur invitation",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "Les nouveaux comptes n’arrivent plus tout seuls sur le serveur. Fais venir tes amis avec le lien d’invitation (menu du serveur → Copier le lien d’invitation).",
 "Year": "Année",
-"Set level": "Définir le niveau",
-"Set {0}’s level": "Définir le niveau de {0}",
-"A number from 0 to 100. Level 20 and up has the Legend look; rewards unlock right away.": "Un nombre de 0 à 100. À partir du niveau 20, on a le look Légende ; les récompenses se débloquent tout de suite.",
-"Level set to {0}.": "Niveau réglé sur {0}.",
-"Pick a level from 0 to 100.": "Choisis un niveau de 0 à 100."
+"Admin: every level reward unlocked": "Admin : toutes les récompenses de niveau débloquées"
 }

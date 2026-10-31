@@ -1169,9 +1169,5 @@
 "Invite only": "Yalnızca davetle",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "Yeni hesaplar artık sunucuya kendiliğinden girmiyor. Arkadaşlarını sunucunun davet bağlantısıyla getir (sunucu menüsü → Davet bağlantısını kopyala).",
 "Year": "Yıl",
-"Set level": "Seviye ayarla",
-"Set {0}’s level": "{0} kişisinin seviyesini ayarla",
-"A number from 0 to 100. Level 20 and up has the Legend look; rewards unlock right away.": "0 ile 100 arasında bir sayı. 20. seviye ve üstü Efsane görünümü alır; ödüller hemen açılır.",
-"Level set to {0}.": "Seviye {0} olarak ayarlandı.",
-"Pick a level from 0 to 100.": "0 ile 100 arasında bir seviye seç."
+"Admin: every level reward unlocked": "Yönetici: tüm seviye ödülleri açık"
 }
