@@ -875,7 +875,7 @@
           <div class="flabel-sub"><label for="setFavGames">Favorite games</label></div>
           <input type="text" id="setFavGames" class="input" maxlength="220" placeholder="Up to 5, separated by commas: Valorant, Minecraft, Peak">
           <div class="flabel-sub">Birthday</div>
-          <div class="bday-row"><select id="setBdayMonth" class="input" aria-label="Birthday month"></select><select id="setBdayDay" class="input" aria-label="Birthday day"></select></div>
+          <div class="bday-row"><select id="setBdayDay" class="input" aria-label="Birthday day"></select><select id="setBdayMonth" class="input" aria-label="Birthday month"></select></div>
           <p class="hint">Friends see 🎂 next to your name on the day, and Party Bot says happy birthday. No year needed.</p>
           <div class="row-btns"><button type="button" class="btn" id="setProfileSave">Save profile</button></div>
         </div>
@@ -1000,7 +1000,8 @@
           <div class="pw-form">
             <p class="hint">Optional. Some channels are for people 18 and older (🔞); confirming your age opens them. Only your age group is used: nobody sees your birth date.</p>
             <div id="ageForm">
-              <div class="row"><input type="date" id="ageBorn" class="input" aria-label="Your birth date"><button type="button" class="btn" id="ageSave">Confirm</button></div>
+              <div class="bday-row age-row"><select id="ageDay" class="input" aria-label="Day"></select><select id="ageMonth" class="input" aria-label="Month"></select><select id="ageYear" class="input" aria-label="Year"></select></div>
+              <button type="button" class="btn" id="ageSave">Confirm</button>
               <p class="hint">You can set it once. If it’s wrong, ask an admin.</p>
             </div>
             <p class="hint" id="ageDone" hidden></p>

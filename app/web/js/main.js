@@ -3865,13 +3865,26 @@ function syncAge() {
   $('#ageState').classList.toggle('on', !!born);
   $('#ageForm').hidden = !!born; $('#ageDone').hidden = !born;
   $('#ageDone').textContent = !born ? '' : S.me.adult ? 'Confirmed: 18 or older. 🔞 channels are open for you.' : 'Confirmed: under 18. 🔞 channels stay closed until you turn 18.';
-  $('#ageBorn').max = new Date().toISOString().slice(0, 10);
+  if (!born && !$('#ageYear').options.length) fillAgePicker();
 }
+/* Day / Month / Year drop-downs (a browser's own date box follows the device's region, often month first). */
+function fillAgePicker() {
+  const ds = $('#ageDay'), ms = $('#ageMonth'), ys = $('#ageYear'), now = new Date().getFullYear();
+  ms.innerHTML = `<option value="">${t('Month')}</option>` + MONTHS.map((n, i) => `<option value="${i + 1}">${n}</option>`).join('');
+  ys.innerHTML = `<option value="">${t('Year')}</option>` + Array.from({ length: 110 }, (_, i) => `<option>${now - i}</option>`).join('');
+  const days = () => { const keep = ds.value, n = ms.value ? new Date(Number(ys.value) || 2024, Number(ms.value), 0).getDate() : 31;
+    ds.innerHTML = `<option value="">${t('Day')}</option>` + Array.from({ length: n }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+    ds.value = Number(keep) <= n ? keep : ''; };
+  days(); ms.onchange = days; ys.onchange = days;
+}
+const ageValue = () => ($('#ageDay').value && $('#ageMonth').value && $('#ageYear').value
+  ? `${$('#ageYear').value}-${$('#ageMonth').value.padStart(2, '0')}-${$('#ageDay').value.padStart(2, '0')}` : '');
 $('#ageBox').addEventListener('toggle', syncAge);
 $('#ageSave').addEventListener('click', async () => {
-  const born = $('#ageBorn').value;
+  const born = ageValue();
   if (!born) { toast(t('Pick your full birth date.'), 3000); return; }
-  if (!await confirmBox('Confirm your birth date?', t('{0}. You can set it once.', born), 'Confirm')) return;
+  const shown = `${$('#ageDay').value} ${$('#ageMonth').selectedOptions[0].textContent} ${$('#ageYear').value}`;
+  if (!await confirmBox('Confirm your birth date?', t('{0}. You can set it once.', shown), 'Confirm')) return;
   if (await act(() => live.req('age.set', { born }), 'Your age is confirmed.')) syncAge();
 });
 $('#pwSave').addEventListener('click', async () => {

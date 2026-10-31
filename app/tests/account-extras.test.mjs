@@ -28,6 +28,11 @@ async function liveOf(page, url) {
 }
 const tryReq = (l, t, d) => l.req(t, d).then(() => 'ok', (e) => e.message);
 const yearsAgo = (n) => { const d = new Date(); d.setFullYear(d.getFullYear() - n); d.setDate(d.getDate() - 2); return d.toISOString().slice(0, 10); };
+/* Picks a birth date in the Day / Month / Year drop-downs. */
+async function pickBorn(page, iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  await page.selectOption('#ageYear', String(y)); await page.selectOption('#ageMonth', String(m)); await page.selectOption('#ageDay', String(d));
+}
 
 export default async function (ok) {
   const plain = await startServer();
@@ -93,12 +98,13 @@ export default async function (ok) {
     ok('…and can’t post there', /18 and older/.test(await tryReq(teenLive, 'msg.send', { channelId: chId, body: 'hi', attachments: [] })));
     await teen.click('.adult-gate button');
     await teen.waitForSelector('#ageBox[open]');
-    await teen.fill('#ageBorn', yearsAgo(10)); await teen.click('#ageSave'); await teen.click('#cfOk');
+    await pickBorn(teen, yearsAgo(10)); await teen.click('#ageSave'); await teen.click('#cfOk');
     await teen.waitForSelector('.toast:has-text("13 and older")');
     ok('a birth date under 13 is refused', (await teen.textContent('#ageState')) === 'Not confirmed');
-    await teen.fill('#ageBorn', yearsAgo(15)); await teen.click('#ageSave'); await teen.click('#cfOk');
+    await pickBorn(teen, yearsAgo(15)); await teen.click('#ageSave'); await teen.click('#cfOk');
     await teen.waitForSelector('#ageState:has-text("Under 18")');
     ok('a 15-year-old is confirmed as under 18', await teen.isHidden('#ageForm'));
+    ok('the birth date is picked day first, then month, then year', (await teen.$$eval('.age-row select', (s) => s.map((x) => x.id))).join() === 'ageDay,ageMonth,ageYear');
     ok('…and can’t change it to older afterwards', /already confirmed/.test(await tryReq(teenLive, 'age.set', { born: yearsAgo(30) })));
 
     await admin.click('#textList .chan:has-text("after-dark")');
