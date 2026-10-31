@@ -1536,7 +1536,8 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .profile-preview .pop-banner { margin: 0 -14px; border-radius: 0; }
 .profile-preview .pop-banner.has-bg { cursor: grab; touch-action: none; }
 .profile-preview .pop-banner.dragging { cursor: grabbing; }
-.profile-preview .pop-who { margin-top: -22px; position: relative; }
+.profile-preview .pop-who { margin-top: -22px; position: relative; align-items: flex-start; }
+.profile-preview .pop-title { padding-top: 26px; }   /* the picture overlaps the banner, the name sits below it (readable on any banner) */
 .profile-preview .prev-bio { margin: 8px 0 0; }
 .bg-drag-hint { position: absolute; right: 8px; bottom: 8px; z-index: 2; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; pointer-events: none; }
 /* The crop window: drag and zoom to pick the part of a picture to use (square for a profile picture, wide for a background). */

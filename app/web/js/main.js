@@ -368,7 +368,11 @@ live.on('presence', (d) => {
   if (S.view.kind === 'dm') renderHeader();
   if (S.popUser === d.userId && !$('#userPop').hidden) fillUserPop(d.userId);
 });
-live.on('me', (d) => { Object.assign(S.me, d.me); renderUserArea(); if ($('#emailBox').open) syncEmail(); if ($('#ageBox').open) syncAge(); });
+live.on('me', (d) => {
+  const wasAdult = S.me.adult;
+  Object.assign(S.me, d.me); renderUserArea(); if ($('#emailBox').open) syncEmail(); if ($('#ageBox').open) syncAge();
+  if (S.me.adult !== wasAdult) renderMessages();   // an 18+ channel opens (or closes) right away
+});
 /* Status: what others see (online, idle, dnd, offline) and a one-line description for lists. */
 const statusOf = (id) => { const u = user(id); return u.bot ? 'online' : u.online ? (u.status || 'online') : 'offline'; };
 const STATUS_TEXT = { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', offline: 'Offline' };
