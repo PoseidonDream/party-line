@@ -29,10 +29,14 @@ export default async function (ok) {
 
     // Birthdays
     const now = new Date();
-    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="profile"]');
-    await a.selectOption('#setBdayMonth', String(now.getMonth() + 1));
-    await a.selectOption('#setBdayDay', String(now.getDate()));
-    await a.click('#setProfileSave');
+    // (the birthday comes from confirming your age: Settings → Account → Age)
+    await a.click('#setBtn'); await a.click('#settings [role="tab"][data-settab="account"]');
+    await a.click('#ageBox summary');
+    await a.selectOption('#ageYear', String(now.getFullYear() - 25)); await a.selectOption('#ageMonth', String(now.getMonth() + 1));
+    await a.selectOption('#ageDay', String(now.getDate()));
+    await a.click('#ageSave'); await a.click('#cfOk');
+    await a.waitForSelector('#ageState:has-text("18+")');
+    ok('the Profile tab no longer asks for a birthday (it comes from Age)', !(await a.$('#setBdayMonth')));
     await a.keyboard.press('Escape');
     await b.waitForSelector('#messages .msg:has-text("Happy birthday")');
     ok('Party Bot says happy birthday in #general, mentioning them', await b.isVisible('#messages .msg:has-text("Happy birthday") .mention:has-text("@Poseidon")'));

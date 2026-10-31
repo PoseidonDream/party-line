@@ -1524,3 +1524,8 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .adult-gate-icon { font-size: 44px; }
 .adult-gate p { margin: 0; color: var(--dim); }
 #chatForm.locked { display: none; }
+/* Settings forms (codes, email, passwords): the box gets a whole line, the button goes under it, so the code is
+   always readable, even on a narrow phone. */
+.pw-form .row { flex-wrap: wrap; }
+.pw-form .row > .input { flex: 1 1 100%; }
+.pw-form .row > .btn { flex: 1 1 auto; }

@@ -1168,5 +1168,10 @@
 "Admins can mark a channel 18+ in its settings. To open one, confirm your age in Settings → Account → Age. Nobody sees your birth date.": "Админы могут пометить канал как 18+ в его настройках. Чтобы открыть его, подтверди возраст в Настройки → Аккаунт → Возраст. Никто не видит твою дату рождения.",
 "Invite only": "Только по приглашению",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "Новые аккаунты больше не попадают на сервер сами. Зови друзей ссылкой-приглашением (меню сервера → Скопировать ссылку).",
-"Year": "Год"
+"Year": "Год",
+"Set level": "Задать уровень",
+"Set {0}’s level": "Задать уровень {0}",
+"A number from 0 to 100. Level 20 and up has the Legend look; rewards unlock right away.": "Число от 0 до 100. С 20 уровня — вид «Легенда»; награды открываются сразу.",
+"Level set to {0}.": "Уровень: {0}.",
+"Pick a level from 0 to 100.": "Выбери уровень от 0 до 100."
 }

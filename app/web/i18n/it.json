@@ -1168,5 +1168,10 @@
 "Admins can mark a channel 18+ in its settings. To open one, confirm your age in Settings → Account → Age. Nobody sees your birth date.": "Gli admin possono segnare un canale come 18+ nelle sue impostazioni. Per aprirlo, conferma la tua età in Impostazioni → Account → Età. Nessuno vede la tua data di nascita.",
 "Invite only": "Solo su invito",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "I nuovi account non entrano più da soli nel server. Porta gli amici con il link d’invito (menu del server → Copia link d’invito).",
-"Year": "Anno"
+"Year": "Anno",
+"Set level": "Imposta livello",
+"Set {0}’s level": "Imposta il livello di {0}",
+"A number from 0 to 100. Level 20 and up has the Legend look; rewards unlock right away.": "Un numero da 0 a 100. Dal livello 20 c’è il look Leggenda; le ricompense si sbloccano subito.",
+"Level set to {0}.": "Livello impostato a {0}.",
+"Pick a level from 0 to 100.": "Scegli un livello da 0 a 100."
 }

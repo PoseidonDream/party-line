@@ -2546,6 +2546,13 @@ $('#admAge').addEventListener('click', async () => {
   const id = S.popUser; closeUserPop();
   if (await confirmBox(t('Clear {0}’s confirmed age?', nameOf(id)), 'They can confirm it again in Settings → Account → Age. Use this when they entered the wrong birth date.', 'Clear')) act(() => live.req('age.clear', { userId: id }), 'Cleared.');
 });
+/* Admins: set anyone's level (Developer panel → Everyone), yourself included. */
+async function setLevel(id, name) {
+  if (name && !S.users.has(id)) S.users.set(id, { id, name, avatar: null, online: false });
+  const lvl = await confirmBox(t('Set {0}’s level', nameOf(id)), 'A number from 0 to 100. Level 20 and up has the Legend look; rewards unlock right away.', 'Set level', '100', 3);
+  if (lvl === false || lvl === null || lvl === undefined || String(lvl).trim() === '') return false;
+  return !!(await act(() => live.req('dev.setLevel', { userId: id, level: Number(lvl) }), t('Level set to {0}.', String(Number(lvl)))));
+}
 async function resetPassword(id, name) {
   if (name && !S.users.has(id)) S.users.set(id, { id, name, avatar: null, online: false });
   if (!await confirmBox(`Reset ${nameOf(id)}'s password?`, 'They’re signed out everywhere and get a temporary password from you. They can change it in Settings.', 'Reset')) return;
@@ -2640,8 +2647,9 @@ function levelBits(xp) {
 live.on('xp', (d) => {
   const u = S.users.get(d.userId);
   if (!u) return;
-  const before = xpLevel(u.xp);
+  const before = xpLevel(u.xp), lookBefore = looks(u);
   u.xp = d.xp;
+  if (looks(u) !== lookBefore) rerenderMessagesSoft();   // reached (or left) the Legend look
   if (d.userId === S.me.id) { S.me.xp = d.xp; if (xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)}!`, 4000); }
   if (S.popUser === d.userId) fillUserPop(d.userId);
   if ($('#topDlg').open) { renderTop(); if (!$('#topAch').hidden) renderAchievements(); }
@@ -3340,18 +3348,6 @@ function renderSwatches() {
     box.appendChild(b);
   }
 }
-function fillBirthday(b) {
-  const [m, d] = b ? b.split('-').map(Number) : [0, 0];
-  const ms = $('#setBdayMonth'), ds = $('#setBdayDay');
-  ms.innerHTML = '<option value="">Month</option>' + MONTHS.map((n, i) => `<option value="${i + 1}">${n}</option>`).join('');
-  ms.value = m ? String(m) : '';
-  const days = () => { const keep = ds.value || (d ? String(d) : ''); const n = ms.value ? new Date(2024, Number(ms.value), 0).getDate() : 31;
-    ds.innerHTML = '<option value="">Day</option>' + Array.from({ length: n }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
-    ds.value = Number(keep) <= n ? keep : ''; };
-  ds.value = ''; days(); ds.value = d ? String(d) : '';
-  ms.onchange = days;
-}
-const birthdayValue = () => ($('#setBdayMonth').value && $('#setBdayDay').value ? `${$('#setBdayMonth').value.padStart(2, '0')}-${$('#setBdayDay').value.padStart(2, '0')}` : '');
 const FLAIRS = [['', 'None'], ['glow', 'Glow'], ['rainbow', 'Rainbow'], ['fire', 'Fire'], ['ice', 'Ice'], ['gold', 'Gold'], ['galaxy', 'Galaxy'], ['plasma', 'Plasma']];
 let profileNameColor = '';
 let profileFlair = '';
@@ -3392,7 +3388,7 @@ function fillFlair() {
   }
   $('#setFavGames').value = (S.me.favGames || []).join(', ');
 }
-$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, birthday: birthdayValue(),
+$('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, 
   flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', nameColor: profileNameColor, favGames: $('#setFavGames').value }), 'Profile saved.'));
 /* Settings is split into tabs: Profile, Look, Voice, Alerts, Account. */
 let setTab = 'profile';
@@ -3408,7 +3404,6 @@ function openSettings(tab) {
   syncSettingsForm();
   $('#setName').value = S.me.name; $('#setNameNote').textContent = 'Friends sign in and find you by this name.';
   $('#setBio').value = S.me.bio || ''; profileBanner = S.me.banner || ''; renderSwatches();
-  fillBirthday(S.me.birthday);
   fillFlair();
   $('#pwNote').hidden = true; $('#pwOld').value = ''; $('#pwNew').value = '';
   $('#devOpen').hidden = !S.me.admin;
@@ -4516,6 +4511,7 @@ initDev({
   appLabel: () => S.appLabel || '',
   avatar: (u) => { if (!S.users.has(u.id)) S.users.set(u.id, { id: u.id, name: u.name, avatar: u.avatar, admin: u.admin, online: false }); return avEl(u.id); },
   resetPassword,
+  setLevel,
   voiceLab: { effects: VOICE_FX, current: () => settings.voiceFx, use: (k) => Voice.setVoiceFx(k).then(syncFx), build: Voice.buildEffect, mic: Voice.testMic },
 });
 $('#mDev').addEventListener('click', () => { closeMenu(); openDev(); });

@@ -220,10 +220,11 @@ export function setBorn(userId, born) {
   const age = ageOf(born);
   if (age < 0 || age > 120) fail('Pick your real birth date.');
   if (age < 13) fail('Party Line is for people 13 and older.');
-  run('UPDATE users SET born = ? WHERE id = ?', born, userId);
+  // The birthday (day and month, for 🎂 and Party Bot's wish) comes from the same date; the year stays private.
+  run('UPDATE users SET born = ?, birthday = ? WHERE id = ?', born, born.slice(5), userId);
   return getUser(userId);
 }
-export function clearBorn(userId) { run('UPDATE users SET born = NULL WHERE id = ?', userId); return getUser(userId); }
+export function clearBorn(userId) { run('UPDATE users SET born = NULL, birthday = NULL WHERE id = ?', userId); return getUser(userId); }
 /* 18+ channels open only for people who confirmed they're 18 or older. */
 export const canOpenChannel = (userId, ch) => !!ch && isMember(userId, ch.server_id) && (!ch.adult || isAdult(getUser(userId)));
 
@@ -616,6 +617,15 @@ export function addXp(userId, amount, fromMessage) {
   const xp = u.xp + amount;
   run('UPDATE users SET xp = ?, xp_msg_at = ? WHERE id = ?', xp, fromMessage ? now() : u.xp_msg_at, userId);
   return { xp, up: levelOf(xp) > levelOf(u.xp) ? levelOf(xp) : 0 };
+}
+/* An admin sets someone's level (0 to 100): their XP becomes the start of that level. */
+export function setLevel(userId, level) {
+  level = Math.round(Number(level));
+  if (!Number.isFinite(level) || level < 0 || level > 100) fail('Pick a level from 0 to 100.');
+  const u = getUser(userId);
+  if (!u || u.is_bot) fail('That person doesn’t exist.');
+  run('UPDATE users SET xp = ? WHERE id = ?', 30 * level * level, userId);
+  return getUser(userId);
 }
 /* Place among everyone in the app (1 = the most XP). */
 export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot = 0 AND xp > ?', xp).n + 1;
