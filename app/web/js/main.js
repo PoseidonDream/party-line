@@ -1766,7 +1766,7 @@ function renderFriends() {
     const rows = [...S.friends].filter(([id, st]) => (S.friendTab === 'pending' ? st !== 'friends' : st === 'friends' && (S.friendTab === 'all' || user(id).online)))
       .sort((a, b) => nameOf(a[0]).localeCompare(nameOf(b[0])));
     const title = document.createElement('h2'); title.className = 'fr-section-title';
-    title.textContent = `${{ online: 'Online', all: 'All friends', pending: 'Pending' }[S.friendTab]} — ${rows.length}`;
+    title.textContent = `${t({ online: 'Online', all: 'All friends', pending: 'Pending' }[S.friendTab])} — ${rows.length}`;
     body.appendChild(title);
     if (!rows.length) {
       const p = document.createElement('p'); p.className = 'fr-empty';
@@ -3219,7 +3219,7 @@ async function joinInvite(code, fromDialog) {
   try {
     const r = await live.req('server.join', { invite: code });
     if (fromDialog) $('#addServer').close();
-    setTimeout(() => { openServer(r.id); const s = S.servers.get(r.id); if (s) toast(`Welcome to ${s.name}!`, 3000); }, 50);
+    setTimeout(() => { openServer(r.id); const s = S.servers.get(r.id); if (s) toast(t('Welcome to the {0} server!', s.name), 3000); }, 50);
   } catch (ex) {
     if (fromDialog) { $('#asError').textContent = ex.message; $('#asError').hidden = false; } else toast(ex.message, 5000);
   }
@@ -3371,7 +3371,7 @@ function openSettings(tab) {
   fillFlair();
   $('#pwNote').hidden = true; $('#pwOld').value = ''; $('#pwNew').value = '';
   $('#devOpen').hidden = !S.me.admin;
-  $('#appInfo').textContent = desktop ? `Party Line desktop app ${desktop.version || ''} · Server: ${location.host}` : `Server: ${location.host}`;
+  $('#appInfo').textContent = (desktop ? `Party Line desktop app ${desktop.version || ''} · ` : '') + t('Server: {0}', location.host);
   refreshDevices();
   $('#settings').showModal();
 }
@@ -4321,7 +4321,7 @@ const upcoming = (serverId) => (S.events.get(serverId) || []).filter((e) => e.st
 function openEvents() {
   const s = curServer();
   if (!s) return;
-  $('#evTitle').textContent = `Events in ${s.name}`;
+  $('#evTitle').textContent = t('Events in {0}', s.name);
   $('#evForm').hidden = true; $('#evNewBtn').hidden = false;
   renderEvents();
   $('#eventsDlg').showModal();

@@ -1102,5 +1102,9 @@
 "Party Line hit a problem while loading. Try again, and if it keeps happening, tell whoever runs your server.": "Party Line yüklenirken bir sorun oluştu. Tekrar dene, yine olursa sunucunuzu yöneten kişiye haber ver.",
 "The server is taking a long time to answer.": "Sunucunun yanıt vermesi çok uzun sürüyor.",
 "The connection to the server keeps dropping.": "Sunucuyla bağlantı sürekli kopuyor.",
-"The app can’t open its live connection to the server. If the website works in your browser, something on this network is blocking it: try Wi-Fi instead of mobile data, or the other way round.": "Uygulama sunucuyla canlı bağlantısını açamıyor. Web sitesi tarayıcında çalışıyorsa bu ağdaki bir şey onu engelliyor: mobil veri yerine Wi-Fi dene ya da tam tersi."
+"The app can’t open its live connection to the server. If the website works in your browser, something on this network is blocking it: try Wi-Fi instead of mobile data, or the other way round.": "Uygulama sunucuyla canlı bağlantısını açamıyor. Web sitesi tarayıcında çalışıyorsa bu ağdaki bir şey onu engelliyor: mobil veri yerine Wi-Fi dene ya da tam tersi.",
+"All friends": "Tüm arkadaşlar",
+"Welcome to the {0} server!": "{0} sunucusuna hoş geldin!",
+"Events in {0}": "{0} etkinlikleri",
+"Server: {0}": "Sunucu: {0}"
 }

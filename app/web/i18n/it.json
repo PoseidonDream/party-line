@@ -1102,5 +1102,9 @@
 "Party Line hit a problem while loading. Try again, and if it keeps happening, tell whoever runs your server.": "Party Line ha avuto un problema durante il caricamento. Riprova e, se succede ancora, avvisa chi gestisce il tuo server.",
 "The server is taking a long time to answer.": "Il server ci sta mettendo molto a rispondere.",
 "The connection to the server keeps dropping.": "La connessione al server continua a cadere.",
-"The app can’t open its live connection to the server. If the website works in your browser, something on this network is blocking it: try Wi-Fi instead of mobile data, or the other way round.": "L’app non riesce ad aprire la connessione in diretta con il server. Se il sito funziona nel browser, qualcosa su questa rete la blocca: prova il Wi-Fi invece dei dati mobili, o viceversa."
+"The app can’t open its live connection to the server. If the website works in your browser, something on this network is blocking it: try Wi-Fi instead of mobile data, or the other way round.": "L’app non riesce ad aprire la connessione in diretta con il server. Se il sito funziona nel browser, qualcosa su questa rete la blocca: prova il Wi-Fi invece dei dati mobili, o viceversa.",
+"All friends": "Tutti gli amici",
+"Welcome to the {0} server!": "Benvenuto nel server {0}!",
+"Events in {0}": "Eventi in {0}",
+"Server: {0}": "Server: {0}"
 }
