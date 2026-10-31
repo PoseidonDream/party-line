@@ -1169,5 +1169,16 @@
 "Invite only": "Yalnızca davetle",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "Yeni hesaplar artık sunucuya kendiliğinden girmiyor. Arkadaşlarını sunucunun davet bağlantısıyla getir (sunucu menüsü → Davet bağlantısını kopyala).",
 "Year": "Yıl",
-"Admin: every level reward unlocked": "Yönetici: tüm seviye ödülleri açık"
+"Admin: every level reward unlocked": "Yönetici: tüm seviye ödülleri açık",
+"Background picture or GIF": "Arka plan resmi veya GIF",
+"Add a picture or GIF": "Resim veya GIF ekle",
+"Shows at the top of your profile. GIFs move. Up to 8 MB.": "Profilinin üstünde görünür. GIF’ler hareket eder. En fazla 8 MB.",
+"✋ Drag to move": "✋ Taşımak için sürükle",
+"Preview: how friends see you": "Önizleme: arkadaşların seni böyle görür",
+"Drag it in the preview above to choose what shows, then press Save profile.": "Neyin görüneceğini seçmek için yukarıdaki önizlemede sürükle, sonra Profili kaydet’e bas.",
+"Background added. Drag it in the preview to move it.": "Arka plan eklendi. Taşımak için önizlemede sürükle.",
+"Profile backgrounds": "Profil arka planları",
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Profilinin üstüne bir resim veya GIF koy: Ayarlar → Profil → Arka plan resmi veya GIF. Neyin görüneceğini seçmek için önizlemede sürükle.",
+"Profile preview": "Profil önizlemesi",
+"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Ayarlar → Profil artık profilini arkadaşlarının gördüğü gibi gösteriyor; kaydetmeden önce afiş renklerini, efektleri, halkaları ve ad renklerini dene."
 }

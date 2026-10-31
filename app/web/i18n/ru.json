@@ -1169,5 +1169,16 @@
 "Invite only": "Только по приглашению",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "Новые аккаунты больше не попадают на сервер сами. Зови друзей ссылкой-приглашением (меню сервера → Скопировать ссылку).",
 "Year": "Год",
-"Admin: every level reward unlocked": "Админ: все награды за уровни открыты"
+"Admin: every level reward unlocked": "Админ: все награды за уровни открыты",
+"Background picture or GIF": "Фоновая картинка или GIF",
+"Add a picture or GIF": "Добавить картинку или GIF",
+"Shows at the top of your profile. GIFs move. Up to 8 MB.": "Показывается вверху профиля. GIF двигаются. До 8 МБ.",
+"✋ Drag to move": "✋ Перетащи, чтобы сдвинуть",
+"Preview: how friends see you": "Предпросмотр: так тебя видят друзья",
+"Drag it in the preview above to choose what shows, then press Save profile.": "Перетащи её в предпросмотре выше, чтобы выбрать, что видно, затем нажми «Сохранить профиль».",
+"Background added. Drag it in the preview to move it.": "Фон добавлен. Перетащи его в предпросмотре, чтобы сдвинуть.",
+"Profile backgrounds": "Фоны профиля",
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Поставь картинку или GIF вверху профиля: Настройки → Профиль → Фоновая картинка или GIF. Перетащи её в предпросмотре, чтобы выбрать, что видно.",
+"Profile preview": "Предпросмотр профиля",
+"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Настройки → Профиль теперь начинается с профиля таким, каким его видят друзья: пробуй цвета баннера, эффекты, рамки и цвет имени до сохранения."
 }

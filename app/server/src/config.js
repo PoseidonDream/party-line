@@ -23,6 +23,7 @@ export const config = {
   maxImage: 15 * 1024 * 1024,
   maxVideo: 50 * 1024 * 1024,
   maxAvatar: 2 * 1024 * 1024,
+  maxBackground: 8 * 1024 * 1024,   // a profile background picture or GIF
   maxFile: 25 * 1024 * 1024,
   // Commit and date of this version: from the Docker build, or from git when run from a checkout.
   version: env.GIT_COMMIT || (() => { try { return execSync("git log -1 --format='%h %cs'", { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } })(),

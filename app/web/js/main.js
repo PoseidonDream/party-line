@@ -2387,8 +2387,7 @@ function fillUserPop(id) {
   const u = user(id), isMe = id === S.me.id;
   paintAv($('#popAv'), id);
   $('#popDot').className = 'status-dot ' + statusOf(id);
-  $('#popBanner').style.background = u.banner || `hsl(${hue(u.name)} 45% 45%)`;
-  $('#popBanner').className = 'pop-banner' + (u.bannerFx ? ` fx-${u.bannerFx}` : '');
+  paintBanner($('#popBanner'), u.banner, u.bannerFx, u.bg, u.bgPos, u.name);
   nameInto($('#popName'), id, S.popServer && S.servers.get(S.popServer), nameOf(id) + (isMe ? ` ${t('(you)')}` : '')); addCrown($('#popName'), id);
   $('#popPresence').textContent = u.bot ? 'Bot' : STATUS_TEXT[statusOf(id)];
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
@@ -3335,6 +3334,64 @@ function syncSettingsForm() {
   $('#outVol').value = Math.round(settings.outputVol * 100); $('#outVolOut').textContent = `${$('#outVol').value}%`;
   $('#pttHint').textContent = desktop ? 'Hold the push-to-talk key to talk, even while you’re in a game (set it in the tray menu).' : 'Hold Space (or the Hold to talk button) to talk. Space only works while Party Line is in front.';
 }
+/* A profile's top: its color, its effect (Aurora, Stars…), and the background picture or GIF if there is one,
+   placed where its owner dragged it. */
+function paintBanner(el, color, fx, bg, pos, name) {
+  el.style.background = color || `hsl(${hue(name || '')} 45% 45%)`;
+  if (bg) { el.style.backgroundImage = `url("${absUrl(bg)}")`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = pos || '50% 50%'; }
+  el.className = 'pop-banner' + (fx ? ` fx-${fx}` : '') + (bg ? ' has-bg' : '');
+}
+/* Settings → Profile: a preview of your profile with what you picked (before saving). Drag the background to move it. */
+let profileBgPos = '';
+function renderPreview() {
+  if (!S.me) return;
+  const fx = (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '';
+  paintBanner($('#prevBanner'), profileBanner, fx, S.me.bg, profileBgPos, S.me.name);
+  $('#prevBanner').appendChild($('#prevDragHint'));
+  $('#prevDragHint').hidden = !S.me.bg;
+  const av = avEl(S.me.id); for (const c of [...av.classList]) if (c.startsWith('flair-')) av.classList.remove(c); if (profileFlair) av.classList.add(`flair-${profileFlair}`);
+  $('#prevAvWrap').replaceChildren(av);
+  const nm = $('#prevName'); nameInto(nm, S.me.id); if (profileNameColor) nm.style.color = profileNameColor; else nm.style.color = '';
+  const bio = $('#setBio').value.trim(); $('#prevBio').hidden = !bio; $('#prevBio').textContent = bio;
+  $('#setBgRemove').hidden = !S.me.bg;
+  $('#setBgHint').textContent = S.me.bg ? t('Drag it in the preview above to choose what shows, then press Save profile.') : t('Shows at the top of your profile. GIFs move. Up to 8 MB.');
+}
+(function dragBackground() {
+  const el = $('#prevBanner');
+  let start = null;
+  el.addEventListener('pointerdown', (e) => {
+    if (!S.me || !S.me.bg) return;
+    const [x, y] = (profileBgPos || '50% 50%').split(' ').map(parseFloat);
+    start = { px: e.clientX, py: e.clientY, x, y, w: el.clientWidth, h: el.clientHeight };
+    el.setPointerCapture(e.pointerId); el.classList.add('dragging'); e.preventDefault();
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    // Dragging the picture right shows more of its left side, so the position goes down.
+    const clamp = (v) => Math.max(0, Math.min(100, v));
+    const x = clamp(start.x - ((e.clientX - start.px) / start.w) * 100), y = clamp(start.y - ((e.clientY - start.py) / start.h) * 100);
+    profileBgPos = `${Math.round(x)}% ${Math.round(y)}%`;
+    el.style.backgroundPosition = profileBgPos;
+  });
+  const end = () => { start = null; el.classList.remove('dragging'); };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+})();
+$('#setBgAdd').addEventListener('click', () => $('#setBgFile').click());
+$('#setBgFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const r = await upload('/api/background', f);
+    Object.assign(S.me, { bg: r.user.bg, bgPos: null }); profileBgPos = '';
+    renderPreview(); toast(t('Background added. Drag it in the preview to move it.'), 3500);
+  } catch (ex) { toast(ex.message, 4000); }
+});
+$('#setBgRemove').addEventListener('click', async () => {
+  try { await api('/api/background', { method: 'DELETE' }); S.me.bg = null; S.me.bgPos = null; profileBgPos = ''; renderPreview(); }
+  catch (ex) { toast(ex.message, 4000); }
+});
+$('#setBio').addEventListener('input', renderPreview);
+for (const r of document.querySelectorAll('input[name="bannerFx"]')) r.addEventListener('change', renderPreview);
 const BANNERS = ['', '#e8a33d', '#d9534f', '#d63384', '#8e5cd9', '#3d7be8', '#1aa3a3', '#3b9d4a', '#5b6472'];
 let profileBanner = '';
 function renderSwatches() {
@@ -3346,6 +3403,7 @@ function renderSwatches() {
     b.addEventListener('click', () => { profileBanner = c; renderSwatches(); });
     box.appendChild(b);
   }
+  renderPreview();
 }
 const FLAIRS = [['', 'None'], ['glow', 'Glow'], ['rainbow', 'Rainbow'], ['fire', 'Fire'], ['ice', 'Ice'], ['gold', 'Gold'], ['galaxy', 'Galaxy'], ['plasma', 'Plasma']];
 let profileNameColor = '';
@@ -3362,6 +3420,7 @@ function renderFlairs() {
     b.addEventListener('click', () => { if (locked) { toast(`The ${label} ring unlocks at level ${need}.`, 3000); return; } profileFlair = k; renderFlairs(); });
     box.appendChild(b);
   }
+  renderPreview();
 }
 function renderNameColors() {
   const box = $('#setNameColor'), need = S.perks.unlocks.nameColor, locked = myLevel() < need;
@@ -3375,6 +3434,7 @@ function renderNameColors() {
     box.appendChild(b);
   }
   $('#nameColorHint').textContent = locked ? `🔒 Unlocks at level ${need} (you’re level ${xpLevel(S.me.xp)}).` : 'Your name shows in this color everywhere.';
+  renderPreview();
 }
 function fillFlair() {
   profileFlair = S.me.flair || ''; renderFlairs();
@@ -3386,9 +3446,10 @@ function fillFlair() {
     r.nextElementSibling.textContent = locked ? `🔒 Lv ${need}` : { '': 'None', aurora: 'Aurora', stars: 'Stars', scan: 'Scanlines', matrix: 'Matrix' }[r.value];
   }
   $('#setFavGames').value = (S.me.favGames || []).join(', ');
+  profileBgPos = S.me.bgPos || ''; renderPreview();
 }
 $('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, 
-  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', nameColor: profileNameColor, favGames: $('#setFavGames').value }), 'Profile saved.'));
+  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', nameColor: profileNameColor, favGames: $('#setFavGames').value, bgPos: profileBgPos }), 'Profile saved.'));
 /* Settings is split into tabs: Profile, Look, Voice, Alerts, Account. */
 let setTab = 'profile';
 function showSetTab(name) {

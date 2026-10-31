@@ -2,6 +2,10 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 13, items: [
+    ['🖼️', 'Profile backgrounds', 'Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.'],
+    ['👀', 'Profile preview', 'Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.'],
+  ] },
   { id: 12, items: [
     ['📧', 'Add your email (optional)', 'Settings → Account → Email. Confirm it with a code, and if you ever forget your password, “Forgot your password?” can email you a code instead of waiting for an admin.'],
     ['🔞', '18+ channels', 'Admins can mark a channel 18+ in its settings. To open one, confirm your age in Settings → Account → Age. Nobody sees your birth date.'],

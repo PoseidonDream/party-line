@@ -54,7 +54,8 @@ const inviteCode = () => crypto.randomBytes(6).toString('base64url').replace(/[-
 export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avatar || null, admin: !!u.is_admin, bot: !!u.is_bot,
   custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null,
   flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [], xp: u.xp || 0,
-  streak: [dayKey(0), dayKey(-1)].includes(u.streak_day) ? u.streak : 0, badges: u.badges ? JSON.parse(u.badges) : {}, nameColor: u.name_color || null });
+  streak: [dayKey(0), dayKey(-1)].includes(u.streak_day) ? u.streak : 0, badges: u.badges ? JSON.parse(u.badges) : {}, nameColor: u.name_color || null,
+  bg: u.bg || null, bgPos: u.bg_pos || null });
 /* Today (offset 0), yesterday (-1)... on the server's clock, like birthdays: streaks count these days. */
 export function dayKey(offset) {
   const d = new Date(Date.now() + offset * 86_400_000);
@@ -414,6 +415,10 @@ export function setProfile(userId, d) {
     if (d.nameColor) needLevel(userId, UNLOCKS.nameColor, 'name colors');
     run('UPDATE users SET name_color = ? WHERE id = ?', d.nameColor || null, userId);
   }
+  if (d.bgPos !== undefined) {   // where the background sits: "x% y%", dragged in Settings → Profile
+    const m = /^(\d{1,3}(?:\.\d+)?)% (\d{1,3}(?:\.\d+)?)%$/.exec(String(d.bgPos || ''));
+    run('UPDATE users SET bg_pos = ? WHERE id = ?', m && +m[1] <= 100 && +m[2] <= 100 ? `${Math.round(+m[1])}% ${Math.round(+m[2])}%` : null, userId);
+  }
   if (d.favGames !== undefined) {
     const list = [...new Set((Array.isArray(d.favGames) ? d.favGames : String(d.favGames || '').split(','))
       .map((g) => String(g).replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40)).filter(Boolean))].slice(0, 5);
@@ -428,6 +433,8 @@ export function setProfile(userId, d) {
   return getUser(userId);
 }
 export const setAvatar = (userId, url) => { run('UPDATE users SET avatar = ? WHERE id = ?', url, userId); return getUser(userId); };
+/* A profile background (a picture or GIF at the top of your profile); it starts centered. */
+export const setBackground = (userId, url) => { run('UPDATE users SET bg = ?, bg_pos = NULL WHERE id = ?', url, userId); return getUser(userId); };
 /* Party Bot's account. It can't sign in: no name anyone types matches its name_key, and it has no password. */
 export const BOT_NAME = 'Party Bot';
 export function ensureBot() {
@@ -1225,6 +1232,7 @@ export function unusedUploads(olderThan = 60 * 60_000) {
   const used = new Set();
   for (const r of all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) for (const a of JSON.parse(r.attachments)) { used.add(a.id); if (a.thumb) used.add(a.thumb); }
   for (const r of all('SELECT avatar FROM users WHERE avatar IS NOT NULL')) used.add(String(r.avatar).replace('/uploads/', ''));
+  for (const r of all('SELECT bg FROM users WHERE bg IS NOT NULL')) used.add(String(r.bg).replace('/uploads/', ''));
   for (const r of all('SELECT upload_id FROM sounds')) used.add(r.upload_id);
   for (const r of all('SELECT upload_id FROM emoji UNION SELECT upload_id FROM fav_gifs')) used.add(r.upload_id);
   for (const r of all("SELECT body FROM messages WHERE body LIKE '<g:%'")) { const m = /^<g:([\w-]+)>$/.exec(r.body); if (m) used.add(m[1]); }

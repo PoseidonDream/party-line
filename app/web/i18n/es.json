@@ -1169,5 +1169,16 @@
 "Invite only": "Solo con invitación",
 "New accounts no longer land in the server by themselves. Bring friends in with the server’s invite link (server menu → Copy invite link).": "Las cuentas nuevas ya no entran solas al servidor. Trae a tus amigos con el enlace de invitación (menú del servidor → Copiar enlace de invitación).",
 "Year": "Año",
-"Admin: every level reward unlocked": "Admin: todas las recompensas de nivel desbloqueadas"
+"Admin: every level reward unlocked": "Admin: todas las recompensas de nivel desbloqueadas",
+"Background picture or GIF": "Imagen o GIF de fondo",
+"Add a picture or GIF": "Añadir imagen o GIF",
+"Shows at the top of your profile. GIFs move. Up to 8 MB.": "Aparece arriba en tu perfil. Los GIF se mueven. Hasta 8 MB.",
+"✋ Drag to move": "✋ Arrastra para mover",
+"Preview: how friends see you": "Vista previa: así te ven tus amigos",
+"Drag it in the preview above to choose what shows, then press Save profile.": "Arrástrala en la vista previa de arriba para elegir qué se ve y luego pulsa Guardar perfil.",
+"Background added. Drag it in the preview to move it.": "Fondo añadido. Arrástralo en la vista previa para moverlo.",
+"Profile backgrounds": "Fondos de perfil",
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Pon una imagen o GIF arriba en tu perfil: Ajustes → Perfil → Imagen o GIF de fondo. Arrástrala en la vista previa para elegir qué se ve.",
+"Profile preview": "Vista previa del perfil",
+"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Ajustes → Perfil ahora empieza con tu perfil tal como lo ven tus amigos, para que pruebes colores, efectos, aros y colores de nombre antes de guardar."
 }

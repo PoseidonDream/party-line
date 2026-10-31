@@ -842,6 +842,11 @@
         <button type="button" class="tab" role="tab" data-settab="account" aria-selected="false">Account</button>
       </div>
       <section class="set-tab" data-settab="profile" role="tabpanel">
+        <div class="profile-preview" aria-label="How your profile looks to others">
+          <div class="pop-banner" id="prevBanner"><span class="bg-drag-hint" id="prevDragHint" hidden>✋ Drag to move</span></div>
+          <div class="pop-who"><span class="av-wrap" id="prevAvWrap"></span><div class="pop-title"><div id="prevName"></div><small class="pop-presence">Preview: how friends see you</small></div></div>
+          <p class="pop-bio prev-bio" id="prevBio" hidden></p>
+        </div>
         <div class="av-pick">
           <button type="button" class="av-btn" id="setAvBtn"><span class="mini-av" id="setAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Change profile picture</span></button>
           <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Square photos look best.</small>
@@ -857,6 +862,10 @@
         <div class="field">
           <label class="flabel" for="setBio">About me</label>
           <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
+          <div class="flabel-sub">Background picture or GIF</div>
+          <div class="av-actions"><button type="button" class="btn small" id="setBgAdd">Add a picture or GIF</button><button type="button" class="btn small" id="setBgRemove" hidden>Remove</button></div>
+          <p class="hint" id="setBgHint">Shows at the top of your profile. GIFs move. Up to 8 MB.</p>
+          <input type="file" id="setBgFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           <div class="flabel-sub">Banner color</div>
           <div class="swatches" id="setBanner" role="radiogroup" aria-label="Banner color"></div>
           <div class="flabel-sub">Picture ring</div>

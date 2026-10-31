@@ -1529,3 +1529,13 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .pw-form .row { flex-wrap: wrap; }
 .pw-form .row > .input { flex: 1 1 100%; }
 .pw-form .row > .btn { flex: 1 1 auto; }
+/* Profile backgrounds: a picture or GIF at the top of a profile, taller than a plain color. */
+.pop-banner.has-bg { height: 110px; background-repeat: no-repeat; }
+/* Settings → Profile: a live preview of your profile card (drag the background to move it). */
+.profile-preview { border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); padding: 0 14px 12px; overflow: hidden; margin-bottom: 16px; }
+.profile-preview .pop-banner { margin: 0 -14px; border-radius: 0; }
+.profile-preview .pop-banner.has-bg { cursor: grab; touch-action: none; }
+.profile-preview .pop-banner.dragging { cursor: grabbing; }
+.profile-preview .pop-who { margin-top: -22px; position: relative; }
+.profile-preview .prev-bio { margin: 8px 0 0; }
+.bg-drag-hint { position: absolute; right: 8px; bottom: 8px; z-index: 2; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; pointer-events: none; }

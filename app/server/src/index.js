@@ -298,6 +298,15 @@ app.post('/api/avatar', auth, uploadLimit, (req, res) => {
     res.json({ user: M.publicUser(u) });
   });
 });
+/* A profile background: a picture or GIF (GIFs stay animated, so it's stored as it is). */
+app.post('/api/background', auth, uploadLimit, (req, res) => {
+  receive(req, res, config.maxBackground, (t) => IMAGE.test(t), (f) => {
+    const u = M.setBackground(req.user.id, f.url);
+    hub.userChanged(u);
+    res.json({ user: M.publicUser(u) });
+  });
+});
+app.delete('/api/background', auth, wrap((req) => { const u = M.setBackground(req.user.id, null); hub.userChanged(u); return { user: M.publicUser(u) }; }));
 app.delete('/api/avatar', auth, wrap((req) => { const u = M.setAvatar(req.user.id, null); hub.userChanged(u); return { user: M.publicUser(u) }; }));
 app.get('/uploads/:id', (req, res) => {
   const up = M.getUpload(String(req.params.id));
