@@ -17,7 +17,7 @@ fs.mkdirSync(RESULTS, { recursive: true });
 export async function startServer(env = {}) {
   let port = 0;   // the first start lets the system pick a free port; restarts reuse it
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pl-test-'));
-  const fullEnv = { ...process.env, DATA_DIR: dataDir, ADMIN_NAMES: 'Poseidon', REPORT_DAY: '7', CSP_TEST_EVAL: '1', ...env };   // no weekly report in the middle of a test (usage.test.mjs asks for one)
+  const fullEnv = { ...process.env, DATA_DIR: dataDir, ADMIN_NAMES: 'Poseidon', REPORT_DAY: '7', CSP_TEST_EVAL: '1', AUTO_JOIN: '1', ...env };   // no weekly report in the middle of a test (usage.test.mjs asks for one)
   let proc = null, log = '';
   const launch = async () => {
     log = '';

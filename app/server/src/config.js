@@ -28,6 +28,8 @@ export const config = {
   version: env.GIT_COMMIT || (() => { try { return execSync("git log -1 --format='%h %cs'", { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } })(),
   previewPrivate: env.LINK_PREVIEW_PRIVATE === '1',   // tests only: let link previews fetch local test pages   // audio, documents, zips and other files
   trustProxy: env.TRUST_PROXY === '1',
+  // 1 = every new account joins the main server by itself. Otherwise new people need an invite link.
+  autoJoin: env.AUTO_JOIN === '1',
   // Shown on the privacy policy and community rules pages as the way to reach whoever runs this server.
   contactEmail: env.CONTACT_EMAIL || '',
 };

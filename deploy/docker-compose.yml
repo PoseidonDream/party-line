@@ -24,6 +24,7 @@ services:
       REPORT_DAY: ${REPORT_DAY:-}
       REPORT_HOUR: ${REPORT_HOUR:-}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      AUTO_JOIN: ${AUTO_JOIN:-}
     volumes:
       - partyline-data:/data
 

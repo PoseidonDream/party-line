@@ -83,8 +83,10 @@ export function register(name, pass, agree) {
   // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
   const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen) VALUES (?, ?, ?, ?, ?, -1)',
     name, foldKey(name), hashPass(pass), isAdminName(name) ? 1 : 0, now()).lastInsertRowid);
+  // New accounts start in no server: friends bring them in with an invite link. Admins (and everyone, when the
+  // server is set to AUTO_JOIN=1) land in the main server straight away.
   const def = one('SELECT id FROM servers WHERE is_default = 1');
-  if (def) joinServer(id, def.id);
+  if (def && (config.autoJoin || isAdminName(name))) joinServer(id, def.id);
   return { user: getUser(id), token: newSession(id) };
 }
 export function login(name, pass, code, device) {
