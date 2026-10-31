@@ -1,5 +1,5 @@
 /* Polls, XP and levels, chat in voice channels, voice effects, "remind me about this" and disappearing messages. */
-import { startServer, launchBrowser, signUp, joinVoice, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, joinVoice, openDb, RESULTS } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer({
@@ -64,8 +64,9 @@ export default async function (ok) {
     await a.keyboard.press('Escape'); await a.mouse.click(700, 300);
     await a.click('#serverBtn'); await a.click('#mTop');
     await a.waitForSelector('#topDlg[open] .top-row');
-    const first = await a.textContent('#topList .top-row:first-child'), second = await a.textContent('#topList .top-row:nth-child(2)');
-    ok('the leaderboard puts the admin (level ∞) on top, then the most active', /Poseidon/.test(first) && /Lv ∞/.test(first) && /Bora/.test(second) && /Lv 2/.test(second) && /120 XP/.test(second));
+    const first = await a.textContent('#topList .top-row:first-child');
+    ok('the leaderboard puts the most active first', /🥇/.test(first) && /Bora/.test(first) && /Lv 2/.test(first) && /120 XP/.test(first));
+    ok('…and leaves out admins (level ∞ wouldn’t be fair)', !(await a.textContent('#topList')).includes('Poseidon'));
     await a.screenshot({ path: `${RESULTS}/leaderboard.png` });
     await a.keyboard.press('Escape');
     await say(b, '/rank');
@@ -148,7 +149,7 @@ export default async function (ok) {
     ok('“Go to message” jumps right to it', (await a.textContent('#viewTitle')) === 'general');
 
     // Disappearing messages (and XP for private chats: one level for the whole app)
-    const myXp = async () => { await a.click('#railHome'); await a.click('#navTop'); const t = await a.textContent('#topList .top-row.me .top-level'); await a.keyboard.press('Escape'); return Number(/(\d+) XP/.exec(t)[1]); };
+    const myXp = async () => { const db = openDb(srv); const x = db.prepare("SELECT xp FROM users WHERE name = 'Poseidon'").get().xp; db.close(); return x; };   // admins aren't on the leaderboard
     const xpBeforeDm = await myXp();
     await a.click('#railList .rail-btn'); await a.click('#textList .chan:has-text("general")');
     await a.click('#messages .msg:has-text("message number") .mini-av >> nth=0'); await a.click('#popMsg');
@@ -160,7 +161,7 @@ export default async function (ok) {
     await say(a, 'this goes away tomorrow');
     await a.waitForSelector('#messages .msg:has-text("this goes away tomorrow") .msg-expires');
     ok('new messages show when they’ll go', true);
-    ok('chatting in private chats earns XP too (Home → Leaderboard)', (await myXp()) >= xpBeforeDm + 10);
+    ok('chatting in private chats earns XP too', (await myXp()) >= xpBeforeDm + 10);
     await a.click('#dmList .dm-item:has-text("Bora")');
     await req(a, 'disappear.set', { userId: bId, seconds: 2 });
     await say(a, 'self destructing');

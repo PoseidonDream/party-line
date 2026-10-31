@@ -217,11 +217,11 @@ function rank(ctx) {
 /* The top 10 of the people in this chat (everyone in the server, or both people in a private chat). */
 function top(ctx) {
   const ids = ctx.where.channelId ? M.memberIds(M.getChannel(ctx.where.channelId).server_id) : (({ user_a, user_b }) => [user_a, user_b])(M.getDm(ctx.where.dmId));
-  const board = ids.map((id) => M.getUser(id)).filter((u) => u && !u.is_bot && (u.xp > 0 || u.is_admin))
-    .sort((a, b) => (b.is_admin - a.is_admin) || b.xp - a.xp);   // admins (level ∞) first
+  const board = ids.map((id) => M.getUser(id)).filter((u) => u && !u.is_bot && !u.is_admin && u.xp > 0)   // admins (level ∞) aren't ranked
+    .sort((a, b) => b.xp - a.xp);
   if (!board.length) return { ephemeral: 'Nobody here has any XP yet. Chat or hang out in voice to earn some!' };
   const medals = ['🥇', '🥈', '🥉'];
-  post(ctx.where, '🏆 **Leaderboard**\n' + board.slice(0, 10).map((u, i) => `${medals[i] || `${i + 1}.`} ${who(u.id)}: ${u.is_admin ? 'level ∞' : `level ${M.levelOf(u.xp)} (${u.xp} XP)`}`).join('\n'));
+  post(ctx.where, '🏆 **Leaderboard**\n' + board.slice(0, 10).map((u, i) => `${medals[i] || `${i + 1}.`} ${who(u.id)}: level ${M.levelOf(u.xp)} (${u.xp} XP)`).join('\n'));
 }
 const UNITS = { s: 1, sec: 1, second: 1, seconds: 1, m: 60, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400 };
 function remind(ctx) {

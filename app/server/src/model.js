@@ -620,7 +620,7 @@ export function addXp(userId, amount, fromMessage) {
   return { xp, up: levelOf(xp) > levelOf(u.xp) ? levelOf(xp) : 0 };
 }
 /* Place among everyone in the app (1 = the most XP). */
-export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot = 0 AND xp > ?', xp).n + 1;
+export const xpRank = (xp) => one('SELECT COUNT(*) AS n FROM users WHERE is_bot = 0 AND is_admin = 0 AND xp > ?', xp).n + 1;   // admins aren't ranked
 
 /* ---------- hall of fame: messages that got enough ⭐ are copied (by Party Bot) into #hall-of-fame ---------- */
 export const inHallOfFame = (messageId) => !!one('SELECT 1 AS x FROM hall_of_fame WHERE message_id = ?', messageId);

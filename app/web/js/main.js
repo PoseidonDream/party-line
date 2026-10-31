@@ -2656,9 +2656,9 @@ live.on('xp', (d) => {
 function renderTop() {
   const list = $('#topList'), medals = ['🥇', '🥈', '🥉'];
   list.textContent = '';
-  const rank = (id) => (isInfinite(user(id)) ? Infinity : user(id).xp || 0);   // admins (level ∞) first
-  const rows = [...S.users.values()].filter((u) => !u.bot).map((u) => [u.id, u.xp || 0])
-    .sort((a, b) => (rank(b[0]) === rank(a[0]) ? 0 : rank(b[0]) > rank(a[0]) ? 1 : -1) || nameOf(a[0]).localeCompare(nameOf(b[0])));
+  // Admins (level ∞) aren't ranked: it wouldn't be fair.
+  const rows = [...S.users.values()].filter((u) => !u.bot && !isInfinite(u)).map((u) => [u.id, u.xp || 0])
+    .sort((a, b) => b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0])));
   rows.forEach(([id, xp], i) => {
     const b = levelBits(xp, user(id)), li = document.createElement('li');
     li.className = 'top-row' + (id === S.me.id ? ' me' : '');
