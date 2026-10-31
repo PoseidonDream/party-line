@@ -770,6 +770,18 @@
   </div>
 </dialog>
 
+<dialog id="cropDlg" aria-labelledby="cropTitle">
+  <form method="dialog">
+    <div class="set-head"><h2 id="cropTitle">Choose the part to show</h2><button class="btn icon-btn" value="cancel" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <div class="set-body crop-body">
+      <div class="crop-frame" id="cropFrame"></div>
+      <p class="hint">✋ Drag the picture to move it. Use the slider to zoom.</p>
+      <label class="crop-zoom"><span aria-hidden="true">−</span><input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><span aria-hidden="true">+</span></label>
+      <div class="row-btns"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok" id="cropOk">Use</button></div>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="chanDlg" aria-labelledby="chTitle">
   <form method="dialog">
     <div class="set-head"><h2 id="chTitle">Channel settings</h2><button class="btn icon-btn" value="close" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
@@ -843,16 +855,16 @@
       </div>
       <section class="set-tab" data-settab="profile" role="tabpanel">
         <div class="profile-preview" aria-label="How your profile looks to others">
-          <div class="pop-banner" id="prevBanner"><span class="bg-drag-hint" id="prevDragHint" hidden>✋ Drag to move</span></div>
+          <div class="pop-banner" id="prevBanner"></div>
           <div class="pop-who"><span class="av-wrap" id="prevAvWrap"></span><div class="pop-title"><div id="prevName"></div><small class="pop-presence">Preview: how friends see you</small></div></div>
           <p class="pop-bio prev-bio" id="prevBio" hidden></p>
         </div>
         <div class="av-pick">
           <button type="button" class="av-btn" id="setAvBtn"><span class="mini-av" id="setAv" aria-hidden="true"></span><span class="av-cam" aria-hidden="true"><svg class="ic"><use href="#i-camera"/></svg></span><span class="sr">Change profile picture</span></button>
-          <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Square photos look best.</small>
+          <div class="av-pick-text"><b>Profile picture</b><small>Friends see it next to your name. Any photo or GIF: you pick the part to show.</small>
             <div class="av-actions"><button type="button" class="btn small" id="setAvChange">Change picture</button><button type="button" class="btn small" id="setAvRemove">Remove</button></div>
           </div>
-          <input type="file" id="setAvFile" accept="image/*" hidden>
+          <input type="file" id="setAvFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
         </div>
         <div class="field">
           <label class="flabel" for="setName">Display name</label>
@@ -863,7 +875,7 @@
           <label class="flabel" for="setBio">About me</label>
           <textarea id="setBio" class="input" rows="3" maxlength="300" placeholder="A few words friends see when they click your name"></textarea>
           <div class="flabel-sub">Background picture or GIF</div>
-          <div class="av-actions"><button type="button" class="btn small" id="setBgAdd">Add a picture or GIF</button><button type="button" class="btn small" id="setBgRemove" hidden>Remove</button></div>
+          <div class="av-actions"><button type="button" class="btn small" id="setBgAdd">Add a picture or GIF</button><button type="button" class="btn small" id="setBgAdjust" hidden>Adjust</button><button type="button" class="btn small" id="setBgRemove" hidden>Remove</button></div>
           <p class="hint" id="setBgHint">Shows at the top of your profile. GIFs move. Up to 8 MB.</p>
           <input type="file" id="setBgFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           <div class="flabel-sub">Banner color</div>

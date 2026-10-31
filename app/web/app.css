@@ -1539,3 +1539,12 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .profile-preview .pop-who { margin-top: -22px; position: relative; }
 .profile-preview .prev-bio { margin: 8px 0 0; }
 .bg-drag-hint { position: absolute; right: 8px; bottom: 8px; z-index: 2; padding: 3px 8px; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; pointer-events: none; }
+/* The crop window: drag and zoom to pick the part of a picture to use (square for a profile picture, wide for a background). */
+.crop-body { display: grid; gap: 10px; justify-items: center; }
+.crop-frame { width: min(280px, 100%); aspect-ratio: 1; border-radius: 50%; background-color: #000; background-repeat: no-repeat; cursor: grab; touch-action: none; box-shadow: 0 0 0 2px var(--lamp), 0 0 0 9999px rgba(0, 0, 0, .25) inset; }
+.crop-frame.wide { width: 100%; aspect-ratio: 3.5; border-radius: 12px; }
+.crop-frame.dragging { cursor: grabbing; }
+.crop-zoom { display: flex; align-items: center; gap: 10px; width: min(320px, 100%); color: var(--dim); font-size: 20px; }
+.crop-zoom input { flex: 1; accent-color: var(--lamp); }
+/* A GIF profile picture shows the part its owner picked. */
+.has-img.fit { background-size: var(--fit-size) !important; background-position: var(--fit-pos) !important; }

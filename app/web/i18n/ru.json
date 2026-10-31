@@ -1173,12 +1173,17 @@
 "Background picture or GIF": "Фоновая картинка или GIF",
 "Add a picture or GIF": "Добавить картинку или GIF",
 "Shows at the top of your profile. GIFs move. Up to 8 MB.": "Показывается вверху профиля. GIF двигаются. До 8 МБ.",
-"✋ Drag to move": "✋ Перетащи, чтобы сдвинуть",
 "Preview: how friends see you": "Предпросмотр: так тебя видят друзья",
-"Drag it in the preview above to choose what shows, then press Save profile.": "Перетащи её в предпросмотре выше, чтобы выбрать, что видно, затем нажми «Сохранить профиль».",
-"Background added. Drag it in the preview to move it.": "Фон добавлен. Перетащи его в предпросмотре, чтобы сдвинуть.",
 "Profile backgrounds": "Фоны профиля",
 "Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Поставь картинку или GIF вверху профиля: Настройки → Профиль → Фоновая картинка или GIF. Перетащи её в предпросмотре, чтобы выбрать, что видно.",
 "Profile preview": "Предпросмотр профиля",
-"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Настройки → Профиль теперь начинается с профиля таким, каким его видят друзья: пробуй цвета баннера, эффекты, рамки и цвет имени до сохранения."
+"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Настройки → Профиль теперь начинается с профиля таким, каким его видят друзья: пробуй цвета баннера, эффекты, рамки и цвет имени до сохранения.",
+"Choose the part to show": "Выбери, какую часть показать",
+"✋ Drag the picture to move it. Use the slider to zoom.": "✋ Перетаскивай картинку, чтобы сдвинуть. Ползунок — приближение.",
+"Zoom": "Масштаб",
+"Use": "Использовать",
+"Adjust": "Настроить",
+"Background saved.": "Фон сохранён.",
+"Couldn’t read that picture.": "Не удалось открыть картинку.",
+"Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Друзья видят её рядом с твоим именем. Любое фото или GIF: ты выбираешь, какую часть показать."
 }

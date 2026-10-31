@@ -55,7 +55,7 @@ export const publicUser = (u) => u && ({ id: u.id, name: u.name, avatar: u.avata
   custom: u.custom_status || null, bio: u.bio || null, banner: u.banner || null, birthday: u.birthday || null,
   flair: u.flair || null, bannerFx: u.banner_fx || null, favGames: u.fav_games ? JSON.parse(u.fav_games) : [], xp: u.xp || 0,
   streak: [dayKey(0), dayKey(-1)].includes(u.streak_day) ? u.streak : 0, badges: u.badges ? JSON.parse(u.badges) : {}, nameColor: u.name_color || null,
-  bg: u.bg || null, bgPos: u.bg_pos || null });
+  bg: u.bg || null, bgPos: u.bg_pos || null, bgSize: u.bg_size || null, avatarFit: u.avatar_fit ? JSON.parse(u.avatar_fit) : null });
 /* Today (offset 0), yesterday (-1)... on the server's clock, like birthdays: streaks count these days. */
 export function dayKey(offset) {
   const d = new Date(Date.now() + offset * 86_400_000);
@@ -415,9 +415,12 @@ export function setProfile(userId, d) {
     if (d.nameColor) needLevel(userId, UNLOCKS.nameColor, 'name colors');
     run('UPDATE users SET name_color = ? WHERE id = ?', d.nameColor || null, userId);
   }
-  if (d.bgPos !== undefined) {   // where the background sits: "x% y%", dragged in Settings → Profile
-    const m = /^(\d{1,3}(?:\.\d+)?)% (\d{1,3}(?:\.\d+)?)%$/.exec(String(d.bgPos || ''));
-    run('UPDATE users SET bg_pos = ? WHERE id = ?', m && +m[1] <= 100 && +m[2] <= 100 ? `${Math.round(+m[1])}% ${Math.round(+m[2])}%` : null, userId);
+  // Which part of the background (and of a GIF profile picture) shows: picked in the crop window.
+  if (d.bgPos !== undefined) run('UPDATE users SET bg_pos = ? WHERE id = ?', cleanPos(d.bgPos), userId);
+  if (d.bgSize !== undefined) run('UPDATE users SET bg_size = ? WHERE id = ?', cleanSize(d.bgSize), userId);
+  if (d.avatarFit !== undefined) {
+    const f = d.avatarFit && cleanPos(d.avatarFit.pos) && cleanSize(d.avatarFit.size) ? { pos: cleanPos(d.avatarFit.pos), size: cleanSize(d.avatarFit.size) } : null;
+    run('UPDATE users SET avatar_fit = ? WHERE id = ?', f ? JSON.stringify(f) : null, userId);
   }
   if (d.favGames !== undefined) {
     const list = [...new Set((Array.isArray(d.favGames) ? d.favGames : String(d.favGames || '').split(','))
@@ -432,9 +435,12 @@ export function setProfile(userId, d) {
   }
   return getUser(userId);
 }
-export const setAvatar = (userId, url) => { run('UPDATE users SET avatar = ? WHERE id = ?', url, userId); return getUser(userId); };
+export const setAvatar = (userId, url) => { run('UPDATE users SET avatar = ?, avatar_fit = NULL WHERE id = ?', url, userId); return getUser(userId); };
+/* Crop window results: a position "x% y%" (0–100 each) and a size "W% auto" (100–1000, the picture's width). */
+const cleanPos = (v) => { const m = /^(\d{1,3}(?:\.\d+)?)% (\d{1,3}(?:\.\d+)?)%$/.exec(String(v || '')); return m && +m[1] <= 100 && +m[2] <= 100 ? `${Math.round(+m[1] * 10) / 10}% ${Math.round(+m[2] * 10) / 10}%` : null; };
+const cleanSize = (v) => { const m = /^(\d{1,4}(?:\.\d+)?)% auto$/.exec(String(v || '')); return m && +m[1] >= 100 && +m[1] <= 1000 ? `${Math.round(+m[1] * 10) / 10}% auto` : null; };
 /* A profile background (a picture or GIF at the top of your profile); it starts centered. */
-export const setBackground = (userId, url) => { run('UPDATE users SET bg = ?, bg_pos = NULL WHERE id = ?', url, userId); return getUser(userId); };
+export const setBackground = (userId, url) => { run('UPDATE users SET bg = ?, bg_pos = NULL, bg_size = NULL WHERE id = ?', url, userId); return getUser(userId); };
 /* Party Bot's account. It can't sign in: no name anyone types matches its name_key, and it has no password. */
 export const BOT_NAME = 'Party Bot';
 export function ensureBot() {

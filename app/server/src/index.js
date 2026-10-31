@@ -292,7 +292,9 @@ app.post('/api/upload', auth, uploadLimit, (req, res) => {
   receive(req, res, max, () => true, (f) => res.json(f));
 });
 app.post('/api/avatar', auth, uploadLimit, (req, res) => {
-  receive(req, res, config.maxAvatar, (t) => IMAGE.test(t), (f) => {
+  // Photos arrive already cropped and small; a GIF comes whole (to keep it moving), with the part to show set after.
+  const gif = /^image\/gif/i.test(String(req.get('content-type') || ''));
+  receive(req, res, gif ? config.maxBackground : config.maxAvatar, (t) => IMAGE.test(t), (f) => {
     const u = M.setAvatar(req.user.id, f.url);
     hub.userChanged(u);
     res.json({ user: M.publicUser(u) });

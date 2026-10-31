@@ -1173,12 +1173,17 @@
 "Background picture or GIF": "Image ou GIF de fond",
 "Add a picture or GIF": "Ajouter une image ou un GIF",
 "Shows at the top of your profile. GIFs move. Up to 8 MB.": "S’affiche en haut de ton profil. Les GIF bougent. Jusqu’à 8 Mo.",
-"✋ Drag to move": "✋ Glisse pour déplacer",
 "Preview: how friends see you": "Aperçu : ce que voient tes amis",
-"Drag it in the preview above to choose what shows, then press Save profile.": "Fais-la glisser dans l’aperçu ci-dessus pour choisir ce qui s’affiche, puis appuie sur Enregistrer le profil.",
-"Background added. Drag it in the preview to move it.": "Fond ajouté. Fais-le glisser dans l’aperçu pour le déplacer.",
 "Profile backgrounds": "Fonds de profil",
 "Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Mets une image ou un GIF en haut de ton profil : Paramètres → Profil → Image ou GIF de fond. Fais-la glisser dans l’aperçu pour choisir ce qui s’affiche.",
 "Profile preview": "Aperçu du profil",
-"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Paramètres → Profil commence maintenant par ton profil tel que tes amis le voient : essaie couleurs, effets, anneaux et couleurs de nom avant d’enregistrer."
+"Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Paramètres → Profil commence maintenant par ton profil tel que tes amis le voient : essaie couleurs, effets, anneaux et couleurs de nom avant d’enregistrer.",
+"Choose the part to show": "Choisis la partie à afficher",
+"✋ Drag the picture to move it. Use the slider to zoom.": "✋ Fais glisser l’image pour la déplacer. Utilise le curseur pour zoomer.",
+"Zoom": "Zoom",
+"Use": "Utiliser",
+"Adjust": "Ajuster",
+"Background saved.": "Fond enregistré.",
+"Couldn’t read that picture.": "Impossible de lire cette image.",
+"Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Tes amis la voient à côté de ton nom. N’importe quelle photo ou GIF : tu choisis la partie à afficher."
 }

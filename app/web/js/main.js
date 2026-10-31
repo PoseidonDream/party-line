@@ -134,6 +134,9 @@ function paintAv(el, id) {
   if (u.flair) el.classList.add(`flair-${u.flair}`);
   if (u.avatar) { el.classList.add('has-img'); el.style.backgroundImage = `url("${absUrl(u.avatar)}")`; }
   else { el.classList.remove('has-img'); el.style.backgroundImage = ''; }
+  // A GIF picture is kept whole (so it moves); it shows the part its owner picked in the crop window.
+  el.classList.toggle('fit', !!(u.avatar && u.avatarFit));
+  if (u.avatar && u.avatarFit) { el.style.setProperty('--fit-size', u.avatarFit.size); el.style.setProperty('--fit-pos', u.avatarFit.pos); }
 }
 function avEl(id, cls = 'mini-av') { const s = document.createElement('span'); s.className = cls; s.setAttribute('aria-hidden', 'true'); paintAv(s, id); return s; }
 function serverInitials(name) { return initials(name).slice(0, 2) || '#'; }
@@ -2387,7 +2390,7 @@ function fillUserPop(id) {
   const u = user(id), isMe = id === S.me.id;
   paintAv($('#popAv'), id);
   $('#popDot').className = 'status-dot ' + statusOf(id);
-  paintBanner($('#popBanner'), u.banner, u.bannerFx, u.bg, u.bgPos, u.name);
+  paintBanner($('#popBanner'), u.banner, u.bannerFx, u.bg, u.bgPos, u.name, u.bgSize);
   nameInto($('#popName'), id, S.popServer && S.servers.get(S.popServer), nameOf(id) + (isMe ? ` ${t('(you)')}` : '')); addCrown($('#popName'), id);
   $('#popPresence').textContent = u.bot ? 'Bot' : STATUS_TEXT[statusOf(id)];
   $('#popCustom').hidden = !u.custom; $('#popCustom').textContent = u.custom || '';
@@ -3336,58 +3339,87 @@ function syncSettingsForm() {
 }
 /* A profile's top: its color, its effect (Aurora, Stars…), and the background picture or GIF if there is one,
    placed where its owner dragged it. */
-function paintBanner(el, color, fx, bg, pos, name) {
+function paintBanner(el, color, fx, bg, pos, name, size) {
   el.style.background = color || `hsl(${hue(name || '')} 45% 45%)`;
-  if (bg) { el.style.backgroundImage = `url("${absUrl(bg)}")`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = pos || '50% 50%'; }
+  if (bg) { el.style.backgroundImage = `url("${absUrl(bg)}")`; el.style.backgroundSize = size || 'cover'; el.style.backgroundPosition = pos || '50% 50%'; }
   el.className = 'pop-banner' + (fx ? ` fx-${fx}` : '') + (bg ? ' has-bg' : '');
 }
-/* Settings → Profile: a preview of your profile with what you picked (before saving). Drag the background to move it. */
-let profileBgPos = '';
+/* Settings → Profile: a preview of your profile with what you picked (before saving). */
 function renderPreview() {
   if (!S.me) return;
   const fx = (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '';
-  paintBanner($('#prevBanner'), profileBanner, fx, S.me.bg, profileBgPos, S.me.name);
-  $('#prevBanner').appendChild($('#prevDragHint'));
-  $('#prevDragHint').hidden = !S.me.bg;
+  paintBanner($('#prevBanner'), profileBanner, fx, S.me.bg, S.me.bgPos, S.me.name, S.me.bgSize);
   const av = avEl(S.me.id); for (const c of [...av.classList]) if (c.startsWith('flair-')) av.classList.remove(c); if (profileFlair) av.classList.add(`flair-${profileFlair}`);
   $('#prevAvWrap').replaceChildren(av);
   const nm = $('#prevName'); nameInto(nm, S.me.id); if (profileNameColor) nm.style.color = profileNameColor; else nm.style.color = '';
   const bio = $('#setBio').value.trim(); $('#prevBio').hidden = !bio; $('#prevBio').textContent = bio;
-  $('#setBgRemove').hidden = !S.me.bg;
-  $('#setBgHint').textContent = S.me.bg ? t('Drag it in the preview above to choose what shows, then press Save profile.') : t('Shows at the top of your profile. GIFs move. Up to 8 MB.');
+  $('#setBgRemove').hidden = !S.me.bg; $('#setBgAdjust').hidden = !S.me.bg;
+  $('#setBgHint').textContent = t('Shows at the top of your profile. GIFs move. Up to 8 MB.');
 }
-(function dragBackground() {
-  const el = $('#prevBanner');
-  let start = null;
-  el.addEventListener('pointerdown', (e) => {
-    if (!S.me || !S.me.bg) return;
-    const [x, y] = (profileBgPos || '50% 50%').split(' ').map(parseFloat);
-    start = { px: e.clientX, py: e.clientY, x, y, w: el.clientWidth, h: el.clientHeight };
-    el.setPointerCapture(e.pointerId); el.classList.add('dragging'); e.preventDefault();
+/* The crop window: drag and zoom to pick the part of a picture to use. `shape` is 'square' (profile picture) or 'wide'
+   (background, 3.5 : 1). Resolves with the picked part as CSS (size "W% auto" and position "x% y%", for the frame's
+   shape) and the matching rectangle in the picture's own pixels, or null when cancelled. */
+function cropPicture(src, shape, start) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onerror = () => { toast(t('Couldn’t read that picture.'), 4000); resolve(null); };
+    img.onload = () => {
+      const d = $('#cropDlg'), frame = $('#cropFrame'), zoomEl = $('#cropZoom');
+      frame.className = 'crop-frame' + (shape === 'wide' ? ' wide' : '');
+      frame.style.backgroundImage = `url("${src}")`;
+      const ratio = img.naturalWidth / img.naturalHeight, aspect = shape === 'wide' ? 3.5 : 1;
+      const base = ratio > aspect ? (ratio / aspect) * 100 : 100;   // the picture's width (in % of the frame) when it just covers it
+      let zoom = 1, x = 50, y = 50;
+      if (start && start.size) { zoom = Math.max(1, Math.min(4, parseFloat(start.size) / base)); [x, y] = String(start.pos || '50% 50%').split(' ').map(parseFloat); }
+      const size = () => `${(base * zoom).toFixed(1)}% auto`, pos = () => `${x.toFixed(1)}% ${y.toFixed(1)}%`;
+      const draw = () => { frame.style.backgroundSize = size(); frame.style.backgroundPosition = pos(); };
+      zoomEl.value = String(zoom); zoomEl.oninput = () => { zoom = Number(zoomEl.value); draw(); };
+      let drag = null;
+      frame.onpointerdown = (e) => { drag = { px: e.clientX, py: e.clientY, x, y }; frame.setPointerCapture(e.pointerId); frame.classList.add('dragging'); e.preventDefault(); };
+      frame.onpointermove = (e) => {
+        if (!drag) return;
+        const fw = frame.clientWidth, fh = frame.clientHeight, iw = fw * (base * zoom) / 100, ih = iw / ratio;
+        // Moving the picture right shows more of its left side, so the position goes down.
+        const clamp = (v) => Math.max(0, Math.min(100, v));
+        if (iw > fw) x = clamp(drag.x - ((e.clientX - drag.px) / (iw - fw)) * 100);
+        if (ih > fh) y = clamp(drag.y - ((e.clientY - drag.py) / (ih - fh)) * 100);
+        draw();
+      };
+      frame.onpointerup = frame.onpointercancel = () => { drag = null; frame.classList.remove('dragging'); };
+      draw();
+      d.returnValue = '';
+      d.addEventListener('close', () => {
+        if (d.returnValue !== 'ok') { resolve(null); return; }
+        // The same part, in the picture's own pixels (for cutting a photo to exactly that).
+        const iw = base * zoom / 100, ih = iw / ratio * aspect;   // the picture's size in frames
+        const sx = (iw - 1) * x / 100, sy = (ih - 1) * y / 100, scale = img.naturalWidth / iw;
+        resolve({ size: size(), pos: pos(), rect: { x: sx * scale, y: (sy / aspect) * scale, w: scale, h: scale / aspect }, img });
+      }, { once: true });
+      d.showModal();
+    };
+    img.src = src;
   });
-  el.addEventListener('pointermove', (e) => {
-    if (!start) return;
-    // Dragging the picture right shows more of its left side, so the position goes down.
-    const clamp = (v) => Math.max(0, Math.min(100, v));
-    const x = clamp(start.x - ((e.clientX - start.px) / start.w) * 100), y = clamp(start.y - ((e.clientY - start.py) / start.h) * 100);
-    profileBgPos = `${Math.round(x)}% ${Math.round(y)}%`;
-    el.style.backgroundPosition = profileBgPos;
-  });
-  const end = () => { start = null; el.classList.remove('dragging'); };
-  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-})();
+}
 $('#setBgAdd').addEventListener('click', () => $('#setBgFile').click());
 $('#setBgFile').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
+  const url = URL.createObjectURL(f);
+  const pick = await cropPicture(url, 'wide');
+  URL.revokeObjectURL(url);
+  if (!pick) return;
   try {
-    const r = await upload('/api/background', f);
-    Object.assign(S.me, { bg: r.user.bg, bgPos: null }); profileBgPos = '';
-    renderPreview(); toast(t('Background added. Drag it in the preview to move it.'), 3500);
+    await upload('/api/background', f);
+    await live.req('profile.set', { bgPos: pick.pos, bgSize: pick.size });
+    renderPreview(); toast(t('Background saved.'), 2500);
   } catch (ex) { toast(ex.message, 4000); }
 });
+$('#setBgAdjust').addEventListener('click', async () => {
+  const pick = await cropPicture(absUrl(S.me.bg), 'wide', { size: S.me.bgSize, pos: S.me.bgPos });
+  if (pick && await act(() => live.req('profile.set', { bgPos: pick.pos, bgSize: pick.size }), 'Background saved.')) renderPreview();
+});
 $('#setBgRemove').addEventListener('click', async () => {
-  try { await api('/api/background', { method: 'DELETE' }); S.me.bg = null; S.me.bgPos = null; profileBgPos = ''; renderPreview(); }
+  try { await api('/api/background', { method: 'DELETE' }); S.me.bg = null; S.me.bgPos = null; S.me.bgSize = null; renderPreview(); }
   catch (ex) { toast(ex.message, 4000); }
 });
 $('#setBio').addEventListener('input', renderPreview);
@@ -3446,10 +3478,10 @@ function fillFlair() {
     r.nextElementSibling.textContent = locked ? `🔒 Lv ${need}` : { '': 'None', aurora: 'Aurora', stars: 'Stars', scan: 'Scanlines', matrix: 'Matrix' }[r.value];
   }
   $('#setFavGames').value = (S.me.favGames || []).join(', ');
-  profileBgPos = S.me.bgPos || ''; renderPreview();
+  renderPreview();
 }
 $('#setProfileSave').addEventListener('click', () => act(() => live.req('profile.set', { bio: $('#setBio').value, banner: profileBanner, 
-  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', nameColor: profileNameColor, favGames: $('#setFavGames').value, bgPos: profileBgPos }), 'Profile saved.'));
+  flair: profileFlair, bannerFx: (document.querySelector('input[name="bannerFx"]:checked') || {}).value || '', nameColor: profileNameColor, favGames: $('#setFavGames').value }), 'Profile saved.'));
 /* Settings is split into tabs: Profile, Look, Voice, Alerts, Account. */
 let setTab = 'profile';
 function showSetTab(name) {
@@ -3953,18 +3985,28 @@ for (const b of [$('#setAvBtn'), $('#setAvChange')]) b.addEventListener('click',
 $('#setAvFile').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
+  const url = URL.createObjectURL(f);
+  const pick = await cropPicture(url, 'square');
+  URL.revokeObjectURL(url);
+  if (!pick) return;
   try {
-    const blob = await squareImage(f, 256);
-    const r = await upload('/api/avatar', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-    S.me = Object.assign(S.me, r.user); syncSettingsForm(); renderUserArea();
+    let r;
+    if (f.type === 'image/gif') {   // kept whole so it keeps moving; it shows the part picked
+      r = await upload('/api/avatar', f);
+      await live.req('profile.set', { avatarFit: { size: pick.size, pos: pick.pos } });
+    } else {
+      const blob = await cutSquare(pick, 256);
+      r = await upload('/api/avatar', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+    }
+    S.me = Object.assign(S.me, r.user); syncSettingsForm(); renderUserArea(); renderPreview();
   } catch (ex) { toast(ex.message || 'Couldn’t use that picture.', 4000); }
 });
 $('#setAvRemove').addEventListener('click', async () => { const r = await act(() => api('/api/avatar', { method: 'DELETE' })); if (r) { S.me = Object.assign(S.me, r.user); syncSettingsForm(); renderUserArea(); } });
-async function squareImage(file, size) {
-  const bmp = await createImageBitmap(file);
-  const s = Math.min(bmp.width, bmp.height);
+/* The part picked in the crop window, cut out as a small square photo. */
+function cutSquare(pick, size) {
   const c = document.createElement('canvas'); c.width = c.height = size;
-  c.getContext('2d').drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, size, size);
+  const { x, y, w, h } = pick.rect;
+  c.getContext('2d').drawImage(pick.img, x, y, w, h, 0, 0, size, size);
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Couldn’t read that picture.'))), 'image/jpeg', 0.86));
 }
 
