@@ -3,7 +3,7 @@
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
   { id: 13, items: [
-    ['🖼️', 'Profile backgrounds', 'Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.'],
+    ['🖼️', 'Profile backgrounds', 'Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.'],
     ['👀', 'Profile preview', 'Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.'],
   ] },
   { id: 12, items: [

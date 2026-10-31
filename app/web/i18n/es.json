@@ -1175,7 +1175,6 @@
 "Shows at the top of your profile. GIFs move. Up to 8 MB.": "Aparece arriba en tu perfil. Los GIF se mueven. Hasta 8 MB.",
 "Preview: how friends see you": "Vista previa: así te ven tus amigos",
 "Profile backgrounds": "Fondos de perfil",
-"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Pon una imagen o GIF arriba en tu perfil: Ajustes → Perfil → Imagen o GIF de fondo. Arrástrala en la vista previa para elegir qué se ve.",
 "Profile preview": "Vista previa del perfil",
 "Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Ajustes → Perfil ahora empieza con tu perfil tal como lo ven tus amigos, para que pruebes colores, efectos, aros y colores de nombre antes de guardar.",
 "Choose the part to show": "Elige la parte que se ve",
@@ -1185,5 +1184,6 @@
 "Adjust": "Ajustar",
 "Background saved.": "Fondo guardado.",
 "Couldn’t read that picture.": "No se pudo leer esa imagen.",
-"Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Tus amigos la ven junto a tu nombre. Cualquier foto o GIF: tú eliges la parte que se ve."
+"Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Tus amigos la ven junto a tu nombre. Cualquier foto o GIF: tú eliges la parte que se ve.",
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Pon una imagen o GIF arriba en tu perfil: Ajustes → Perfil → Imagen o GIF de fondo. Para ella y tu foto de perfil, arrastra y haz zoom para elegir la parte que se ve."
 }

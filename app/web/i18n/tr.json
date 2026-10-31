@@ -1175,7 +1175,6 @@
 "Shows at the top of your profile. GIFs move. Up to 8 MB.": "Profilinin üstünde görünür. GIF’ler hareket eder. En fazla 8 MB.",
 "Preview: how friends see you": "Önizleme: arkadaşların seni böyle görür",
 "Profile backgrounds": "Profil arka planları",
-"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. Drag it in the preview to choose what shows.": "Profilinin üstüne bir resim veya GIF koy: Ayarlar → Profil → Arka plan resmi veya GIF. Neyin görüneceğini seçmek için önizlemede sürükle.",
 "Profile preview": "Profil önizlemesi",
 "Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.": "Ayarlar → Profil artık profilini arkadaşlarının gördüğü gibi gösteriyor; kaydetmeden önce afiş renklerini, efektleri, halkaları ve ad renklerini dene.",
 "Choose the part to show": "Gösterilecek kısmı seç",
@@ -1185,5 +1184,6 @@
 "Adjust": "Ayarla",
 "Background saved.": "Arka plan kaydedildi.",
 "Couldn’t read that picture.": "Bu resim okunamadı.",
-"Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Arkadaşların adının yanında görür. Herhangi bir fotoğraf veya GIF: gösterilecek kısmı sen seçersin."
+"Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Arkadaşların adının yanında görür. Herhangi bir fotoğraf veya GIF: gösterilecek kısmı sen seçersin.",
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Profilinin üstüne bir resim veya GIF koy: Ayarlar → Profil → Arka plan resmi veya GIF. Hem onda hem profil resminde gösterilecek kısmı sürükleyip yakınlaştırarak seçersin."
 }
