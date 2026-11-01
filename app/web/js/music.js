@@ -5,7 +5,7 @@
    The server keeps the queue and the clock; each device checks every 2 s that it's still in step. */
 import { $, iconSvg, settings, saveSettings } from './util.js';
 
-let ctx = null;          // { req(type, data), nameOf(id), channelName(id), note(text), changed(), absUrl(url) }
+let ctx = null;          // { req(type, data), nameOf(id), channelName(id), note(text), changed(), absUrl(url), youtubeOk(), allowYouTube() }
 let state = null;        // the server's music state for my voice channel: { now, queue }
 let channelId = null;    // my voice channel
 let offset = 0;          // serverClock - Date.now()
@@ -23,6 +23,7 @@ export function initMusic(c) {
   $('#musicStop').addEventListener('click', () => control('stop'));
   $('#musicHide').addEventListener('click', () => { leftSeq = state && state.now ? state.now.seq : null; teardown(); render(); ctx.changed(); });
   $('#musicStart').addEventListener('click', () => { if (player && playerReady) { player.playVideo(); $('#musicStart').hidden = true; } });
+  $('#musicConsentOk').addEventListener('click', () => { ctx.allowYouTube(); ensurePlayer().then(() => sync()).catch(() => {}); });
   // Big screen: /watch videos and shared videos open big for everyone; anyone can shrink theirs, and the choice
   // for /play music is remembered on this device.
   $('#musicBig').addEventListener('click', () => {
@@ -130,11 +131,14 @@ function ensurePlayer() {
     if (!player) { playerReady = false; loadedSeq = state.now.seq; player = filePlayer(state.now); }
     return Promise.resolve();
   }
+  // YouTube loads only after the person allowed it (cookie notice or Settings → Account → Privacy).
+  if (!ctx.youtubeOk()) { $('#musicConsent').hidden = false; return Promise.resolve(); }
+  $('#musicConsent').hidden = true;
   return loadApi().then((YT) => {
     if (player || !state || state.now.file) return;
     playerReady = false; loadedSeq = state.now.seq;
     player = new YT.Player('musicPlayer', {
-      width: '100%', height: '100%', videoId: state.now.videoId,
+      width: '100%', height: '100%', videoId: state.now.videoId, host: 'https://www.youtube-nocookie.com',   // YouTube's privacy-enhanced mode
       playerVars: { autoplay: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, modestbranding: 1, start: Math.floor(expected() || 0) },
       events: {
         onReady: (e) => { if (!player || e.target !== player) return; playerReady = true; player.setVolume(settings.musicVolume ?? 60); sync(); },   // ignore a player closed while loading

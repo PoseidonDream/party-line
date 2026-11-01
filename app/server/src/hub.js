@@ -992,6 +992,7 @@ const handlers = {
     hub.closeSessions(user.id, keys);
     return { ended: keys.length };
   },
+  'terms.agree'(c, user) { hub.userChanged(M.agreeTerms(user.id)); return {}; },
   /* Optional email: a code confirms the address; then it can reset a forgotten password. */
   'email.start'(c, user, d) {
     if (!mailReady()) fail('Email isn’t set up on this server yet.');

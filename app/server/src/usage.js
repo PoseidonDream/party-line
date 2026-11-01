@@ -199,7 +199,7 @@ export function initUsage(tellAdmins) {
   const check = () => {
     try {
       const d = new Date();
-      if (kvGet('usage_pruned') !== dayOf()) { kvSet('usage_pruned', dayOf()); run('DELETE FROM feature_use WHERE day < ?', dayOf(-180)); }
+      if (kvGet('usage_pruned') !== dayOf()) { kvSet('usage_pruned', dayOf()); run('DELETE FROM feature_use WHERE day < ?', dayOf(-30)); }   // only the last 14 days are ever shown: keep a month, no more
       const day = process.env.REPORT_DAY ? Number(process.env.REPORT_DAY) : 1, hour = process.env.REPORT_HOUR ? Number(process.env.REPORT_HOUR) : 9;
       if (d.getDay() !== day || d.getHours() < hour || kvGet('usage_report') === dayOf()) return;
       kvSet('usage_report', dayOf());

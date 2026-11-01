@@ -1,8 +1,15 @@
 # Party Line on one small server: the app, Caddy for automatic HTTPS, and a TURN relay so voice
 # works for friends on strict networks. Fill in deploy/.env (see .env.example), then:
 #   docker compose up -d --build
+# Logs (which can include IP addresses, e.g. the voice relay's) are capped at 3 files of 5 MB per service, so old
+# entries roll off instead of piling up.
+x-logging: &logs
+  driver: json-file
+  options: { max-size: "5m", max-file: "3" }
+
 services:
   partyline:
+    logging: *logs
     build:
       context: ../app
       args:
@@ -34,6 +41,7 @@ services:
       - partyline-data:/data
 
   caddy:
+    logging: *logs
     image: caddy:2.8
     restart: unless-stopped
     ports:
@@ -52,6 +60,7 @@ services:
       - partyline
 
   turn:
+    logging: *logs
     image: coturn/coturn:4.6.3
     restart: unless-stopped
     network_mode: host
@@ -92,6 +101,7 @@ services:
   # Optional media server for voice channels with more than about 10 people.
   # Turn it on with ./voice-server.sh on (it sets COMPOSE_PROFILES=sfu and LIVEKIT_URL in .env).
   livekit:
+    logging: *logs
     image: livekit/livekit-server:v1.8.4
     profiles: ["sfu"]
     restart: unless-stopped

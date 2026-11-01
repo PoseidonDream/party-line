@@ -36,8 +36,8 @@ function contentPolicy(req) {
   return [
     "default-src 'self'",
     `script-src 'self' https://www.youtube.com${inline}${testEval}`,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",   // the fonts are served from here (web/fonts): no request to Google
     "img-src 'self' data: blob:",
     "media-src 'self' data: blob:",
     ["connect-src 'self' https://api.github.com", ...livekitOrigins].join(' '),
@@ -81,7 +81,12 @@ const wrap = (fn) => async (req, res) => {
   }
 };
 
-app.get('/api/info', wrap(() => ({ name: 'Party Line', version: 1, contact: config.contactEmail || null, mail: mailReady() })));
+app.get('/api/info', wrap(() => ({ name: 'Party Line', version: 1, contact: config.contactEmail || null, mail: mailReady(), termsVersion: config.termsVersion })));
+/* "Download my data" (Settings → Account → Privacy): one JSON file with your account and everything you sent. */
+app.get('/api/account/export', auth, (req, res) => {
+  res.setHeader('Content-Disposition', `attachment; filename="party-line-${req.user.name.replace(/[^\w-]+/g, '_')}-data.json"`);
+  res.json(M.exportData(req.user.id));
+});
 /* For the auto-updater on the server itself (deploy/auto-update.sh): how many people are in voice right now.
    Only answers requests from inside the machine; through Caddy the request comes from another address. */
 app.get('/api/local/voice-count', (req, res) => {
@@ -354,6 +359,7 @@ app.use((err, req, res, next) => {
 /* Hourly: delete photos and videos nothing uses any more, half-finished uploads, and sign-ins unused for months. */
 function cleanUploads() {
   M.expireSessions();
+  M.pruneOld();
   let n = 0;
   for (const id of M.unusedUploads()) { fs.rm(path.join(uploadDir, id), { force: true }, () => {}); M.forgetUpload(id); n++; }
   for (const f of fs.readdirSync(uploadDir)) {

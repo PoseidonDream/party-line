@@ -2,6 +2,11 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 14, items: [
+    ['🔒', 'Your privacy', 'New: Terms of service and a Cookie policy, and a clearer Privacy policy. YouTube now loads only if you allow it. Settings → Account → Privacy.'],
+    ['📦', 'Download my data', 'Get a file with your account, profile and everything you sent: Settings → Account → Privacy → Download my data.'],
+    ['⌨️', 'Easier with a keyboard', 'Every button can be reached with Tab, and the crop window works with the arrow keys.'],
+  ] },
   { id: 13, items: [
     ['🖼️', 'Profile backgrounds', 'Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.'],
     ['👀', 'Profile preview', 'Settings → Profile now starts with your profile as friends see it, so you can try banner colors, effects, rings and name colors before saving.'],

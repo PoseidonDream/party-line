@@ -36,7 +36,7 @@ export default async function (ok) {
 
     const a = await signUp(browser, srv.url, 'Poseidon');
     const b = await signUp(browser, srv.url, 'Bora');
-    for (const p of [a, b]) await p.context().route('https://www.youtube.com/iframe_api', (r) => r.fulfill({ contentType: 'text/javascript', body: FAKE_YT }));
+    for (const p of [a, b]) { await p.context().route('https://www.youtube.com/iframe_api', (r) => r.fulfill({ contentType: 'text/javascript', body: FAKE_YT })); await p.evaluate(() => localStorage.setItem('pl:consent', JSON.stringify({ youtube: true, at: Date.now(), v: 1 }))); }   // they allowed YouTube
     const say = async (p, text) => { await p.fill('#chatInput', text); await p.keyboard.press('Enter'); };
     const botMsg = (p, text, timeout = 8000) => p.waitForSelector(`#messages .msg:has(.bot-tag):has-text("${text}")`, { timeout });
 

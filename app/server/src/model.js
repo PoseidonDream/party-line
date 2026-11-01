@@ -71,7 +71,7 @@ export const UNLOCKS = { flair: { galaxy: 10, plasma: 15 }, bannerFx: { matrix: 
 const needLevel = (userId, lvl, what) => { const u = getUser(userId); if (!u.is_admin && levelOf(u.xp) < lvl) fail(`Reach level ${lvl} to unlock ${what}.`); };
 /* What only you see about yourself. */
 export const selfView = (u) => Object.assign(publicUser(u), { status: u.status || 'online', newsSeen: u.news_seen, twoStep: !!u.totp_secret,
-  email: u.email || null, emailPending: u.email_pending || null, born: u.born || null, adult: isAdult(u) });
+  email: u.email || null, emailPending: u.email_pending || null, born: u.born || null, adult: isAdult(u), agreedVersion: u.agreed_version || null });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
@@ -82,10 +82,11 @@ export function register(name, pass, agree) {
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   newPassOk(pass, 'Pick a password with at least 8 characters.');
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
-  if (agree !== true) fail('To make an account, agree to the community rules and the privacy policy.');
+  if (agree !== true) fail('To make an account, confirm you’re 13 or older and agree to the terms, the rules and the privacy policy.');
   // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
-  const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen) VALUES (?, ?, ?, ?, ?, -1)',
-    name, foldKey(name), hashPass(pass), isAdminName(name) ? 1 : 0, now()).lastInsertRowid);
+  // When they agreed to the terms, and to which version (a record of consent).
+  const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen, agreed_at, agreed_version) VALUES (?, ?, ?, ?, ?, -1, ?, ?)',
+    name, foldKey(name), hashPass(pass), isAdminName(name) ? 1 : 0, now(), now(), config.termsVersion).lastInsertRowid);
   // New accounts start in no server: friends bring them in with an invite link. Admins (and everyone, when the
   // server is set to AUTO_JOIN=1) land in the main server straight away.
   const def = one('SELECT id FROM servers WHERE is_default = 1');
@@ -145,6 +146,35 @@ export function confirmTotp(userId, code) {
 export function stopTotp(userId, pass) {
   if (!checkPass(pass, getUser(userId).pass_hash)) fail('Your password is wrong.');
   run('UPDATE users SET totp_secret = NULL, totp_pending = NULL WHERE id = ?', userId);
+}
+
+/* Agreeing to updated terms (asked in the app when the version changes). */
+export function agreeTerms(userId) { run('UPDATE users SET agreed_at = ?, agreed_version = ? WHERE id = ?', now(), config.termsVersion, userId); return getUser(userId); }
+
+/* "Download my data": everything about you and everything you sent, as one file (the right to see and take your data). */
+export function exportData(userId) {
+  const u = getUser(userId);
+  const nameOf = (id) => (getUser(id) || { name: '(deleted)' }).name;
+  const where = (m) => (m.channel_id ? (() => { const c = getChannel(m.channel_id); const s = c && getServer(c.server_id); return c ? `${s ? s.name : ''} #${c.name}` : 'a deleted channel'; })()
+    : (() => { const d = one('SELECT * FROM dms WHERE id = ?', m.dm_id); return d ? `private chat with ${nameOf(d.user_a === userId ? d.user_b : d.user_a)}` : 'a private chat'; })());
+  return {
+    exported: new Date().toISOString(),
+    account: { name: u.name, created: new Date(u.created_at).toISOString(), admin: !!u.is_admin, email: u.email || null, birthDate: u.born || null, birthday: u.birthday || null,
+      twoStepSignIn: !!u.totp_secret, agreedToTerms: u.agreed_at ? { at: new Date(u.agreed_at).toISOString(), version: u.agreed_version } : null, xp: u.xp, streak: u.streak, achievements: u.badges ? JSON.parse(u.badges) : {} },
+    profile: { status: u.status, customStatus: u.custom_status, aboutMe: u.bio, banner: u.banner, bannerEffect: u.banner_fx, ring: u.flair, nameColor: u.name_color,
+      favoriteGames: u.fav_games ? JSON.parse(u.fav_games) : [], picture: u.avatar, background: u.bg },
+    devices: all('SELECT device, created_at, last_seen FROM sessions WHERE user_id = ?', userId).map((s) => ({ device: s.device, signedIn: new Date(s.created_at).toISOString(), lastUsed: new Date(s.last_seen).toISOString() })),
+    servers: all('SELECT s.name, m.joined_at FROM members m JOIN servers s ON s.id = m.server_id WHERE m.user_id = ?', userId).map((r) => ({ name: r.name, joined: new Date(r.joined_at).toISOString() })),
+    friends: all('SELECT friend_id, state FROM friends WHERE user_id = ?', userId).map((f) => ({ name: nameOf(f.friend_id), state: f.state })),
+    blocked: all('SELECT blocked_id FROM blocks WHERE user_id = ?', userId).map((r) => nameOf(r.blocked_id)),
+    messages: all('SELECT * FROM messages WHERE user_id = ? ORDER BY id', userId).map((m) => ({ sent: new Date(m.created_at).toISOString(), where: where(m), text: m.body,
+      files: m.attachments ? JSON.parse(m.attachments).map((a) => ({ name: a.name, url: `/uploads/${a.id}` })) : [] })),
+    reactions: all('SELECT r.emoji, r.message_id FROM reactions r WHERE r.user_id = ?', userId).map((r) => ({ emoji: r.emoji, onMessage: r.message_id })),
+    eventsPlanned: all('SELECT title, starts_at FROM events WHERE creator_id = ?', userId).map((e) => ({ title: e.title, starts: new Date(e.starts_at).toISOString() })),
+    feedbackSent: all('SELECT * FROM feedback WHERE user_id = ?', userId).map((f) => ({ sent: new Date(f.created_at).toISOString(), kind: f.kind, text: f.body })),
+    reportsMade: all('SELECT reason, note, created_at FROM reports WHERE reporter_id = ?', userId).map((r) => ({ made: new Date(r.created_at).toISOString(), reason: r.reason, note: r.note })),
+    featureUse: all('SELECT day, feature, n FROM feature_use WHERE user_id = ? ORDER BY day', userId),
+  };
 }
 
 /* ---------- optional email: confirmed with a code, then usable for password resets ---------- */
@@ -1245,6 +1275,14 @@ export function unusedUploads(olderThan = 60 * 60_000) {
   return all('SELECT id FROM uploads WHERE created_at < ?', now() - olderThan).map((r) => r.id).filter((id) => !used.has(id));
 }
 export const forgetUpload = (id) => run('DELETE FROM uploads WHERE id = ?', id);
+/* Keeping only what's needed (hourly, from index.js): old password-reset requests (they expire after 24 hours anyway),
+   reports an admin already handled, and the admin log after 6 months. */
+export function pruneOld() {
+  const day = 86400_000;
+  run('DELETE FROM reset_requests WHERE created_at < ?', now() - 7 * day);
+  run('DELETE FROM reports WHERE handled_at IS NOT NULL AND handled_at < ?', now() - 90 * day);
+  run('DELETE FROM audit WHERE at < ?', now() - 180 * day);
+}
 
 /* ---------- Deleting your account (Settings -> Account, or the /delete-account page) ----------
    Your messages, private chats, reactions, sounds, emoji, feedback and everything else that's yours go too. Servers

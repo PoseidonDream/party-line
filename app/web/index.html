@@ -7,9 +7,7 @@
 <title>Party Line</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/app.css">
 <script src="/js/theme.js"></script>
 </head>
@@ -92,7 +90,7 @@
 
 <!-- ================= SIGN IN ================= -->
 <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch dark or light mode" title="Switch dark or light mode" hidden><svg class="ic"><use href="#i-sun"/></svg></button>
-<label class="join-lang" id="joinLangBox" hidden><span class="sr">Language</span><span aria-hidden="true">🌐</span><select id="joinLang" class="lang-select" aria-label="Language"></select></label>
+<header aria-label="Language"><label class="join-lang" id="joinLangBox" hidden><span class="sr">Language</span><span aria-hidden="true">🌐</span><select id="joinLang" class="lang-select" aria-label="Language"></select></label></header>
 <main id="join" class="join" hidden>
   <section>
     <h1 class="wordmark"><span>Party</span><span class="lit">Line</span></h1>
@@ -135,7 +133,10 @@
         <input type="text" id="mailCode" class="input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
         <p class="hint">If this account has a confirmed email, a 6-digit code is on its way there (check spam too). It works for 15 minutes.</p>
       </div>
-      <label class="check agree-check" id="agreeField" hidden><input type="checkbox" id="authAgree"><span>I agree to the <a href="/rules" target="_blank" rel="noopener">community rules</a> and the <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.</span></label>
+      <div class="agree-box" id="agreeField" hidden>
+        <label class="check agree-check"><input type="checkbox" id="authAgree"><span>I’m 13 or older, and I agree to the Terms of service, the Community rules and the Privacy policy.</span></label>
+        <p class="agree-links"><a href="/terms" target="_blank" rel="noopener">Terms of service</a> · <a href="/rules" target="_blank" rel="noopener">Community rules</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a></p>
+      </div>
       <p class="error" id="authError" role="alert" hidden></p>
       <button type="submit" class="btn primary" id="authBtn">Sign in</button>
       <button type="button" class="link-btn auth-forgot" id="authForgot">Forgot your password?</button>
@@ -150,6 +151,10 @@
     </div>
     <p class="fineprint">Messages and pictures are kept on your group's Party Line server. Voice and screen shares go straight between you and your friends. Use headphones to avoid echo. <a href="/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="/rules" target="_blank" rel="noopener">Rules</a></p>
   </section>
+  <div class="cookie-banner" id="cookieBanner" role="region" aria-labelledby="cookieTitle" hidden>
+    <p><b id="cookieTitle">Your privacy</b> Party Line sets no cookies and has no ads or tracking. It only stores what it needs on this device to keep you signed in and remember your settings. Videos from YouTube load only if you allow them, because YouTube may set its own cookies. <a href="/cookies" target="_blank" rel="noopener">Cookie policy</a></p>
+    <div class="cookie-btns"><button type="button" class="btn" id="cookieNecessary">Necessary only</button><button type="button" class="btn" id="cookieAllow">Allow YouTube</button></div>
+  </div>
 </main>
 
 <div class="switching" id="booting"><div class="boot-box">
@@ -163,6 +168,7 @@
 
 <!-- ================= APP ================= -->
 <main id="room" class="app" hidden>
+  <a class="skip-link" id="skipLink" href="#chatInput">Skip to the message box</a>
   <aside class="side" id="side" aria-label="Servers and channels">
     <nav class="rail" aria-label="Your servers">
       <div class="rail-item" id="railHomeItem"><button type="button" class="rail-btn rail-home" id="railHome" title="Home: friends and private chats" aria-label="Home"><svg class="ic"><use href="#i-home"/></svg></button><span class="rail-badge" id="railHomeBadge" hidden></span></div>
@@ -472,7 +478,7 @@
     <div class="update-actions"><a class="btn small primary" id="updateGo" target="_blank" rel="noopener">Update</a><button type="button" class="btn small ghost" id="updateLater">Later</button></div>
   </aside>
   <aside class="music-card" id="musicCard" hidden aria-label="Music playing in your voice channel">
-    <div class="music-frame" id="musicFrame"><div id="musicPlayer"></div><button type="button" class="btn primary music-start" id="musicStart" hidden><svg class="ic"><use href="#i-play"/></svg>Click to hear the music</button></div>
+    <div class="music-frame" id="musicFrame"><div class="music-consent" id="musicConsent" hidden><p>Listen together plays through YouTube, which may set its own cookies.</p><button type="button" class="btn primary" id="musicConsentOk">Allow YouTube</button><a href="/cookies" target="_blank" rel="noopener">Cookie policy</a></div><div id="musicPlayer"></div><button type="button" class="btn primary music-start" id="musicStart" hidden><svg class="ic"><use href="#i-play"/></svg>Click to hear the music</button></div>
     <div class="music-info"><b id="musicTitle"></b><small id="musicBy"></small><small class="music-next" id="musicNext"></small></div>
     <div class="music-ctl">
       <button type="button" class="ub" id="musicPause"></button>
@@ -774,8 +780,8 @@
   <form method="dialog">
     <div class="set-head"><h2 id="cropTitle">Choose the part to show</h2><button class="btn icon-btn" value="cancel" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
     <div class="set-body crop-body">
-      <div class="crop-frame" id="cropFrame"></div>
-      <p class="hint">✋ Drag the picture to move it. Use the slider to zoom.</p>
+      <div class="crop-frame" id="cropFrame" tabindex="0" role="img" aria-label="The picture. Use the arrow keys to move it, and + or − to zoom." aria-describedby="cropHint"></div>
+      <p class="hint" id="cropHint">✋ Drag the picture to move it (or use the arrow keys). Use the slider to zoom.</p>
       <label class="crop-zoom"><span aria-hidden="true">−</span><input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><span aria-hidden="true">+</span></label>
       <div class="row-btns"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok" id="cropOk">Use</button></div>
     </div>
@@ -1025,6 +1031,15 @@
             <p class="hint" id="ageDone" hidden></p>
           </div>
         </details>
+        <details class="pw-box" id="privacyBox">
+          <summary>Privacy</summary>
+          <div class="pw-form">
+            <label class="check"><input type="checkbox" id="setYouTube"><span><b>Videos from YouTube</b><small>Listen together and video previews play through YouTube, which may set its own cookies. Off: nothing loads from YouTube.</small></span></label>
+            <div class="row"><button type="button" class="btn" id="exportData">Download my data</button></div>
+            <p class="hint">A file with your account, profile and everything you sent.</p>
+            <p class="hint"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="/terms" target="_blank" rel="noopener">Terms of service</a> · <a href="/rules" target="_blank" rel="noopener">Community rules</a> · <a href="/cookies" target="_blank" rel="noopener">Cookie policy</a></p>
+          </div>
+        </details>
         <details class="pw-box" id="pwBox">
           <summary>Change password</summary>
           <div class="pw-form">
@@ -1063,7 +1078,7 @@
         <p class="hint" id="appInfo"></p>
         <button type="button" class="link-btn" id="devOpen" hidden><svg class="ic"><use href="#i-code"/></svg>Developer panel (Ctrl+Shift+D)</button>
         <button type="button" class="link-btn" id="signOut"><svg class="ic"><use href="#i-leave"/></svg>Sign out on this device</button>
-        <p class="hint legal-links"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="/rules" target="_blank" rel="noopener">Community rules</a></p>
+        <p class="hint legal-links"><a href="/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="/terms" target="_blank" rel="noopener">Terms of service</a> · <a href="/rules" target="_blank" rel="noopener">Community rules</a> · <a href="/cookies" target="_blank" rel="noopener">Cookie policy</a></p>
       </section>
     </div>
   </form>
@@ -1146,6 +1161,17 @@
     <button type="button" class="btn small" id="admAge">Clear confirmed age</button>
   </div>
 </div>
+
+
+<dialog id="termsDlg" aria-labelledby="termsTitle">
+  <form method="dialog" class="set-body terms-body">
+    <h2 id="termsTitle">We updated our terms</h2>
+    <p>Please look at the updated Terms of service and Privacy policy. To keep using Party Line, agree to them.</p>
+    <p class="agree-links"><a href="/terms" target="_blank" rel="noopener">Terms of service</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="/cookies" target="_blank" rel="noopener">Cookie policy</a></p>
+    <div class="row-btns"><button type="button" class="btn" id="termsSignOut">Sign out</button><button type="button" class="btn primary" id="termsAgree">I agree</button></div>
+  </form>
+</dialog>
+
 <dialog id="confirmDlg" aria-labelledby="cfTitle">
   <form method="dialog" class="cf">
     <h2 id="cfTitle"></h2>

@@ -36,7 +36,7 @@ export default async function (report) {
     await p.fill('#authName', 'Robot'); await p.fill('#authPass', 'pass1234');
     await p.click('#authBtn');
     await p.waitForSelector('#authError:not(:empty)');
-    ok('…errors are in Turkish too', (await p.textContent('#authError')).includes('topluluk kurallarını'));
+    ok('…errors are in Turkish too', (await p.textContent('#authError')).includes('kutuyu işaretle'));
     await p.check('#authAgree'); await p.click('#authBtn');
     await p.waitForSelector('#room:not([hidden])');
     ok('inside the app it stays in Turkish', (await p.getAttribute('#setBtn', 'title')) === 'Ayarlar');

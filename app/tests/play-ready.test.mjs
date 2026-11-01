@@ -10,13 +10,13 @@ export default async function (ok) {
 
     // Agreeing to the rules
     const noAgree = await api('/api/register', { name: 'Nope', password: 'pass1234' });
-    ok('making an account needs agreeing to the rules', noAgree.status === 400 && /community rules/.test(noAgree.error));
+    ok('making an account needs agreeing to the rules', noAgree.status === 400 && /13 or older and agree to the terms, the rules/.test(noAgree.error));
     const p = await openPage(browser, srv.url);
     await p.click('#tabRegister'); await p.fill('#authName', 'Lale'); await p.fill('#authPass', 'pass1234');
     ok('making an account asks only for a name and a password (no group password)', (await p.locator('#join input:visible:not([type=checkbox])').count()) === 2);
     ok('…the box is on the Create account form, with links to the rules and the privacy policy', await p.isVisible('#agreeField a[href="/rules"]') && await p.isVisible('#agreeField a[href="/privacy"]'));
     await p.click('#authBtn');
-    ok('…and without ticking it, it says so', /agree to the community rules/.test(await p.textContent('#authError')));
+    ok('…and without ticking it, it says so', /13 or older and agree to the terms, the rules/.test(await p.textContent('#authError')));
     await p.check('#authAgree'); await p.click('#authBtn'); await p.waitForSelector('#room:not([hidden])');
     const lale = p;
 

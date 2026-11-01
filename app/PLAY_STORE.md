@@ -3,7 +3,9 @@
 The app already does what Google Play asks of an app where people talk to each other:
 
 - It's built for Android 16 (API 36), in the format Play takes (an `.aab` "app bundle").
-- People agree to the **community rules** and the **privacy policy** when they make an account.
+- People confirm they're 13 or older and agree to the **terms of service**, the **community rules** and the **privacy policy** when they make an account (the server keeps when, and which version; when the terms change, the app asks again).
+- There's a **cookie policy** and a cookie notice. Party Line sets no cookies; YouTube (Listen together, video previews) loads only after people allow it.
+- Anyone can **download their data** (Settings → Account → Privacy → Download my data).
 - Anyone can **block** someone (click their name → Block) and **report** a message or a person (point at a message → 🚩, or click a name → Report). Reports go to the admins in Party Bot's private chat and in the Developer panel → Reports.
 - Anyone can **delete their account**: in the app (Settings → Account → Delete my account) and on a web page (`/delete-account`).
 - The app speaks 7 languages, so the store listing can too.
@@ -39,6 +41,7 @@ GitHub → **Actions → Android app → Run workflow**. After about 5 minutes t
 | Card | What to enter |
 |---|---|
 | Privacy policy | `https://poseidonparty.duckdns.org/privacy` |
+| Terms of service (if asked) | `https://poseidonparty.duckdns.org/terms` |
 | App access (now called "Sign-in details") | "Does your app have restricted parts?" **Yes**, "All or some functionality is restricted". Make an account for Google's reviewers first: open the website in a private window (Safari or Chrome: Shift+Cmd+N), Create account, name `PlayReview`, a password of at least 8 characters. Give them that name and password, and write: *"Sign in with the name and password above. Voice: open the Lobby voice channel. Report a message: tap it, then press the flag. Block or report a person: tap their name, then Block or Report."* |
 | Ads | No ads |
 | Content rating | Fill in the questionnaire honestly: a communication app, people can talk and share photos with each other, no gambling, no purchases. Can people block others or what they post? **Yes.** Report them? **Yes.** Is chat moderated? **No** (admins act on reports, nobody reads chats in advance). Can interactions be limited to invited friends only? **No** (new accounts join your main server). Digital purchases? **No.** |
@@ -107,13 +110,13 @@ Party Line keeps data on **your own server**; it sells nothing and shows no ads.
 | Audio → Voice or sound recordings | Yes (voice messages, soundboard sounds; live voice isn't recorded) | App functionality | Optional |
 | Audio → Other audio files | Yes (shared audio files) | App functionality | Optional |
 | Files and docs | Yes (shared files) | App functionality | Optional |
-| App activity → App interactions | Yes (which features are used, counted per day, for the weekly report) | Analytics | Required |
+| App activity → App interactions | Yes (which features are used, counted per day and kept 30 days, for the weekly report) | Analytics | Required |
 | App activity → Other user-generated content | Yes (polls, events, profile "About me") | App functionality | Optional |
 | App info and performance → Diagnostics | No | | |
 | Device or other IDs | No (the "devices you're signed in on" list is only a label like "Chrome on Windows") | | |
 | Location, contacts, calendar, health, financial, web history | No | | |
 
-**Is data processed ephemerally?** No: messages and files are kept until someone deletes them.
+**Is data processed ephemerally?** No: messages and files are kept until someone deletes them. Other things are kept only as long as needed: feature counts 30 days, handled reports 90 days, password-reset requests 7 days, the admins' log 6 months, unused sign-ins 4 months, server logs a few days. IP addresses aren't stored.
 
 ## The microphone in the background
 

@@ -16,7 +16,15 @@ label { font-size: 14px; color: var(--dim); }
 input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; color: var(--fg); }
 .check input { margin-top: 5px; accent-color: var(--danger); }
-button { font: inherit; font-weight: 700; padding: 12px; border: 0; border-radius: 10px; background: var(--danger); color: #fff; cursor: pointer; }
+button { font: inherit; font-weight: 700; padding: 12px; border: 0; border-radius: 10px; background: #c0392b; color: #fff; cursor: pointer; }   /* dark enough for white text in both looks */
 button:disabled { opacity: .6; cursor: progress; }
 .error { color: var(--danger); margin: 0; }
 .done { font-size: 18px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--dim); font-weight: 600; }
+code { font: 14px ui-monospace, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.legal-nav { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; }
+.legal-nav a[aria-current="page"] { color: var(--fg); text-decoration: none; font-weight: 600; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 560px) { table, thead, tbody, tr, th, td { display: block; } thead { display: none; } td { border: 0; padding: 2px 0; } tr { padding: 10px 0; border-bottom: 1px solid var(--line); } td:first-child { font-weight: 600; } }

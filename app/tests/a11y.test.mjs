@@ -1,5 +1,6 @@
 /* Accessibility: axe-core checks the main screens in the dark and the light look (labels, roles, contrast, keyboard
-   access to scrolling areas, heading order). */
+   access to scrolling areas, heading order), from the sign-in screen and policy pages to the crop window. And the
+   keyboard: a skip link, message buttons that show up when reached with Tab, the crop window, Esc closing menus. */
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { startServer, launchBrowser, signUp } from './lib.mjs';
@@ -16,6 +17,21 @@ export default async function (ok) {
     await req(b, 'msg.send', { channelId: 1, body: 'hello **there** https://example.com', attachments: [] });
     await req(b, 'poll.create', { channelId: 1, question: 'Pizza?', options: ['Yes', 'No'] });
     await req(b, 'lfg.create', { channelId: 1, game: 'Valorant', need: 2 });
+    // Before signing in: the sign-in screen with its cookie notice, and the policy pages, in both looks
+    const early = [];
+    for (const scheme of ['dark', 'light']) {
+      const v = await browser.newPage({ colorScheme: scheme });
+      for (const where of ['/', '/privacy', '/terms', '/cookies', '/rules', '/delete-account']) {
+        await v.goto(srv.url + where);
+        if (where === '/') await v.waitForSelector('#cookieBanner:not([hidden])');
+        await v.evaluate(AXE).catch(() => {});
+        const found = await v.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes[0].target.join(' ')})`));
+        for (const x of found) early.push(`${scheme} ${where}: ${x}`);
+      }
+      await v.close();
+    }
+    ok(`the sign-in screen, cookie notice and policy pages have no accessibility problems${early.length ? ': ' + early.slice(0, 6).join(' | ') : ''}`, !early.length);
+
     for (const theme of ['dark', 'light']) {
       const a = await signUp(browser, srv.url, theme === 'dark' ? 'Poseidon' : 'Lale');
       if (theme === 'light') {
@@ -31,12 +47,37 @@ export default async function (ok) {
         for (const x of v) found.push(`${where}: ${x}`);
       };
       await audit('chat');
+      if (theme === 'dark') {
+        const firstInRoom = await a.evaluate(() => document.querySelector('#room').querySelector('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])').id);
+        await a.focus('#textList .chan >> nth=0'); await a.focus('#skipLink');
+        const first = [firstInRoom, await a.evaluate(() => { const r = document.activeElement.getBoundingClientRect(); return r.top >= 0 && r.height > 20; })];
+        await a.keyboard.press('Enter');
+        ok('the first stop for Tab is “Skip to the message box”, it shows up, and Enter goes there', first[0] === 'skipLink' && first[1] && await a.evaluate(() => document.activeElement.id === 'chatInput'));
+        await a.focus('#messages .msg:has-text("hi from me") .msg-tool >> nth=0');
+        await a.waitForTimeout(200);
+        ok('a message’s buttons show up when reached with Tab', await a.evaluate(() => Number(getComputedStyle(document.activeElement.closest('.msg-tools')).opacity) === 1));
+        await a.evaluate(() => { const d = document.querySelector('#termsDlg'); d.showModal(); }); await audit('terms window');
+        await a.evaluate(() => document.querySelector('#termsDlg').close());
+      }
       await a.click('#railHome'); await audit('home');
       await a.click('#navFriends'); await audit('friends');
       await a.click('#navTop'); await audit('leaderboard'); await a.click('[data-toptab="ach"]'); await audit('achievements'); await a.keyboard.press('Escape');
       await a.click('#railList .rail-btn');
       await a.click('#setBtn');
       for (const t of ['profile', 'look', 'voice', 'alerts', 'account']) { await a.click(`#settings [role="tab"][data-settab="${t}"]`); await audit(`settings ${t}`); }
+      await a.click('#privacyBox > summary'); await audit('settings privacy');
+      await a.click('#settings [role="tab"][data-settab="profile"]');
+      const PNG = Buffer.from(await a.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 300; const g = c.getContext('2d'); g.fillStyle = '#4a7'; g.fillRect(0, 0, 400, 300); g.fillStyle = '#a47'; g.fillRect(0, 0, 200, 150); return c.toDataURL('image/png').split(',')[1]; }), 'base64');
+      await a.setInputFiles('#setBgFile', { name: 'bg.png', mimeType: 'image/png', buffer: PNG });
+      await a.waitForSelector('#cropDlg[open]'); await audit('crop window');
+      if (theme === 'dark') {
+        await a.focus('#cropFrame');
+        const before = await a.evaluate(() => document.querySelector('#cropFrame').style.backgroundPosition);
+        await a.keyboard.press('ArrowLeft'); await a.keyboard.press('ArrowLeft'); await a.keyboard.press('+');
+        const after = await a.evaluate(() => [document.querySelector('#cropFrame').style.backgroundPosition, document.querySelector('#cropZoom').value]);
+        ok('the crop window works with the keyboard (arrows move the picture, + zooms)', after[0] !== before && Number(after[1]) > 1);
+      }
+      await a.click('#cropDlg button[value="cancel"] >> nth=1');
       await a.keyboard.press('Escape');
       await a.click('#attachBtn'); await a.click('#attachPoll'); await audit('new poll'); await a.keyboard.press('Escape');
       await a.click('#voiceList .chan:has-text("Lobby")'); await a.waitForSelector('#voiceStatus:not([hidden])', { timeout: 10000 }); await audit('voice');

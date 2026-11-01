@@ -1512,6 +1512,8 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .report-list blockquote { margin: 4px 0; padding: 6px 10px; border-left: 3px solid var(--danger); color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-list p { margin: 0; color: var(--dim); }
 /* Language pickers: next to the light/dark switch on the sign-in screen, and in Settings → Look */
+.skip-link { position: absolute; z-index: 300; left: 12px; top: -80px; padding: 10px 16px; border-radius: 10px; background: var(--lamp); color: #000; font-weight: 700; text-decoration: none; }
+.skip-link:focus { top: calc(env(safe-area-inset-top, 0px) + 12px); }
 .join-lang { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 62px; height: 42px; display: flex; align-items: center; gap: 4px; padding: 0 6px 0 12px; border-radius: 21px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font-size: 15px; }
 .join-lang select { height: 40px; border: 0; background: transparent; color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
 .join-lang select:focus { outline: none; }
@@ -1549,3 +1551,19 @@ dialog.jump-dlg { width: min(560px, calc(100% - 32px)); margin-top: 12vh; paddin
 .crop-zoom input { flex: 1; accent-color: var(--lamp); }
 /* A GIF profile picture shows the part its owner picked. */
 .has-img.fit { background-size: var(--fit-size) !important; background-position: var(--fit-pos) !important; }
+/* Sign-up consent, the cookie notice and the updated-terms window. */
+.agree-box { display: grid; gap: 4px; }
+.agree-links { margin: 0; font-size: 13px; color: var(--dim); }
+.agree-links a { color: var(--lamp-ink); }
+.cookie-banner { grid-column: -2; align-self: start; margin-top: calc(-1 * clamp(28px, 5vw, 80px) + 16px); display: grid; gap: 10px; padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 14px; line-height: 1.5; }
+.cookie-banner p { margin: 0; }
+.cookie-banner b { display: block; font-size: 15px; margin-bottom: 2px; }
+.cookie-banner a { color: var(--lamp-ink); }
+.cookie-btns { display: flex; gap: 8px; }
+.cookie-btns .btn { flex: 1; }
+.music-consent { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 16px; text-align: center; background: rgba(0, 0, 0, .85); color: #fff; font-size: 14px; }
+.music-consent p { margin: 0; max-width: 34ch; }
+.music-consent a { color: var(--lamp-ink); }
+.terms-body { display: grid; gap: 12px; max-width: 460px; }
+.terms-body h2 { margin: 0; }
+.terms-body p { margin: 0; }

@@ -33,6 +33,9 @@ export const config = {
   autoJoin: env.AUTO_JOIN === '1',
   // Shown on the privacy policy and community rules pages as the way to reach whoever runs this server.
   contactEmail: env.CONTACT_EMAIL || '',
+  // The date of the current Terms of service / Privacy policy (web/terms.html, web/privacy.html). Changing it asks
+  // everyone to look at them and agree again.
+  termsVersion: '2026-11-01',
   // Optional email (codes to confirm an address, and password resets by email). Without SMTP_HOST, email stays hidden.
   smtp: { host: env.SMTP_HOST || '', port: Number(env.SMTP_PORT || 465), user: env.SMTP_USER || '', pass: env.SMTP_PASS || '', from: env.SMTP_FROM || env.SMTP_USER || '' },
   mailDir: env.MAIL_DIR || '',   // tests only: emails are written here as files instead of sent

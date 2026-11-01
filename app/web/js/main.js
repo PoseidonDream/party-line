@@ -248,7 +248,7 @@ $('#authForm').addEventListener('submit', async (e) => {
       start();
       return;
     }
-    if (authMode === 'register' && !$('#authAgree').checked) { err.textContent = 'To make an account, agree to the community rules and the privacy policy (the box above).'; err.hidden = false; return; }
+    if (authMode === 'register' && !$('#authAgree').checked) { err.textContent = 'To make an account, tick the box above: you’re 13 or older and agree to the terms, the rules and the privacy policy.'; err.hidden = false; return; }
     const body = { name: $('#authName').value, password: $('#authPass').value, code: $('#authCode').value, device: await appLabel(), agree: authMode === 'register' };
     const r = await api(authMode === 'register' ? '/api/register' : '/api/login', { body });
     if (r.needCode) { $('#codeField').hidden = false; $('#authCode').focus(); return; }   // 2-step sign-in is on
@@ -328,6 +328,7 @@ live.on('ready', (d) => {
   const first = !S.ready;
   S.ready = true;
   $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true; $('#joinLangBox').hidden = true;
+  checkTerms();
   if (first) {
     const last = store.get('lastView', null);
     if (last && ((last.kind === 'dm' && S.users.has(last.userId)) || last.kind === 'home')) S.view = last;
@@ -1359,18 +1360,22 @@ function embedEl(e) {
   const card = document.createElement('div'); card.className = 'embed' + (e.big ? ' big' : '');
   const text = document.createElement('div'); text.className = 'embed-text';
   const site = document.createElement('small'); site.className = 'embed-site'; site.textContent = e.site; text.appendChild(site);
-  const t = document.createElement('a'); t.className = 'embed-title'; t.href = e.url; t.target = '_blank'; t.rel = 'noopener noreferrer'; t.textContent = e.title; text.appendChild(t);
+  const link = document.createElement('a'); link.className = 'embed-title'; link.href = e.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = e.title; text.appendChild(link);
   if (e.description) { const d = document.createElement('p'); d.className = 'embed-desc'; d.textContent = e.description; text.appendChild(d); }
   card.appendChild(text);
   if (e.image) {
     const box = document.createElement(e.youtube ? 'button' : 'a'); box.className = 'embed-img';
-    const img = document.createElement('img'); img.loading = 'lazy'; img.alt = ''; img.src = absUrl(e.image);
+    const img = document.createElement('img'); img.loading = 'lazy'; img.alt = e.title ? `${t('Preview')}: ${e.title}` : ''; img.src = absUrl(e.image);
     img.addEventListener('error', () => box.remove());
     box.appendChild(img);
     if (e.youtube) {
       box.type = 'button'; box.setAttribute('aria-label', `Play ${e.title}`);
       box.insertAdjacentHTML('beforeend', `<span class="embed-play">${iconSvg('play')}</span>`);
-      box.addEventListener('click', () => {
+      box.addEventListener('click', async () => {
+        if (!youtubeOk()) {   // YouTube only with the person's OK (it may set its own cookies)
+          if (!await confirmBox(t('Play with YouTube?'), t('The video plays through YouTube, which may set its own cookies. You can change this in Settings → Account → Privacy.'), t('Allow YouTube'))) return;
+          setConsent(true);
+        }
         const f = document.createElement('iframe'); f.className = 'embed-video';
         f.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(e.youtube)}?autoplay=1&rel=0`;
         f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.title = e.title;
@@ -1762,7 +1767,7 @@ function renderTray() {
     const d = document.createElement('div'); d.className = 'att'; d.dataset.u = a.url;
     if (IMG_RE.test(a.file.type) || VID_RE.test(a.file.type)) {
       const media = document.createElement(IMG_RE.test(a.file.type) ? 'img' : 'video');
-      media.src = a.url; if (media.tagName === 'VIDEO') media.muted = true;
+      media.src = a.url; if (media.tagName === 'VIDEO') media.muted = true; else media.alt = '';   // its name is written next to it
       d.appendChild(media);
     } else { const ic = document.createElement('span'); ic.className = 'att-file'; ic.innerHTML = iconSvg('file'); d.appendChild(ic); }
     const n = document.createElement('span'); n.className = 'att-name'; n.textContent = a.file.name; d.appendChild(n);
@@ -1788,9 +1793,14 @@ function openLightbox(url, name, video) {
   lbFromGallery = $('#galleryDlg').open;
   if (lbFromGallery) $('#galleryDlg').close();
   $('#lbImg').hidden = !!video; $('#lbVideo').hidden = !video;
-  if (video) { $('#lbVideo').src = url; $('#lbVideo').play().catch(() => {}); } else $('#lbImg').src = url;
+  if (video) { $('#lbVideo').src = url; $('#lbVideo').play().catch(() => {}); } else { $('#lbImg').src = url; $('#lbImg').alt = name || t('Picture'); }
   $('#lbName').textContent = name; $('#lbSave').href = url; $('#lbSave').download = name; $('#lightbox').hidden = false; $('#lbClose').focus();
 }
+$('#skipLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  const box = $('#chatInput');
+  if (box.offsetParent) box.focus(); else { const m = $('#messages'); m.tabIndex = -1; m.focus(); }
+});
 $('#lbClose').addEventListener('click', () => {
   $('#lightbox').hidden = true; $('#lbImg').src = ''; $('#lbVideo').pause(); $('#lbVideo').removeAttribute('src'); $('#lbVideo').load();
   if (lbFromGallery) { lbFromGallery = false; $('#galleryDlg').showModal(); }
@@ -3390,6 +3400,16 @@ function cropPicture(src, shape, start) {
         draw();
       };
       frame.onpointerup = frame.onpointercancel = () => { drag = null; frame.classList.remove('dragging'); };
+      // Keyboard: arrows move the picture (Shift: bigger steps), + and − zoom.
+      frame.onkeydown = (e) => {
+        const step = e.shiftKey ? 10 : 2, clamp = (v) => Math.max(0, Math.min(100, v));
+        const moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+        if (moves[e.key]) { x = clamp(x + moves[e.key][0]); y = clamp(y + moves[e.key][1]); }
+        else if (e.key === '+' || e.key === '=') zoom = Math.min(4, zoom + 0.1);
+        else if (e.key === '-' || e.key === '_') zoom = Math.max(1, zoom - 0.1);
+        else return;
+        e.preventDefault(); zoomEl.value = String(zoom); draw();
+      };
       draw();
       d.returnValue = '';
       d.addEventListener('close', () => {
@@ -3927,6 +3947,40 @@ $('#twoStepConfirm').addEventListener('click', async () => {
 $('#twoStepStop').addEventListener('click', async () => {
   if (await act(() => live.req('totp.stop', { password: $('#twoStepPass').value }), '2-step sign-in is off.')) { S.me.twoStep = false; $('#twoStepPass').value = ''; syncTwoStep(); }
 });
+/* Cookies and privacy: Party Line sets no cookies; YouTube (Listen together, video previews) loads only if the person
+   allowed it, in the notice shown on the first visit or in Settings → Account → Privacy. */
+const consent = () => store.get('consent', null);
+const youtubeOk = () => !!(consent() && consent().youtube);
+function setConsent(youtube) {
+  store.set('consent', { youtube: !!youtube, at: Date.now(), v: 1 });
+  $('#cookieBanner').hidden = true;
+  if ($('#setYouTube')) $('#setYouTube').checked = !!youtube;
+}
+if (!consent()) $('#cookieBanner').hidden = false;
+$('#cookieNecessary').addEventListener('click', () => setConsent(false));
+$('#cookieAllow').addEventListener('click', () => setConsent(true));
+$('#privacyBox').addEventListener('toggle', () => { $('#setYouTube').checked = youtubeOk(); });
+$('#setYouTube').addEventListener('change', (e) => setConsent(e.target.checked));
+$('#exportData').addEventListener('click', async () => {
+  try {
+    const res = await fetch(absUrl('/api/account/export'), { headers: { authorization: `Bearer ${store.get('token', '')}` } });
+    if (!res.ok) throw new Error(t('Couldn’t make the file. Try again.'));
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a'); a.href = url; a.download = `party-line-${S.me.name}-data.json`; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(t('Your data is downloading.'), 3000);
+  } catch (ex) { toast(ex.message, 4000); }
+});
+/* Updated terms: when the Terms of service / Privacy policy change, everyone is asked to look at them and agree. */
+function checkTerms() {
+  serverInfo.then((i) => {
+    if (!i.termsVersion || !S.me || S.me.agreedVersion === i.termsVersion || $('#termsDlg').open) return;
+    $('#termsDlg').showModal();
+  });
+}
+$('#termsAgree').addEventListener('click', async () => { if (await act(() => live.req('terms.agree', {}))) { S.me.agreedVersion = (await serverInfo).termsVersion; $('#termsDlg').close(); } });
+$('#termsSignOut').addEventListener('click', () => { $('#termsDlg').close(); signOut(); });
+$('#termsDlg').addEventListener('cancel', (e) => e.preventDefault());   // agree or sign out
 /* What this server offers (email needs SMTP set up on the server). */
 const serverInfo = api('/api/info').catch(() => ({}));
 /* Settings → Email (optional): a code confirms it; then "Forgot your password?" can send a code there. */
@@ -4596,6 +4650,7 @@ function hideBotNote() { $('#botNote').hidden = true; }
 $('#botNoteX').addEventListener('click', hideBotNote);
 $('#musicBack').addEventListener('click', () => { listenAgain(); syncMusic(); });
 initMusic({
+  youtubeOk, allowYouTube: () => setConsent(true),
   req: (t, d) => live.req(t, d),
   nameOf,
   channelName: (id) => { const f = findChannel(id); return f ? f.channel.name : ''; },
