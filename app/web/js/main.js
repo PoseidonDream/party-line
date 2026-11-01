@@ -8,7 +8,7 @@ import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './
 import { builtinSounds, playSound, openClip, clipToWav, previewClip, MAX_CLIP } from './sounds.js';
 import { createDrawLayer, createClipBuffer, clipsSupported } from './stagefx.js';
 import { withDuration } from './webm.js';
-import { LANGS, setLang, startI18n, currentLang, t } from './i18n.js';
+import { LANGS, setLang, startI18n, currentLang, t, tBot } from './i18n.js';
 const { V } = Voice;
 
 const desktop = window.partyLineDesktop || null;   // set by the desktop app's preload script
@@ -1195,7 +1195,7 @@ function messageEl(msg, prev, before = prev) {
   else if (msg.body) {
     const body = document.createElement('div'); body.className = 'msg-body';
     if (isJumbo(msg.body)) body.classList.add('jumbo');
-    richText(body, msg.body);
+    richText(body, user(msg.userId).bot ? tBot(msg.body) : msg.body);   // Party Bot speaks each person's language
     if (msg.editedAt) { const e = document.createElement('span'); e.className = 'msg-edited'; e.textContent = '(edited)'; body.appendChild(e); }
     li.appendChild(body);
   }
@@ -4589,7 +4589,7 @@ $('#evForm').addEventListener('submit', async (e) => {
 /* ================= Party Bot ================= */
 function botNote(text) {
   const el = $('#botNoteText'); el.textContent = '';
-  richText(el, text);
+  richText(el, tBot(text));
   $('#botNote').hidden = false;
 }
 function hideBotNote() { $('#botNote').hidden = true; }

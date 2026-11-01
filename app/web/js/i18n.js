@@ -65,6 +65,27 @@ export function t(s, ...vals) {
   return lookup(filled, patterns) || filled;
 }
 
+/* Party Bot's messages are saved in English; each person reads them in their own language. Line by line, a line that
+   matches one of Party Bot's sentences is translated. The parts that change (names, titles, times, mentions, links)
+   stay as they are, except amounts like "7 days", which are app text too. */
+export function tBot(text) {
+  if (!active || !text) return text;
+  return String(text).split('\n').map((line) => {
+    const key = line.trim();
+    if (!key) return line;
+    const hit = exact.get(key);
+    if (hit !== undefined) return hit;
+    for (const [re, tpl, order] of patterns) {
+      const m = re.exec(key);
+      if (!m) continue;
+      const vals = {};
+      order.forEach((n, i) => { const v = m[i + 1]; vals[n] = /^\d+ \p{L}+$/u.test(v) || BOT_WORDS.has(v) ? (exact.get(v) ?? lookup(v, patterns) ?? v) : v; });
+      return tpl.replace(/\{(\d)\}/g, (x, n) => vals[n] ?? '');
+    }
+    return line;
+  }).join('\n');
+}
+const BOT_WORDS = new Set(['Heads', 'Tails']);
 const skipped = (el) => !!(el && el.closest && el.closest(SKIP));
 function doText(node) {
   const el = node.parentElement;
