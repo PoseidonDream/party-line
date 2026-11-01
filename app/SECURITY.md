@@ -7,7 +7,7 @@ A full pass over Party Line against a 20-point checklist: the server, the web ap
 - **One oversized message could stop the whole server.** A message over 256 KB on the live connection raised an error that nothing caught, and the server process exited. Any signed-in person could have knocked everyone offline. Now only that one connection closes. [hardening]
 - **Invisible text-direction characters** (like U+202E) were accepted in names, server and channel names, events and messages. They can make a name or link read backwards, for example `exe.gpj` showing as `jpg.exe`. Now they're removed from everything the server receives, together with stray control characters and look-alike invisible spaces in names. [hardening]
 - **Password hashing was below today's recommended strength.** It used scrypt N=2^14. Now it's N=2^15, r=8, p=3, the strength OWASP recommends. Older passwords are upgraded automatically the next time each person signs in. The hashing now runs off the main thread, so a sign-in never freezes the server for others. [hardening]
-- **Outdated packages:** the server's email library (nodemailer) and request parser (body-parser) had known high-severity problems, and the desktop app ran on Electron 33, which no longer gets security fixes. All are updated. [CI: package-security]
+- **Outdated packages:** the server's email library (nodemailer) and its request parser (body-parser) had known high-severity problems, and the desktop app ran on Electron 33, which no longer gets security fixes. All are updated. [CI: package-security]
 
 ## 1. Hide my API keys
 API keys (Claude, Giphy, LiveKit, TURN, email) live only in `deploy/.env` on the server and are read by the server. The web, desktop and Android apps never receive them: they only see the setting names in help messages. [secrets: "the web app … has no server settings in it"]
@@ -68,7 +68,7 @@ Checked on the live server. [security]
 The server runs with `NODE_ENV=production`. Errors reach the app as a short message ("Something went wrong on the server."), never with code details. The test-only `CSP_TEST_EVAL` switch is off unless a test sets it. No passwords, keys or codes are written to the logs, and the logs are capped at 15 MB per service. [hardening: "a broken request gets a short answer"]
 
 ## 13. Update my dependencies
-- **Server:** nodemailer 6 → 10, ws 8.22, livekit-client 2.23, body-parser fixed. `npm audit` now finds 0 problems.
+- **Server:** nodemailer 6 → 10, ws 8.22, body-parser fixed. `npm audit` now finds 0 problems. livekit-client stays on 2.9: it has no known problems, and newer versions don't work with the media server (LiveKit 1.8) that big voice channels use.
 - **Desktop:** Electron 33 → 45 (a supported version), electron-builder 26 and electron-updater 6.8.11. 0 problems in what ships.
 - **Android:** Capacitor 7.6.10.
 - **Ongoing:** the GitHub tests now check the shipped packages of all three apps every Monday and on every change. GitHub emails you if a new serious problem shows up.
