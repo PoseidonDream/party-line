@@ -1,3 +1,4 @@
 deploy/.update-waiting
 deploy/.built
 deploy/.last-try
+app/mobile/store/ad/shots-*/

@@ -1185,5 +1185,12 @@
 "Background saved.": "Arka plan kaydedildi.",
 "Couldn’t read that picture.": "Bu resim okunamadı.",
 "Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Arkadaşların adının yanında görür. Herhangi bir fotoğraf veya GIF: gösterilecek kısmı sen seçersin.",
-"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Profilinin üstüne bir resim veya GIF koy: Ayarlar → Profil → Arka plan resmi veya GIF. Hem onda hem profil resminde gösterilecek kısmı sürükleyip yakınlaştırarak seçersin."
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Profilinin üstüne bir resim veya GIF koy: Ayarlar → Profil → Arka plan resmi veya GIF. Hem onda hem profil resminde gösterilecek kısmı sürükleyip yakınlaştırarak seçersin.",
+"game vote {0} before in #{1}": "#{1} kanalında {0} önce oyun oylaması",
+"game vote {0} before": "{0} önce oyun oylaması",
+"{0} h": "{0} sa",
+"{0} going": "{0} geliyor",
+"{0} maybe": "{0} belki",
+"Going": "Geliyorum",
+"Maybe": "Belki"
 }

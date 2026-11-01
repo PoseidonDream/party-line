@@ -1185,5 +1185,12 @@
 "Background saved.": "Fondo guardado.",
 "Couldn’t read that picture.": "No se pudo leer esa imagen.",
 "Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Tus amigos la ven junto a tu nombre. Cualquier foto o GIF: tú eliges la parte que se ve.",
-"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Pon una imagen o GIF arriba en tu perfil: Ajustes → Perfil → Imagen o GIF de fondo. Para ella y tu foto de perfil, arrastra y haz zoom para elegir la parte que se ve."
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Pon una imagen o GIF arriba en tu perfil: Ajustes → Perfil → Imagen o GIF de fondo. Para ella y tu foto de perfil, arrastra y haz zoom para elegir la parte que se ve.",
+"game vote {0} before in #{1}": "votación de juego {0} antes en #{1}",
+"game vote {0} before": "votación de juego {0} antes",
+"{0} h": "{0} h",
+"{0} going": "{0} van",
+"{0} maybe": "{0} quizás",
+"Going": "Voy",
+"Maybe": "Quizás"
 }

@@ -1185,5 +1185,12 @@
 "Background saved.": "Фон сохранён.",
 "Couldn’t read that picture.": "Не удалось открыть картинку.",
 "Friends see it next to your name. Any photo or GIF: you pick the part to show.": "Друзья видят её рядом с твоим именем. Любое фото или GIF: ты выбираешь, какую часть показать.",
-"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Поставь картинку или GIF вверху профиля: Настройки → Профиль → Фоновая картинка или GIF. Для неё и для аватара перетаскивай и приближай, чтобы выбрать, что видно."
+"Put a picture or GIF at the top of your profile: Settings → Profile → Background picture or GIF. For it and your profile picture, you drag and zoom to pick the part to show.": "Поставь картинку или GIF вверху профиля: Настройки → Профиль → Фоновая картинка или GIF. Для неё и для аватара перетаскивай и приближай, чтобы выбрать, что видно.",
+"game vote {0} before in #{1}": "голосование за игру за {0} в #{1}",
+"game vote {0} before": "голосование за игру за {0}",
+"{0} h": "{0} ч",
+"{0} going": "{0} идут",
+"{0} maybe": "{0} может быть",
+"Going": "Иду",
+"Maybe": "Может быть"
 }

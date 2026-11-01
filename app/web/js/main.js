@@ -4530,19 +4530,19 @@ function renderEvents() {
     const d = new Date(e.startsAt), isNow = e.startsAt <= Date.now();
     li.innerHTML = `<div class="ev-date"><b>${d.getDate()}</b><small>${d.toLocaleString(locale(), { month: 'short' })}</small></div><div class="ev-main"></div>`;
     const main = li.querySelector('.ev-main');
-    const t = document.createElement('div'); t.className = 'ev-title'; t.textContent = e.title;
-    if (isNow) t.insertAdjacentHTML('beforeend', '<span class="chan-live">NOW</span>');
-    main.appendChild(t);
+    const title = document.createElement('div'); title.className = 'ev-title'; title.textContent = e.title;
+    if (isNow) title.insertAdjacentHTML('beforeend', '<span class="chan-live">NOW</span>');
+    main.appendChild(title);
     const when = document.createElement('div'); when.className = 'ev-when';
     const ch = e.channelId && findChannel(e.channelId);
     const tc = e.gameVote && e.textChannelId && findChannel(e.textChannelId);
     when.textContent = `${fmtWhen(e.startsAt)} · ${fmtRelative(e.startsAt)}` + (ch ? ` · 🔊 ${ch.channel.name}` : '')
-      + (e.gameVote ? ` · 🎮 game vote ${e.gameVote >= 60 ? `${e.gameVote / 60} h` : `${e.gameVote} min`} before${tc ? ` in #${tc.channel.name}` : ''}` : '');
+      + (e.gameVote ? ` · 🎮 ${tc ? t('game vote {0} before in #{1}', e.gameVote >= 60 ? t('{0} h', e.gameVote / 60) : t('{0} min', e.gameVote), tc.channel.name) : t('game vote {0} before', e.gameVote >= 60 ? t('{0} h', e.gameVote / 60) : t('{0} min', e.gameVote))}` : '');
     main.appendChild(when);
     if (e.description) { const p = document.createElement('p'); p.className = 'ev-desc'; p.textContent = e.description; main.appendChild(p); }
     const who = document.createElement('div'); who.className = 'ev-who';
     const names = (ids) => ids.map(nameOf).join(', ');
-    who.textContent = `✅ ${e.going.length} going${e.going.length ? ` (${names(e.going)})` : ''}` + (e.maybe.length ? ` · 🤔 ${e.maybe.length} maybe (${names(e.maybe)})` : '');
+    who.textContent = `✅ ${t('{0} going', e.going.length)}${e.going.length ? ` (${names(e.going)})` : ''}` + (e.maybe.length ? ` · 🤔 ${t('{0} maybe', e.maybe.length)} (${names(e.maybe)})` : '');
     main.appendChild(who);
     const btns = document.createElement('div'); btns.className = 'ev-btns';
     const mine = e.going.includes(S.me.id) ? 'going' : e.maybe.includes(S.me.id) ? 'maybe' : '';
