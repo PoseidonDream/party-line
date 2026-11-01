@@ -4,6 +4,8 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// Everything the server writes (the database, uploads, keys) is readable by its own user only.
+process.umask(0o077);
 const env = process.env;
 const list = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 

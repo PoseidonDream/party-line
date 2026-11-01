@@ -19,11 +19,25 @@ M.ensureDefaultServer();
 M.syncAdmins();
 const uploadDir = path.join(config.dataDir, 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
+// Files made before the server kept everything private (see config.js) are tightened too.
+for (const p of [config.dataDir, uploadDir]) try { fs.chmodSync(p, 0o700); } catch {}
+for (const f of fs.readdirSync(config.dataDir, { withFileTypes: true })) if (f.isFile()) try { fs.chmodSync(path.join(config.dataDir, f.name), 0o600); } catch {}
 
 const app = express();
 app.disable('x-powered-by');
 if (config.trustProxy) app.set('trust proxy', 1);
 app.use(express.json({ limit: '64kb' }));
+/* A ceiling for everything under /api, per address: far more than an app ever needs (20 a second), but a script
+   hammering the server gets "slow down" instead of slowing it down for everyone. */
+const apiHits = new Map();   // address -> [window start, count]
+const API_PER_MIN = Number(process.env.API_PER_MIN) || 1200;
+app.use('/api', (req, res, next) => {
+  const t = Date.now(), k = req.ip, w = apiHits.get(k);
+  if (!w || t - w[0] > 60_000) { apiHits.set(k, [t, 1]); return next(); }
+  if (++w[1] > API_PER_MIN) return res.status(429).json({ error: 'Slow down a little. Try again in a minute.' });
+  next();
+});
+setInterval(() => { const t = Date.now(); for (const [k, w] of apiHits) if (t - w[0] > 60_000) apiHits.delete(k); }, 60_000).unref();
 
 /* What pages may load and run: only this server's own scripts (plus YouTube's player, for watching together), so
    text slipped into a page can't run as code. The app can't be shown inside another site (which could trick
@@ -94,16 +108,16 @@ app.get('/api/local/voice-count', (req, res) => {
   if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(404).end();
   res.json({ inVoice: voiceCount() });
 });
-app.post('/api/register', throttle, wrap((req) => {
+app.post('/api/register', throttle, wrap(async (req) => {
   const { name, password, agree } = req.body || {};
-  const r = M.register(name, password, agree);
+  const r = await M.register(name, password, agree);
   hub.userChanged(r.user);
   hub.joinedServers(r.user.id);
   return { token: r.token, user: M.publicUser(r.user) };
 }));
-app.post('/api/login', throttle, wrap((req) => {
+app.post('/api/login', throttle, wrap(async (req) => {
   const b = req.body || {};
-  const r = M.login(b.name, b.password, b.code, b.device);
+  const r = await M.login(b.name, b.password, b.code, b.device);
   if (r.needCode) return { needCode: true };
   return { token: r.token, user: M.publicUser(r.user) };
 }));

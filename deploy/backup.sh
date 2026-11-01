@@ -6,7 +6,8 @@
 #   ./backup.sh restore FILE   put a backup back (stops Party Line for a moment)
 set -euo pipefail
 cd "$(dirname "$0")"
-mkdir -p backups
+umask 077   # backups hold every account and message: only this server's admin user can read them
+mkdir -p backups && chmod 700 backups
 KEEP="${KEEP:-7}"
 
 if [ "${1:-}" = restore ]; then

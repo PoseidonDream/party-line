@@ -10,24 +10,50 @@ const fail = (msg) => { throw new UserError(msg); };
 /* ---------- names and passwords ---------- */
 export const foldKey = (s) => String(s || '').toLowerCase().replace(/ı/g, 'i').normalize('NFKD')
   .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
-export const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+/* Invisible characters that flip text direction (they can make a name or link read backwards) and, in names,
+   invisible spaces (they make a look-alike of someone's name). */
+export const BIDI = /[\u202a-\u202e\u2066-\u2069]/g;
+const INVISIBLE = /[\u200b\u2060\ufeff\u00ad]/g;
+export const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(BIDI, '').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim().slice(0, 24);
 export const cleanChannel = (s, kind) => {
-  const t = String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32);
+  const t = String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(BIDI, '').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim().slice(0, 32);
   return kind === 'text' ? t.toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '') : t;
 };
-const cleanBody = (s) => String(s || '').replace(/\r\n/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, 4000);
+const cleanBody = (s) => String(s || '').replace(/\r\n/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').replace(BIDI, '').trim().slice(0, 4000);
 
+/* Passwords are kept only as scrypt fingerprints, at the strength OWASP recommends (N=2^15, r=8, p=3: about 32 MB
+   and a third of a second each), stored as "scrypt:N:r:p:salt:hash". Older accounts have the weaker default
+   ("salt:hash"); theirs is upgraded the next time they sign in. Signing up and signing in hash in the background
+   (crypto.scrypt runs off the main thread), so a sign-in never freezes the server for everyone else. */
+const SCRYPT = { N: 32768, r: 8, p: 3 };
+const OLD_SCRYPT = { N: 16384, r: 8, p: 1 };
+const MAXMEM = 128 * 1024 * 1024;
+const scryptAsync = (pass, salt, o) => new Promise((ok, no) => crypto.scrypt(pass, salt, 32, { ...o, maxmem: MAXMEM }, (e, k) => (e ? no(e) : ok(k))));
+function parseHash(stored) {
+  const p = String(stored || '').split(':');
+  if (p.length === 6 && p[0] === 'scrypt') return { o: { N: Number(p[1]), r: Number(p[2]), p: Number(p[3]) }, salt: Buffer.from(p[4], 'hex'), hash: Buffer.from(p[5], 'hex') };
+  if (p.length === 2 && p[0] && p[1]) return { o: OLD_SCRYPT, salt: Buffer.from(p[0], 'hex'), hash: Buffer.from(p[1], 'hex') };
+  return null;
+}
+const formatHash = (salt, hash) => `scrypt:${SCRYPT.N}:${SCRYPT.r}:${SCRYPT.p}:${salt.toString('hex')}:${hash.toString('hex')}`;
+const sameKey = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
 function hashPass(pass) {
   const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(String(pass), salt, 32);
-  return `${salt.toString('hex')}:${hash.toString('hex')}`;
+  return formatHash(salt, crypto.scryptSync(String(pass), salt, 32, { ...SCRYPT, maxmem: MAXMEM }));
+}
+async function hashPassAsync(pass) {
+  const salt = crypto.randomBytes(16);
+  return formatHash(salt, await scryptAsync(String(pass), salt, SCRYPT));
 }
 function checkPass(pass, stored) {
-  const [s, h] = String(stored).split(':');
-  if (!s || !h) return false;
-  const got = crypto.scryptSync(String(pass), Buffer.from(s, 'hex'), 32);
-  return crypto.timingSafeEqual(got, Buffer.from(h, 'hex'));
+  const h = parseHash(stored);
+  return !!h && sameKey(crypto.scryptSync(String(pass), h.salt, 32, { ...h.o, maxmem: MAXMEM }), h.hash);
 }
+async function checkPassAsync(pass, stored) {
+  const h = parseHash(stored);
+  return !!h && sameKey(await scryptAsync(String(pass), h.salt, h.o), h.hash);
+}
+const weakHash = (stored) => { const h = parseHash(stored); return !h || h.o.N < SCRYPT.N || h.o.p < SCRYPT.p; };
 /* Checked against when nobody has that name, so a wrong name takes as long as a wrong password (the answer time
    doesn't tell who has an account). */
 const NOBODY_HASH = hashPass(crypto.randomBytes(16).toString('hex'));
@@ -76,34 +102,37 @@ export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
 const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
 
-export function register(name, pass, agree) {
+export async function register(name, pass, agree) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   newPassOk(pass, 'Pick a password with at least 8 characters.');
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
   if (agree !== true) fail('To make an account, confirm you’re 13 or older and agree to the terms, the rules and the privacy policy.');
+  const passHash = await hashPassAsync(pass);
+  if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');   // someone took it while hashing
   // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
   // When they agreed to the terms, and to which version (a record of consent).
   const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen, agreed_at, agreed_version) VALUES (?, ?, ?, ?, ?, -1, ?, ?)',
-    name, foldKey(name), hashPass(pass), isAdminName(name) ? 1 : 0, now(), now(), config.termsVersion).lastInsertRowid);
+    name, foldKey(name), passHash, isAdminName(name) ? 1 : 0, now(), now(), config.termsVersion).lastInsertRowid);
   // New accounts start in no server: friends bring them in with an invite link. Admins (and everyone, when the
   // server is set to AUTO_JOIN=1) land in the main server straight away.
   const def = one('SELECT id FROM servers WHERE is_default = 1');
   if (def && (config.autoJoin || isAdminName(name))) joinServer(id, def.id);
   return { user: getUser(id), token: newSession(id) };
 }
-export function login(name, pass, code, device) {
+export async function login(name, pass, code, device) {
   const key = foldKey(name);
   if (recentFailures(key).length >= FAIL_MAX) fail('Too many wrong tries for this account. Wait 15 minutes, or press “Forgot your password?”.');
   const u = userByName(name);
-  const passOk = checkPass(pass, u ? u.pass_hash : NOBODY_HASH);
+  const passOk = await checkPassAsync(pass, u ? u.pass_hash : NOBODY_HASH);
   if (!u || !passOk) { noteFailure(key); fail('Wrong name or password.'); }
   if (u.totp_secret) {
     if (!code) return { needCode: true };
     if (!totpOk(u.totp_secret, code)) { noteFailure(key); fail('That code is wrong or too old. Check the time on your phone and try the newest code.'); }
   }
   failures.delete(key);
+  if (weakHash(u.pass_hash)) run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(pass), u.id);   // upgrade an older fingerprint
   return { user: u, token: newSession(u.id, device) };
 }
 

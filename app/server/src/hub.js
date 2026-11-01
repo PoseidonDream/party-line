@@ -1265,9 +1265,24 @@ function removeFromServer(userId, serverId, why) {
   toUser(userId, { t: 'server.gone', id: serverId, reason: why || 'left' });
 }
 
+/* Every request from an app is cleaned before any handler sees it: control characters (except tab and line
+   breaks, which voice set-up needs) and direction-flipping characters are removed from every text in it. */
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
+function scrub(v, depth = 0) {
+  if (typeof v === 'string') return v.replace(CONTROL, '').replace(M.BIDI, '');
+  if (!v || typeof v !== 'object' || depth > 8) return v;
+  if (Array.isArray(v)) return v.map((x) => scrub(x, depth + 1));
+  const out = {};
+  for (const k of Object.keys(v)) if (k !== '__proto__' && k !== 'constructor' && k !== 'prototype') out[k] = scrub(v[k], depth + 1);
+  return out;
+}
 export function attachHub(server) {
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 256 * 1024 });
+  wss.on('error', (e) => console.error('websocket server', e));
   wss.on('connection', (ws, req) => {
+    // A broken or oversized message makes the socket report an error. Without a listener that error would stop the
+    // whole server, so it's caught here: ws closes just that connection (code 1009 for too big) and the app reconnects.
+    ws.on('error', () => {});
     const url = new URL(req.url, 'http://x');
     const user = M.userForToken(url.searchParams.get('token'));
     if (!user) { ws.close(4001, 'auth'); return; }
@@ -1286,6 +1301,7 @@ export function attachHub(server) {
       let d;
       try { d = JSON.parse(raw); } catch { return; }
       if (!d || typeof d.t !== 'string') return;
+      d = scrub(d);
       // Each connection may send 60 requests a second, in bursts of up to 300: plenty for voice handshakes and
       // drawing, not enough to flood the server. Far over that for a while, the connection is closed.
       const t = Date.now();

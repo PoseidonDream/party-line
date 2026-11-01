@@ -4,13 +4,35 @@ name: Tests
 
 on:
   push:
-    paths: ['app/server/**', 'app/web/**', 'app/tests/**', '.github/workflows/tests.yml']
+    paths: ['app/server/**', 'app/web/**', 'app/tests/**', 'app/desktop/package*.json', 'app/mobile/package*.json', '.github/workflows/tests.yml']
   pull_request:
-    paths: ['app/server/**', 'app/web/**', 'app/tests/**', '.github/workflows/tests.yml']
+    paths: ['app/server/**', 'app/web/**', 'app/tests/**', 'app/desktop/package*.json', 'app/mobile/package*.json', '.github/workflows/tests.yml']
+  schedule:
+    - cron: '17 6 * * 1'   # every Monday: new security problems get found in packages that didn't change
   workflow_dispatch:
 
 jobs:
+  # The packages the server, desktop app and Android app ship with: fails if any has a known serious security
+  # problem (GitHub then emails you; update with `npm audit fix` or a newer version). Build tools are left out.
+  package-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Known security problems in shipped packages
+        shell: bash
+        run: |
+          fail=0
+          for d in app/server app/desktop app/mobile; do
+            echo "== $d"; (cd $d && npm audit --omit=dev --audit-level=high) || { fail=1; echo "::error title=Security problem in $d packages::Run npm audit in $d"; }
+          done
+          exit $fail
+
   browser-tests:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

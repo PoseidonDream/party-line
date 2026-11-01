@@ -8,6 +8,8 @@ main() {
   GIT_COMMIT="$(git log -1 --format='%h %cs')"   # shown in the developer panel
   export GIT_COMMIT
   docker compose up -d --build
+  # Pick up Caddyfile changes without dropping anyone (a broken file is refused and the old one keeps running)
+  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
   git rev-parse HEAD > .built   # this version is running (auto-update.sh retries a version that didn't build)
   docker image prune -f >/dev/null
   if [ ! -f /etc/cron.d/party-line-update ]; then

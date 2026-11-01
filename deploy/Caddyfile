@@ -1,5 +1,7 @@
 {$DOMAIN} {
 	encode gzip
+	# don't announce which web server this is
+	header -Server
 	# the optional media server for big voice channels (see voice-server.sh)
 	handle /rtc* {
 		reverse_proxy host.docker.internal:7880

@@ -33,7 +33,12 @@ export default async function (ok) {
   const browser = await launchBrowser();
   const main = (fn, arg) => app.evaluate(fn, arg);
   try {
-    const win = await app.firstWindow();
+    // The window that has the server open (on a cold first start the first window can still be blank for a moment)
+    await app.firstWindow();
+    let win = null;
+    for (let i = 0; i < 100 && !win; i++) { win = app.windows().find((w) => w.url().startsWith('http')) || null; if (!win) await new Promise((r) => setTimeout(r, 200)); }
+    win = win || await app.firstWindow();
+    await win.waitForLoadState('domcontentloaded');
     const errors = []; win.on('pageerror', (e) => errors.push(e.message));
     await win.click('#tabRegister'); await win.fill('#authName', 'Poseidon'); await win.fill('#authPass', 'pass1234');
     await win.check('#authAgree'); await win.click('#authBtn'); await win.waitForSelector('#room:not([hidden])', { timeout: 15000 });
