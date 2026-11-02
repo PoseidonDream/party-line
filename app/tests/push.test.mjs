@@ -69,7 +69,7 @@ export default async function (ok) {
     await a.fill('#chatInput', 'dinner at **8**?'); await a.keyboard.press('Enter');
     ok('a private message sends a push once they’ve closed Party Line', await waitPush(1));
     const p1 = decrypt(got[0].body, ua, authSecret);
-    ok('it’s encrypted for their browser, and reads “Poseidon: dinner at 8?”', p1.title === 'Poseidon' && p1.body === 'dinner at 8?' && /^\/\?dm=\d+$/.test(p1.url));
+    ok('it’s encrypted for their browser, and reads “Poseidon: dinner at 8?”', p1.title === 'Poseidon' && p1.body === 'dinner at 8?' && /^\/app\?dm=\d+$/.test(p1.url));
     ok('it’s signed with the server’s key (VAPID)', /^vapid t=.+, k=.+/.test(got[0].headers.authorization || ''));
 
     await a.click('#railList .rail-btn'); await a.click('#textList .chan:has-text("general")');

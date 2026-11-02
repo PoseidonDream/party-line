@@ -36,7 +36,7 @@ export default async function (ok) {
         onUpdate(cb) { window.__fireUpdate = cb; }, installUpdate() { window.__installed = true; } };
     });
     const d = await ctx.newPage(); d.errors = []; d.on('pageerror', (e) => d.errors.push(e.message));
-    await d.goto(srv.url);
+    await d.goto(srv.url + '/app');
     await d.click('#tabRegister'); await d.fill('#authName', 'DesktopUser'); await d.fill('#authPass', 'pass1234');
     await d.check('#authAgree'); await d.click('#authBtn'); await d.waitForSelector('#room:not([hidden])');
     await d.evaluate(() => window.__fireUpdate('1.3.0'));

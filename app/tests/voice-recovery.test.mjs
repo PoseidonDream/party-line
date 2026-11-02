@@ -28,7 +28,7 @@ export default async function (ok) {
       const ctx = await browser.newContext(watch);
       await ctx.addInitScript(() => { const O = window.RTCPeerConnection; window.__pcs = []; window.RTCPeerConnection = function (...a) { const pc = new O(...a); window.__pcs.push(pc); return pc; }; window.RTCPeerConnection.prototype = O.prototype; });
       const p = await ctx.newPage(); p.errors = []; p.on('pageerror', (e) => p.errors.push(e.message));
-      await p.goto(srv.url);
+      await p.goto(srv.url + '/app');
       await p.click('#tabRegister'); await p.fill('#authName', n); await p.fill('#authPass', 'pass1234'); await p.check('#authAgree'); await p.click('#authBtn');
       await p.waitForSelector('#room:not([hidden])');
       await joinVoice(p); people.push(p);

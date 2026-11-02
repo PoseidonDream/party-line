@@ -14,7 +14,7 @@ export default async function (ok) {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, permissions: ['microphone'] });
     await ctx.addInitScript(BRIDGE);
     const a = await ctx.newPage(); a.errors = []; a.on('pageerror', (e) => a.errors.push(e.message));
-    await a.goto(srv.url);
+    await a.goto(srv.url + '/app');
     await a.click('#tabRegister'); await a.fill('#authName', 'Poseidon'); await a.fill('#authPass', 'pass1234');
     await a.check('#authAgree'); await a.click('#authBtn'); await a.waitForSelector('#room:not([hidden])');
     const b = await signUp(browser, srv.url, 'Bora');

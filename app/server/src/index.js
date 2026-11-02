@@ -355,6 +355,49 @@ app.get('/api/link-image', async (req, res) => {
   } catch { res.status(404).end(); }
 });
 
+/* The welcome page: what Party Line is, a download for this device, or "Open in your browser" (/app). The desktop
+   and Android apps open the server's address too; they get the app itself. So does anyone signed in on this device
+   (welcome-go.js sends them on before the page is drawn). */
+const appClient = (req) => /Electron\/|; wv\)/.test(req.get('user-agent') || '');
+app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache'); res.setHeader('Vary', 'User-Agent');
+  res.sendFile(path.join(config.webDir, appClient(req) ? 'index.html' : 'welcome.html'));
+});
+
+/* Downloads: the newest GitHub release, looked up at most every 10 minutes. /download/windows (and mac, linux, deb,
+   android) sends the browser straight to the file; /api/downloads says which there are, with the version and sizes. */
+const ASSETS = { windows: /-win-x64\.exe$/i, mac: /\.dmg$/i, linux: /\.AppImage$/i, deb: /\.deb$/i, android: /android\.apk$/i };
+let releaseCache = { at: 0, data: null };
+async function latestRelease() {
+  if (releaseCache.data && Date.now() - releaseCache.at < 10 * 60_000) return releaseCache.data;
+  try {
+    const r = await fetch(config.releasesApi || `https://api.github.com/repos/${config.releasesRepo}/releases/latest`, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'party-line-server' }, signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    const rel = await r.json(), files = {};
+    for (const [what, re] of Object.entries(ASSETS)) {
+      const a = (rel.assets || []).find((x) => re.test(x.name) && /^https:\/\/github\.com\//.test(x.browser_download_url || ''));
+      if (a) files[what] = { url: a.browser_download_url, size: a.size, name: a.name };
+    }
+    releaseCache = { at: Date.now(), data: { version: String(rel.tag_name || '').replace(/^\D+/, ''), files } };
+  } catch (e) {
+    releaseCache.at = Date.now() - 9 * 60_000;   // try again in a minute
+    if (!releaseCache.data) return { version: null, files: {} };
+  }
+  return releaseCache.data;
+}
+const releasesPage = () => `https://github.com/${config.releasesRepo}/releases/latest`;
+app.get('/api/downloads', wrap(async () => {
+  const d = await latestRelease();
+  return { version: d.version, play: config.playUrl || null, files: Object.fromEntries(Object.entries(d.files).map(([k, f]) => [k, { size: f.size, name: f.name }])) };
+}));
+app.get('/download/:what', async (req, res) => {
+  const what = String(req.params.what);
+  if (!Object.hasOwn(ASSETS, what)) return res.status(404).type('text').send('There’s no download by that name.');
+  if (what === 'android' && config.playUrl) return res.redirect(302, config.playUrl);
+  const f = (await latestRelease()).files[what];
+  res.redirect(302, f ? f.url : releasesPage());
+});
+
 /* The web app. Invite links (/invite/CODE) open the same page. */
 app.use(express.static(config.webDir, { index: 'index.html', extensions: ['html'], setHeaders: (res, p) => {
   if (p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css')) res.setHeader('Cache-Control', 'no-cache');

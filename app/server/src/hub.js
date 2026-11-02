@@ -94,7 +94,7 @@ function pushMessage(m, author) {
   if (m.dmId || m.dm_id) {
     const dm = M.getDm(m.dmId || m.dm_id), to = dm.user_a === author.id ? dm.user_b : dm.user_a;
     if ((M.notifyPrefs(to)[`d:${author.id}`] || 'all') === 'mute' || M.hasBlocked(to, author.id)) return;
-    return pushIfAway(to, { title: author.name, body: what, url: `/?dm=${author.id}`, tag: `d:${author.id}` });
+    return pushIfAway(to, { title: author.name, body: what, url: `/app?dm=${author.id}`, tag: `d:${author.id}` });
   }
   const ch = M.getChannel(m.channelId || m.channel_id), srv = M.getServer(ch.server_id);
   const mentioned = new Set(M.mentionedIds(m.body));
@@ -106,7 +106,7 @@ function pushMessage(m, author) {
     const prefs = M.notifyPrefs(id);
     const level = prefs[`c:${ch.id}`] || prefs[`s:${srv.id}`] || (hidden ? 'all' : 'mentions');
     if (level === 'mute' || (level === 'mentions' && !mentioned.has(id))) continue;
-    pushIfAway(id, { title: hidden ? `${author.name} · ${srv.name || 'group chat'}` : `${author.name} in ${ch.kind === 'voice' ? '🔊 ' : '#'}${ch.name} · ${srv.name}`, body: what, url: `/?channel=${ch.id}`, tag: `c:${ch.id}` });
+    pushIfAway(id, { title: hidden ? `${author.name} · ${srv.name || 'group chat'}` : `${author.name} in ${ch.kind === 'voice' ? '🔊 ' : '#'}${ch.name} · ${srv.name}`, body: what, url: `/app?channel=${ch.id}`, tag: `c:${ch.id}` });
   }
 }
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
@@ -669,7 +669,7 @@ const handlers = {
     const r = M.requestFriend(user.id, d.name);
     toUser(user.id, { t: 'friend', id: r.other.id, state: r.state, user: userView(r.other.id) });
     toUser(r.other.id, { t: 'friend', id: user.id, state: r.state === 'friends' ? 'friends' : 'incoming', user: userView(user.id) });
-    if (r.state !== 'friends') pushIfAway(r.other.id, { title: 'Friend request', body: `${user.name} wants to be friends.`, url: '/?friends=1', tag: `friend:${user.id}` });
+    if (r.state !== 'friends') pushIfAway(r.other.id, { title: 'Friend request', body: `${user.name} wants to be friends.`, url: '/app?friends=1', tag: `friend:${user.id}` });
     return { state: r.state, name: r.other.name };
   },
   'friend.accept'(c, user, d) {
@@ -705,7 +705,7 @@ const handlers = {
     if (wasEmpty && srv.kind && srv.kind !== 'server') {
       for (const id of M.memberIds(srv.id)) if (id !== user.id) {
         toUser(id, { t: 'ring', from: user.id, serverId: srv.id, channelId: ch.id });
-        if ((M.notifyPrefs(id)[`s:${srv.id}`] || 'all') !== 'mute') pushIfAway(id, { title: `📞 ${user.name} is calling`, body: srv.kind === 'group' ? (srv.name || 'Group call') : 'Open Party Line to answer.', url: `/?call=${ch.id}`, tag: `call:${srv.id}`, call: true });
+        if ((M.notifyPrefs(id)[`s:${srv.id}`] || 'all') !== 'mute') pushIfAway(id, { title: `📞 ${user.name} is calling`, body: srv.kind === 'group' ? (srv.name || 'Group call') : 'Open Party Line to answer.', url: `/app?call=${ch.id}`, tag: `call:${srv.id}`, call: true });
       }
     }
     return { peers: [...voice].filter(([id, x]) => id !== user.id && x.channelId === ch.id).map(([id]) => id) };

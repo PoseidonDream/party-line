@@ -77,7 +77,8 @@ export async function openPage(browser, base, opts = {}) {
   page.on('pageerror', (e) => page.errors.push(e.message));
   // Something the page's safety rules (Content-Security-Policy) blocked counts as an error too.
   page.on('console', (m) => { if (m.type() === 'error' && /Content Security Policy/.test(m.text())) page.errors.push(m.text()); });
-  await page.goto(base);
+  // The server's address shows the welcome page to a browser; the app itself is at /app.
+  await page.goto(/^https?:\/\/[^/]+\/?$/.test(base) ? base.replace(/\/?$/, '/app') : base);
   return page;
 }
 

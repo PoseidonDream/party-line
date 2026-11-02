@@ -32,6 +32,7 @@ services:
       REPORT_HOUR: ${REPORT_HOUR:-}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
       AUTO_JOIN: ${AUTO_JOIN:-}
+      PLAY_URL: ${PLAY_URL:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
       SMTP_USER: ${SMTP_USER:-}

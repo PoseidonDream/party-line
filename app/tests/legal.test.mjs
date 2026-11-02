@@ -23,7 +23,7 @@ export default async function (ok) {
     const v = await openPage(browser, `${srv.url}/terms`);
     const navLinks = await v.$$eval('.legal-nav a', (as) => as.map((a) => a.getAttribute('href')));
     ok('…each page links to the others at the bottom', ['/privacy', '/terms', '/rules', '/cookies', '/delete-account'].every((h) => navLinks.includes(h)));
-    await v.goto(srv.url);
+    await v.goto(srv.url + '/app');
     await v.waitForSelector('#cookieBanner:not([hidden])');
     ok('a first visit shows the cookie notice, with a link to the cookie policy', await v.locator('#cookieBanner a[href="/cookies"]').count() === 1);
     await v.click('#cookieNecessary');

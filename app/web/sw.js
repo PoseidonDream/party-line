@@ -16,7 +16,7 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin);
+  const url = new URL((e.notification.data && e.notification.data.url) || '/app', self.location.origin);
   if (url.origin !== self.location.origin) return;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
     const w = wins.find((x) => new URL(x.url).origin === url.origin);

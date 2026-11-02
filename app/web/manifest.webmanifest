@@ -2,7 +2,7 @@
   "name": "Party Line",
   "short_name": "Party Line",
   "description": "Voice channels, text channels, screen sharing and private chats for your friend group.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

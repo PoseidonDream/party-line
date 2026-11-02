@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Party Line: a private hangout for your friends. Voice, chat, screen sharing and game nights, on a server your group owns.">
+<title>Party Line</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<!-- Signed in already? Straight to the app, before anything is drawn. -->
+<script src="/js/welcome-go.js"></script>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/welcome.css">
+</head>
+<body>
+<a class="skip" href="#get">Skip to downloads</a>
+<header class="nav">
+  <a class="logo" href="/" aria-label="Party Line home">Party <b>Line</b></a>
+  <nav class="links" aria-label="Pages">
+    <a href="#get">Download</a>
+    <a href="#features">Features</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/rules">Rules</a>
+  </nav>
+  <label class="lang"><span class="sr">Language</span><span aria-hidden="true">🌐</span><select id="lang" aria-label="Language"></select></label>
+  <a class="btn white small" href="/app?signin">Sign in</a>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="intro">
+      <div class="jacks" aria-hidden="true"><i></i><i class="on"></i><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+      <h1><span class="w">Plug in.</span> <span class="w lit">Talk.</span> <span class="w">Play.</span></h1>
+      <p class="lede">Party Line is a private hangout for your friends: voice, chat, screen sharing and game nights, on a server your group owns.</p>
+      <div class="row">
+        <a class="btn lamp" id="openBrowser" href="/app">Open Party Line in your browser</a>
+        <a class="btn ghost" href="/app?signin">Sign in</a>
+      </div>
+    </div>
+
+    <div class="picker" id="get" aria-labelledby="getTitle">
+      <h2 id="getTitle" class="sr">Get Party Line</h2>
+      <div class="pk" data-os="windows">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 5.5 10.5 4.4v7.1H3V5.5Zm8.5-1.2L21 3v8.5h-9.5V4.3ZM3 12.5h7.5v7.1L3 18.5v-6Zm8.5 0H21V21l-9.5-1.3v-7.2Z"/></svg></div>
+        <div class="pk-text"><b>Windows</b><small class="pk-sub">Windows 10 and 11</small><small class="rec-note">Recommended for this device</small></div>
+        <a class="btn ghost small dl" href="/download/windows" data-what="windows">Download</a>
+      </div>
+      <div class="pk" data-os="mac">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10H4V5Zm2 0v8h12V5H6ZM2 17h20l-1.5 3h-17L2 17Z"/></svg></div>
+        <div class="pk-text"><b>Mac</b><small class="pk-sub">Apple silicon and Intel</small><small class="rec-note">Recommended for this device</small></div>
+        <a class="btn ghost small dl" href="/download/mac" data-what="mac">Download</a>
+      </div>
+      <div class="pk" data-os="linux">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h18v13H3V4Zm2 2v9h14V6H5Zm2 2 3 2.5L7 13l-1-1 2-1.5L6 9l1-1Zm4 4h5v1.5h-5V12ZM8 19h8v2H8v-2Z"/></svg></div>
+        <div class="pk-text"><b>Linux</b><small class="pk-sub">AppImage, or <a href="/download/deb" class="dl-deb">.deb for Ubuntu</a></small><small class="rec-note">Recommended for this device</small></div>
+        <a class="btn ghost small dl" href="/download/linux" data-what="linux">Download</a>
+      </div>
+      <div class="pk" data-os="android">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 3v13h10V5H7Zm4 14.5h2V21h-2v-1.5Z"/></svg></div>
+        <div class="pk-text"><b>Android</b><small class="pk-sub">Phones and tablets</small><small class="rec-note">Recommended for this device</small></div>
+        <a class="btn ghost small dl" href="/download/android" data-what="android">Get it</a>
+      </div>
+      <div class="pk" data-os="browser">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-9 9h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9S9.5 5.5 12 3Z"/></svg></div>
+        <div class="pk-text"><b>Browser</b><small class="pk-sub">Nothing to install</small><small class="rec-note">Recommended for this device</small><small class="ios-note">On iPhone and iPad: open it in Safari, then Share → Add to Home Screen.</small></div>
+        <a class="btn ghost small" href="/app">Open</a>
+      </div>
+      <p class="ver" id="ver" hidden></p>
+    </div>
+  </section>
+
+  <section class="preview">
+    <picture><source media="(max-width: 600px)" srcset="/img/app-preview-phone.jpg" width="720" height="1280"><img src="/img/app-preview.jpg" width="1920" height="1200" alt="Party Line on a computer: the general channel with friends chatting, a poll about Friday's game, and friends in the Lobby voice channel."></picture>
+  </section>
+
+  <section class="feats" id="features" aria-labelledby="featTitle">
+    <h2 id="featTitle" class="sr">Features</h2>
+    <div class="feat"><span class="em" aria-hidden="true">🎧</span><h3>Voice that just works</h3><p>Drop into a channel and talk. Share your screen, play sounds from the soundboard, try voice effects.</p></div>
+    <div class="feat"><span class="em" aria-hidden="true">🎮</span><h3>Made for game night</h3><p>Plan events, vote on the game, find a squad and listen to music together.</p></div>
+    <div class="feat"><span class="em" aria-hidden="true">🔒</span><h3>Yours, not ours</h3><p>Your own server. No ads, no tracking, and you can download or delete your data any time.</p></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span class="logo small">Party <b>Line</b></span>
+  <nav aria-label="Policies"><a href="/privacy">Privacy policy</a> · <a href="/terms">Terms of service</a> · <a href="/rules">Community rules</a> · <a href="/cookies">Cookie policy</a></nav>
+</footer>
+<script type="module" src="/js/welcome.js"></script>
+</body>
+</html>

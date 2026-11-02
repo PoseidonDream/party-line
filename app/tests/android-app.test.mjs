@@ -11,7 +11,7 @@ export default async function (ok) {
     p.errors = [];
     p.on('pageerror', (e) => p.errors.push(e.message));
     p.on('console', (m) => { if (m.type() === 'error' && /Content Security Policy/.test(m.text())) p.errors.push(m.text()); });
-    await p.goto(srv.url);
+    await p.goto(srv.url + '/app');
     await p.waitForSelector('#join:not([hidden])', { timeout: 8000 });
     ok('the app opens on the sign-in screen (not stuck on “Connecting…”)', await p.isHidden('#booting'));
 

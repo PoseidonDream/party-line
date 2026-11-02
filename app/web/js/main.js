@@ -180,7 +180,7 @@ function showAuth(mode) {
 function showJoinScreen() {
   $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false; $('#joinLangBox').hidden = false;
   if (S.pendingInvite) { $('#joinInvite').hidden = false; $('#joinInvite').textContent = 'You were invited to a server. Sign in or create an account to join.'; }
-  showAuth(store.get('hadAccount', false) ? 'login' : 'register');
+  showAuth(S.wantSignIn || store.get('hadAccount', false) ? 'login' : 'register');
   if (store.get('resetReq', null)) showResetWait(); else setTimeout(() => $('#authName').focus(), 50);
 }
 $('#tabLogin').addEventListener('click', () => showAuth('login'));
@@ -4692,10 +4692,11 @@ Voice.initVoice({
   },
 });
 const m = location.pathname.match(/^\/invite\/([\w-]+)/);
-if (m) { S.pendingInvite = m[1]; history.replaceState(null, '', '/'); }
+if (m) { S.pendingInvite = m[1]; history.replaceState(null, '', '/app'); }
 if (location.search) {
   const q = new URLSearchParams(location.search);
-  if (['dm', 'channel', 'call', 'friends'].some((k) => q.has(k))) { S.pendingOpen = q; history.replaceState(null, '', '/'); }
+  if (['dm', 'channel', 'call', 'friends'].some((k) => q.has(k))) { S.pendingOpen = q; history.replaceState(null, '', '/app'); }
+  if (q.has('signin')) { S.wantSignIn = true; history.replaceState(null, '', '/app'); }   // the welcome page's "Sign in"
 }
 if ('serviceWorker' in navigator && window.isSecureContext && !desktop && !phoneApp) navigator.serviceWorker.register('/sw.js').catch(() => {});
 if (hasToken()) start(); else showJoinScreen();

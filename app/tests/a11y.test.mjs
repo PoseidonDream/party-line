@@ -21,16 +21,17 @@ export default async function (ok) {
     const early = [];
     for (const scheme of ['dark', 'light']) {
       const v = await browser.newPage({ colorScheme: scheme });
-      for (const where of ['/', '/privacy', '/terms', '/cookies', '/rules', '/delete-account']) {
+      for (const where of ['/', '/app', '/privacy', '/terms', '/cookies', '/rules', '/delete-account']) {
         await v.goto(srv.url + where);
-        if (where === '/') await v.waitForSelector('#cookieBanner:not([hidden])');
+        if (where === '/app') await v.waitForSelector('#cookieBanner:not([hidden])');
+        if (where === '/') await v.waitForSelector('.pk.rec');
         await v.evaluate(AXE).catch(() => {});
         const found = await v.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes[0].target.join(' ')})`));
         for (const x of found) early.push(`${scheme} ${where}: ${x}`);
       }
       await v.close();
     }
-    ok(`the sign-in screen, cookie notice and policy pages have no accessibility problems${early.length ? ': ' + early.slice(0, 6).join(' | ') : ''}`, !early.length);
+    ok(`the welcome page, sign-in screen, cookie notice and policy pages have no accessibility problems${early.length ? ': ' + early.slice(0, 6).join(' | ') : ''}`, !early.length);
 
     for (const theme of ['dark', 'light']) {
       const a = await signUp(browser, srv.url, theme === 'dark' ? 'Poseidon' : 'Lale');

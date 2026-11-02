@@ -26,7 +26,7 @@ export default async function (ok) {
       window.WebSocket = class { constructor() { setTimeout(() => this.onclose && this.onclose({ code: 1006 }), 50); } send() {} close() {} };
     });
     const c = await ctx.newPage();
-    await c.goto(srv.url + '/');
+    await c.goto(srv.url + '/app');
     await c.click('#tabLogin'); await c.fill('#authName', 'Ayla'); await c.fill('#authPass', 'pass1234'); await c.click('#authBtn');
     await c.waitForSelector('#bootText:has-text("Connecting…")');
     await c.waitForSelector('#bootHelp:not([hidden])', { timeout: 15000 });
