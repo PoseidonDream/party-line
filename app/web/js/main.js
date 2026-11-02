@@ -2174,8 +2174,9 @@ function renderUserArea() {
     sh.querySelector('.lbl').textContent = V.sharing ? 'Stop sharing' : 'Share screen'; sh.title = V.sharing ? 'Stop sharing' : 'Share your screen';
     syncFx();
     const nb = $('#noiseBtn');
-    nb.classList.toggle('active', settings.noiseMode === 'strong');
-    nb.title = t('Noise filter: {0} (N)', t({ strong: 'Strong', standard: 'Standard', off: 'Off' }[settings.noiseMode]));
+    nb.classList.toggle('active', settings.noiseMode === 'on');
+    nb.setAttribute('aria-pressed', String(settings.noiseMode === 'on'));
+    nb.title = t('Noise filter: {0} (N)', t(settings.noiseMode === 'on' ? 'On' : 'Off'));
   }
   if (!V.channelId && !$('#fxPop').hidden) closeFx();
   $('#pttBtn').hidden = !(settings.ptt && V.channelId);
@@ -2208,7 +2209,7 @@ $('#camBtn').addEventListener('click', async () => {
   if (V.camera) Voice.stopCamera(); else { await Voice.startCamera(); if (V.camera && S.view.kind !== 'voice') { const f = findChannel(V.channelId); if (f) setView({ kind: 'voice', serverId: f.server.id, channelId: f.channel.id }); } }
   renderVoiceBits();
 });
-function cycleNoise() { Voice.setNoiseMode(settings.noiseMode === 'strong' ? 'standard' : 'strong').then(() => { toast(t('Noise filter: {0}', t(settings.noiseMode === 'strong' ? 'Strong' : 'Standard')), 1800); renderUserArea(); syncSettingsForm(); }); }
+function cycleNoise() { Voice.setNoiseMode(settings.noiseMode === 'on' ? 'off' : 'on').then(() => { toast(t('Noise filter: {0}', t(settings.noiseMode === 'on' ? 'On' : 'Off')), 1800); renderUserArea(); syncSettingsForm(); }); }
 $('#vcLeaveBtn').addEventListener('click', () => { Voice.leaveVoice(); chime('leave'); renderVoiceBits(); });
 $('#vsChan').addEventListener('click', () => { const f = findChannel(V.channelId); if (f) setView({ kind: 'voice', serverId: f.server.id, channelId: f.channel.id }); });
 $('#audioUnlock').addEventListener('click', () => { Voice.unlockAudio(); $('#audioUnlockRow').hidden = true; });
@@ -3337,7 +3338,7 @@ function syncSettingsForm() {
   if (!S.me) return;
   paintAv($('#setAv'), S.me.id);
   $('#setAvRemove').hidden = !S.me.avatar;
-  for (const r of document.querySelectorAll('input[name="noise"]')) r.checked = r.value === settings.noiseMode;
+  $('#setNoise').checked = settings.noiseMode === 'on';
   syncFx();
   $('#setClips').checked = !!settings.clips;
   $('#clipsField').hidden = !clipsSupported() || isPhone();
@@ -3536,7 +3537,7 @@ $('#setCam').addEventListener('change', async (e) => {
 $('#setSpeaker').addEventListener('change', (e) => { settings.speakerId = e.target.value; saveSettings(); Voice.applySpeaker(); });
 $('#inVol').addEventListener('input', (e) => { $('#inVolOut').textContent = `${e.target.value}%`; Voice.setInputVol(e.target.value / 100); });
 $('#outVol').addEventListener('input', (e) => { $('#outVolOut').textContent = `${e.target.value}%`; settings.outputVol = clampLevel(e.target.value / 100); saveSettings(); Voice.applyAllVolumes(); });
-document.querySelectorAll('input[name="noise"]').forEach((r) => r.addEventListener('change', () => Voice.setNoiseMode(r.value).then(renderUserArea)));
+$('#setNoise').addEventListener('change', (e) => Voice.setNoiseMode(e.target.checked ? 'on' : 'off').then(renderUserArea));
 document.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
 document.querySelectorAll('input[name="accent"]').forEach((r) => r.addEventListener('change', () => { settings.accent = r.value; saveSettings(); applyTheme(); track('theme'); }));
 document.querySelectorAll('input[name="quality"]').forEach((r) => r.addEventListener('change', () => { settings.quality = r.value; saveSettings(); }));

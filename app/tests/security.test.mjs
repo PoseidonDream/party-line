@@ -31,12 +31,12 @@ export default async function (ok) {
     // The rules every page comes with
     const home = await fetch(srv.url + '/');
     const policy = home.headers.get('content-security-policy') || '';
-    ok('pages only run the server’s own scripts (Content-Security-Policy)', /script-src 'self' https:\/\/www\.youtube\.com(;|$)/.test(policy) && !/script-src[^;]*unsafe-inline/.test(policy) && /object-src 'none'/.test(policy));
+    ok('pages only run the server’s own scripts (Content-Security-Policy; WebAssembly allowed for the noise filter, never eval)', /script-src 'self' https:\/\/www\.youtube\.com 'wasm-unsafe-eval'(;|$)/.test(policy) && !/script-src[^;]*unsafe-inline/.test(policy) && !/script-src[^;]*'unsafe-eval'/.test(policy) && /object-src 'none'/.test(policy));
     ok('…can’t be shown inside another site', /frame-ancestors 'none'/.test(policy) && home.headers.get('x-frame-options') === 'DENY');
     ok('…and come with the other safety headers', home.headers.get('x-content-type-options') === 'nosniff' && home.headers.get('referrer-policy') === 'strict-origin-when-cross-origin' && /geolocation=\(\)/.test(home.headers.get('permissions-policy') || ''));
     ok('HTTPS-only (HSTS) is only sent over HTTPS', !home.headers.get('strict-transport-security'));
     const android = await fetch(srv.url + '/', { headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 16; Pixel 9; wv) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36' } });
-    ok('…the Android app’s WebView may run its own bridge script', /script-src 'self' https:\/\/www\.youtube\.com 'unsafe-inline'/.test(android.headers.get('content-security-policy') || ''));
+    ok('…the Android app’s WebView may run its own bridge script', /script-src 'self' https:\/\/www\.youtube\.com 'wasm-unsafe-eval' 'unsafe-inline'/.test(android.headers.get('content-security-policy') || ''));
 
     const page = await signUp(browser, srv.url, 'Lale');
     const blocked = await page.evaluate(async () => {

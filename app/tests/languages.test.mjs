@@ -54,8 +54,8 @@ export default async function (report) {
     await p.selectOption('#setLang', 'ru');
     await p.waitForSelector('#settings [data-settab="look"]:has-text("Вид")');
     ok('…switching to Русский changes everything at once', (await p.getAttribute('#setBtn', 'title')) === 'Настройки' && (await p.textContent('#settings [data-settab="account"]')).trim() === 'Аккаунт');
-    const fx = await p.evaluate(async () => { const { t } = await import('/js/i18n.js'); return [t('Noise filter: {0}', t('Strong')), t('{0} is typing…', 'Robot')]; });
-    ok('…lines put together from pieces translate each piece, but never a name', fx[0] === 'Шумоподавление: Сильный' && fx[1] === 'Robot печатает…', fx.join(' / '));
+    const fx = await p.evaluate(async () => { const { t } = await import('/js/i18n.js'); return [t('Noise filter: {0}', t('On')), t('{0} is typing…', 'Robot')]; });
+    ok('…lines put together from pieces translate each piece, but never a name', fx[0] === 'Шумоподавление: Вкл.' && fx[1] === 'Robot печатает…', fx.join(' / '));
     ok('…like the member count under a server', /^В сети: 1 · участников: 1$/.test((await p.textContent('#countText')).trim()));
     ok('…dates follow the language', await p.evaluate(async () => { const { fmtDay } = await import('/js/util.js'); return /окт|ноя|дек|янв|фев|мар|апр|мая|июн|июл|авг|сен/.test(fmtDay(Date.now() - 3 * 86400_000)); }));
     await p.keyboard.press('Escape');

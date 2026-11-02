@@ -49,7 +49,7 @@ function contentPolicy(req) {
   const testEval = process.env.CSP_TEST_EVAL === '1' ? " 'unsafe-eval'" : '';   // tests only: the test tool's waitForFunction
   return [
     "default-src 'self'",
-    `script-src 'self' https://www.youtube.com${inline}${testEval}`,
+    `script-src 'self' https://www.youtube.com 'wasm-unsafe-eval'${inline}${testEval}`,   // wasm: the noise filter's speech model
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",   // the fonts are served from here (web/fonts): no request to Google
     "img-src 'self' data: blob:",
@@ -179,6 +179,25 @@ app.get('/api/voice-token', auth, wrap((req, res) => {
   const sig = crypto.createHmac('sha256', lk.secret).update(body).digest('base64url');
   return { url: lk.url, token: `${body}.${sig}` };
 }));
+/* The noise filter (GTCRN, a small speech model that keeps voices and removes the rest, music included), from
+   @sapphi-red/web-noise-suppressor. Its "destroy" message listens on a port that's never started, so a filter that's
+   replaced (new mic, new settings) would keep running; it's served with that one line fixed. */
+const NS_DIR = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', '@sapphi-red', 'web-noise-suppressor', 'dist');
+let gtcrnWorklet = null;
+app.get('/vendor/gtcrn-worklet.js', (req, res) => {
+  if (!gtcrnWorklet) {
+    const src = fs.readFileSync(path.join(NS_DIR, 'gtcrn', 'workletProcessor.js'), 'utf8');
+    const broken = 'this.port.addEventListener(`message`,e=>{e.data===`destroy`&&this.destroy()})';
+    if (!src.includes(broken)) console.error('gtcrn worklet: the destroy fix no longer applies; check the package');
+    gtcrnWorklet = src.replace(broken, 'this.port.onmessage=e=>{e.data===`destroy`&&this.destroy()}').replace(/\n\/\/# sourceMappingURL=.*$/m, '');
+  }
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.type('text/javascript').send(gtcrnWorklet);
+});
+app.get('/vendor/gtcrn.wasm', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.type('application/wasm').sendFile(path.join(NS_DIR, 'gtcrn.wasm'));
+});
 app.get('/vendor/livekit-client.js', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=86400');
   res.sendFile(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js'));

@@ -7,10 +7,10 @@ export const MAX_LEVEL = 1.5;   // every volume slider goes up to 150%
 export const clampLevel = (v) => Math.max(0, Math.min(MAX_LEVEL, Number.isFinite(+v) ? +v : 1));
 
 export const settings = Object.assign(
-  { noiseMode: 'strong', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, notify: false, theme: 'dark', musicVolume: 60 },
+  { noiseMode: 'on', ptt: false, quality: 'motion', micId: '', speakerId: '', inputVol: 1, outputVol: 1, notify: false, theme: 'dark', musicVolume: 60 },
   store.get('settings', {}) || {},
 );
-if (!['off', 'standard', 'strong'].includes(settings.noiseMode)) settings.noiseMode = 'strong';
+if (settings.noiseMode !== 'off') settings.noiseMode = 'on';   // one switch now (it used to be Off, Standard or Strong)
 if (!['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch', 'slowmo'].includes(settings.voiceFx)) settings.voiceFx = 'none';   // the same list as VOICE_FX in voice.js
 if (!['system', 'dark', 'light'].includes(settings.theme)) settings.theme = 'dark';
 if (!['amber', 'cyan', 'violet', 'green', 'pink', 'white'].includes(settings.accent)) settings.accent = 'amber';
@@ -46,7 +46,8 @@ export function toast(text, ms = 3200, action) {
 
 let actx = null;
 export function audioCtx() {
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  // 48 kHz whatever the speakers run at (the browser converts): the noise filter's speech model works at 48 kHz.
+  if (!actx) { const A = window.AudioContext || window.webkitAudioContext; try { actx = new A({ sampleRate: 48000 }); } catch { actx = new A(); } }
   if (actx.state === 'suspended') actx.resume().catch(() => {});
   return actx;
 }

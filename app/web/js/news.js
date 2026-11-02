@@ -2,6 +2,9 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 15, items: [
+    ['🎧', 'A much better noise filter', 'It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.'],
+  ] },
   { id: 14, items: [
     ['🔒', 'Your privacy', 'New: Terms of service and a Cookie policy, and a clearer Privacy policy. YouTube now loads only if you allow it. Settings → Account → Privacy.'],
     ['📦', 'Download my data', 'Get a file with your account, profile and everything you sent: Settings → Account → Privacy → Download my data.'],

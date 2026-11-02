@@ -1,5 +1,6 @@
 /* Voice effects, heard from the other side: the pitch a friend actually receives goes up with Chipmunk and down with
-   Deep (the test microphone plays a steady tone). */
+   Deep (the test microphone plays a steady tone). The noise filter is off here: it keeps voices and removes steady
+   tones like the test one (noise.test.mjs checks the filter). */
 import { startServer, launchBrowser, signUp } from './lib.mjs';
 
 export default async function (ok) {
@@ -8,6 +9,7 @@ export default async function (ok) {
   try {
     const a = await signUp(browser, srv.url, 'Poseidon');
     const b = await signUp(browser, srv.url, 'Bora');
+    for (const p of [a, b]) { await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('pl:settings') || '{}'); s.noiseMode = 'off'; localStorage.setItem('pl:settings', JSON.stringify(s)); }); await p.reload(); await p.waitForSelector('#room:not([hidden])'); }
     for (const p of [a, b]) { await p.click('#voiceList .chan:has-text("Lobby")'); await p.waitForSelector('#voiceStatus:not([hidden])', { timeout: 10000 }); }
     await a.waitForTimeout(2500);
     // The strongest frequency in Poseidon's voice as it arrives at Bora (the middle of a dozen looks).

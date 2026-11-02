@@ -33,25 +33,39 @@ function acquireMic(deviceId) {
     const e = new Error('no media'); e.name = 'NoMedia'; return Promise.reject(e);
   }
   return navigator.mediaDevices.getUserMedia({
-    audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: true, noiseSuppression: settings.noiseMode !== 'off', autoGainControl: true },
+    audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: true, noiseSuppression: settings.noiseMode === 'on', autoGainControl: true },
   });
 }
 const silentStream = () => audioCtx().createMediaStreamDestination().stream;
 
-let workletReady = null;
+/* The noise filter. GTCRN, a small speech model (runs on this device, in WebAssembly), keeps voices and removes
+   everything else: music, keyboards, fans, people talking on TV. Where it can't run, Party Line's older filter
+   (steady noise only) steps in, and the browser's own filter is on too either way. */
+let workletReady = null, gtcrnReady = null;
 function loadDenoiser() {
   const c = audioCtx();
   if (!c.audioWorklet || typeof AudioWorkletNode !== 'function') return Promise.reject(new Error('no worklet'));
   if (!workletReady) workletReady = c.audioWorklet.addModule('/denoise-worklet.js').catch((e) => { workletReady = null; throw e; });
   return workletReady;
 }
+function loadGtcrn() {
+  const c = audioCtx();
+  if (!c.audioWorklet || typeof AudioWorkletNode !== 'function' || typeof WebAssembly !== 'object') return Promise.reject(new Error('no worklet'));
+  if (c.sampleRate !== 48000 && c.sampleRate !== 16000) return Promise.reject(new Error(`sample rate ${c.sampleRate}`));
+  if (!gtcrnReady) {
+    gtcrnReady = Promise.all([fetch(absUrl('/vendor/gtcrn.wasm')).then((r) => { if (!r.ok) throw new Error('no model'); return r.arrayBuffer(); }), c.audioWorklet.addModule(absUrl('/vendor/gtcrn-worklet.js'))])
+      .then(([wasm]) => wasm).catch((e) => { gtcrnReady = null; throw e; });
+  }
+  return gtcrnReady;
+}
 function teardownFx() {
   const fx = V.fx; V.fx = null;
   if (!fx) return;
   for (const n of [fx.source, fx.node, fx.gain, ...(fx.effect ? fx.effect.nodes : [])]) { try { n && n.stop && n.stop(); } catch {} try { n && n.disconnect(); } catch {} }
+  if (fx.filter === 'speech') try { fx.node.port.postMessage('destroy'); } catch {}   // stop the model running in the background
 }
-// The mic goes through the audio engine when the Strong filter is on, your mic volume isn't 100% or there's a voice effect.
-const needsFx = () => settings.noiseMode === 'strong' || Math.abs(settings.inputVol - 1) > 0.004 || settings.voiceFx !== 'none';
+// The mic goes through the audio engine when the noise filter is on, your mic volume isn't 100% or there's a voice effect.
+const needsFx = () => settings.noiseMode === 'on' || Math.abs(settings.inputVol - 1) > 0.004 || settings.voiceFx !== 'none';
 
 /* ================= voice effects (for fun: your friends hear you through them) ================= */
 export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch', 'slowmo'];
@@ -193,14 +207,18 @@ async function buildSend(raw) {
   if (!needsFx()) { teardownFx(); return raw; }
   let c, source;
   try { c = audioCtx(); source = c.createMediaStreamSource(raw); } catch { teardownFx(); return raw; }
-  let node = null;
-  if (settings.noiseMode === 'strong') {
+  let node = null, filter = null;
+  if (settings.noiseMode === 'on') {
     try {
-      await loadDenoiser();
-      node = new AudioWorkletNode(c, 'pl-denoise', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { strength: 1 } });
+      const wasmBinary = await loadGtcrn();
+      node = new AudioWorkletNode(c, '@sapphi-red/web-noise-suppressor/gtcrn', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { maxChannels: 1, wasmBinary } });
+      filter = 'speech';
     } catch {
-      settings.noiseMode = 'standard'; saveSettings();
-      toast("The Strong noise filter can't run here, so the Standard filter is on instead.", 6000);
+      try {
+        await loadDenoiser();
+        node = new AudioWorkletNode(c, 'pl-denoise', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { strength: 1 } });
+        filter = 'steady';
+      } catch { filter = 'browser'; }   // the browser's own filter still runs
     }
   }
   let effect = null;
@@ -218,7 +236,7 @@ async function buildSend(raw) {
   last.connect(gain);
   gain.connect(dest);
   teardownFx();
-  V.fx = { source, node, gain, dest, effect };
+  V.fx = { source, node, gain, dest, effect, filter };
   return dest.stream;
 }
 export let localMeter = { source: null, analyser: null };
@@ -271,13 +289,9 @@ export function stopMic() {
   V.rawStream = V.micStream = V.sendTrack = null; V.noMic = true;
 }
 export async function setNoiseMode(mode) {
-  if (!['off', 'standard', 'strong'].includes(mode) || settings.noiseMode === mode) return;
-  const prev = settings.noiseMode;
+  if (!['off', 'on'].includes(mode) || settings.noiseMode === mode) return;
   settings.noiseMode = mode; saveSettings();
-  if (V.rawStream && !V.noMic) {
-    if ((prev === 'off') !== (mode === 'off')) await setupMic(settings.micId);   // the browser's own filter needs a fresh stream
-    else { await installMic(V.rawStream, true); applyMic(); }
-  }
+  if (V.rawStream && !V.noMic) await setupMic(settings.micId);   // the browser's own filter needs a fresh stream
   hooks.change();
 }
 let rebuilding = null;
@@ -721,7 +735,7 @@ export async function diagnostics() {
     muted: V.muted, deafened: V.deafened, serverMuted: V.serverMuted, ptt: settings.ptt, sharing: V.sharing, camera: V.camera,
     mic: raw ? { label: raw.label, state: raw.readyState, muted: raw.muted, enabled: raw.enabled } : null,
     send: V.sendTrack ? { state: V.sendTrack.readyState, enabled: V.sendTrack.enabled, live: micLive() } : null,
-    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), audio: ctx,
+    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filter: V.fx ? V.fx.filter || null : null, audio: ctx,
     peers: [],
   };
   for (const p of V.peers.values()) {

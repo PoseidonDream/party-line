@@ -56,7 +56,7 @@ function lookup(s, list) {
   return s.match(/^\s*/)[0] + out + s.match(/\s*$/)[0];
 }
 /* For text the app builds from pieces, or outside the page (notifications): t('{0} is typing…', name). A piece that is
-   itself app text is passed through t() too: t('Noise filter: {0}', t('Strong')). Names are never translated. */
+   itself app text is passed through t() too: t('Noise filter: {0}', t('On')). Names are never translated. */
 export function t(s, ...vals) {
   const filled = s.replace(/\{(\d)\}/g, (x, n) => vals[n] ?? '');
   if (!active) return filled;

@@ -63,7 +63,7 @@ Screenshots land in `app/tests/results/`.
 ## Languages
 The app is written in English. `web/js/i18n.js` swaps each piece of English text on screen for its translation from `web/i18n/<language>.json` (English text → translation), so the code keeps using plain English. What people write, and names, are never translated (the `SKIP` list in `i18n.js`).
 
-When you add or change text in the app, add the same English line to all six files (`de`, `es`, `fr`, `it`, `ru`, `tr`); a line that's missing just shows in English. Text put together in code goes through `t()`: `t('{0} is typing…', name)`, and an app word inside it too: `t('Noise filter: {0}', t('Strong'))`. `tests/languages.test.mjs` checks every file has the same lines and keeps the `{0}` slots. The developer panel stays in English.
+When you add or change text in the app, add the same English line to all six files (`de`, `es`, `fr`, `it`, `ru`, `tr`); a line that's missing just shows in English. Text put together in code goes through `t()`: `t('{0} is typing…', name)`, and an app word inside it too: `t('Noise filter: {0}', t('On'))`. `tests/languages.test.mjs` checks every file has the same lines and keeps the `{0}` slots. The developer panel stays in English.
 
 ## Admin powers
 
