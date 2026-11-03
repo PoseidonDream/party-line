@@ -8,8 +8,11 @@ main() {
   GIT_COMMIT="$(git log -1 --format='%h %cs')"   # shown in the developer panel
   export GIT_COMMIT
   docker compose up -d --build
-  # Pick up Caddyfile changes without dropping anyone (a broken file is refused and the old one keeps running)
-  docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true
+  # Caddy keeps the Caddyfile it started with (git replaces the file, and the container still sees the old one), so
+  # when it changed, Caddy restarts: a second's pause for the web page, and updates only run when nobody's in voice.
+  if [ "$(docker compose exec -T caddy cat /etc/caddy/Caddyfile 2>/dev/null | sha1sum)" != "$(sha1sum < Caddyfile)" ]; then
+    docker compose restart caddy >/dev/null 2>&1 || true
+  fi
   git rev-parse HEAD > .built   # this version is running (auto-update.sh retries a version that didn't build)
   docker image prune -f >/dev/null
   if [ ! -f /etc/cron.d/party-line-update ]; then
