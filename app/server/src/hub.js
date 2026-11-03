@@ -223,6 +223,7 @@ function readyFor(user) {
     commands: Bot.COMMAND_LIST,
     perks: { achievements: P.ACHIEVEMENTS, unlocks: M.UNLOCKS, nameColors: M.NAME_COLORS },
     serverNow: Date.now(),
+    version: config.version,   // the app reloads itself when this changes (a new version of the server and app)
     resets: user.is_admin ? M.pendingResets() : [],
     notify: M.notifyPrefs(user.id),
   };

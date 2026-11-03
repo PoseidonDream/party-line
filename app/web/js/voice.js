@@ -346,8 +346,9 @@ export async function rejoinVoice() {
   if (!id) return;
   log('voice', 'Rejoining voice after a lost connection');
   closeAllPeers();
-  V.channelId = null;
+  V.channelId = null; V.rejoining = true;
   try { await joinVoice(id); } catch { leaveVoice(false); hooks.system('You were disconnected from voice.'); }
+  finally { V.rejoining = false; }
 }
 export function sendVoiceState() {
   if (!V.channelId) return;

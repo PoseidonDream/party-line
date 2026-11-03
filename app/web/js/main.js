@@ -299,7 +299,16 @@ async function signOut() {
 live.on('auth-failed', () => { setToken(''); S.ready = false; if (V.channelId) Voice.leaveVoice(false); showJoinScreen(); });
 live.on('down', () => { $('#offlineBar').hidden = !S.ready; renderConn(); });
 live.on('open', () => { $('#offlineBar').hidden = true; renderConn(); });
+/* After the server updates, an open app reloads itself to run the new version too (new features, fixes, the newest
+   noise filter): straight away, or right after a call, never in the middle of one. */
+function reloadIfUpdated() {
+  if (!S.reloadForUpdate || V.channelId || V.rejoining || S.reloadTimer) return;
+  // a moment later, still not in a call (rejoining or joining one passes through "not in voice" for a moment)
+  S.reloadTimer = setTimeout(() => { S.reloadTimer = null; if (!V.channelId && !V.rejoining) location.reload(); }, 2000);
+}
 live.on('ready', (d) => {
+  if (d.version) { if (S.version && S.version !== d.version) S.reloadForUpdate = true; else S.version = d.version; }
+  if (S.reloadForUpdate && !V.channelId) { location.reload(); return; }
   S.me = d.me;
   S.perks = d.perks || S.perks;
   S.users = new Map(d.users.map((u) => [u.id, u]));
@@ -3339,6 +3348,12 @@ function syncSettingsForm() {
   paintAv($('#setAv'), S.me.id);
   $('#setAvRemove').hidden = !S.me.avatar;
   $('#setNoise').checked = settings.noiseMode === 'on';
+  // During a call: which filter is actually running on this device
+  Voice.diagnostics().then((d) => {
+    const msg = !V.channelId || d.noise !== 'on' ? '' : d.filter === 'speech' ? t('✅ Running now: only your voice gets through.')
+      : d.filter ? t('⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.') : '';
+    $('#noiseState').textContent = msg; $('#noiseState').hidden = !msg;
+  }).catch(() => {});
   syncFx();
   $('#setClips').checked = !!settings.clips;
   $('#clipsField').hidden = !clipsSupported() || isPhone();
@@ -4683,7 +4698,7 @@ $('#frDev').addEventListener('click', openDev);
 /* ================= start ================= */
 Voice.initVoice({
   myId: () => (S.me ? S.me.id : 0),
-  change: () => { if (S.ready) renderVoiceBits(); },
+  change: () => { if (S.ready) renderVoiceBits(); reloadIfUpdated(); },
   speaking: renderSpeaking,
   micIssue: (kind) => { if (kind && V.channelId) { micPanelOpen = true; renderMicPanel(); } },
   system: (what, id) => {

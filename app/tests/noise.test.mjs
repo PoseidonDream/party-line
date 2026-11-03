@@ -23,6 +23,8 @@ export default async function (ok) {
     ok('the noise filter is on by default, using the speech model (GTCRN)', d1.noise === 'on' && d1.filter === 'speech' && d1.filterRunning);
     await a.click('#setBtn'); await a.click('#settings [data-settab="voice"]');
     ok('…with one switch in Settings and the 🌊 button showing it’s on', await a.evaluate(() => document.querySelector('#setNoise').checked && document.querySelectorAll('input[name="noise"]').length === 0 && document.querySelector('#noiseBtn').getAttribute('aria-pressed') === 'true'));
+    await a.waitForSelector('#noiseState:not([hidden])');
+    ok('…and Settings says it’s running (“only your voice gets through”)', (await a.textContent('#noiseState')).includes('only your voice'));
     await a.keyboard.press('Escape');
 
     // The measurement: voice over music, through the same filter the app uses
@@ -89,6 +91,20 @@ export default async function (ok) {
     await old.evaluate(() => { const s = JSON.parse(localStorage.getItem('pl:settings') || '{}'); s.noiseMode = 'standard'; localStorage.setItem('pl:settings', JSON.stringify(s)); });
     await old.reload(); await old.waitForSelector('#room:not([hidden])');
     ok('someone who had “Standard” or “Strong” before now simply has it on', await old.evaluate(async () => (await import('/js/util.js')).settings.noiseMode === 'on'));
+
+    // A server update: open apps reload to run the new version (a call isn't cut: that app waits until it's over)
+    await a.evaluate(() => { window.__before = 1; }); await old.evaluate(() => { window.__before = 1; });
+    await srv.kill(); await srv.restart({ GIT_COMMIT: 'f00dbab 2026-11-03' });
+    await old.waitForFunction(() => !window.__before, null, { timeout: 20000 });
+    await old.waitForSelector('#room:not([hidden])');
+    ok('after a server update, an open app reloads itself to run the new version', true);
+    await a.waitForSelector('#voiceStatus:not([hidden])', { timeout: 20000 });
+    await a.waitForTimeout(1500);
+    ok('…but not in the middle of a call', await a.evaluate(() => window.__before === 1));
+    await a.click('#vcLeaveBtn');
+    await a.waitForFunction(() => !window.__before, null, { timeout: 10000 });
+    await a.waitForSelector('#room:not([hidden])');
+    ok('…it reloads right after the call ends', true);
 
     const errs = [...a.errors, ...old.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);

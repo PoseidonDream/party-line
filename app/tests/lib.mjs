@@ -19,7 +19,8 @@ export async function startServer(env = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pl-test-'));
   const fullEnv = { ...process.env, DATA_DIR: dataDir, ADMIN_NAMES: 'Poseidon', REPORT_DAY: '7', CSP_TEST_EVAL: '1', AUTO_JOIN: '1', ...env };   // no weekly report in the middle of a test (usage.test.mjs asks for one)
   let proc = null, log = '';
-  const launch = async () => {
+  const launch = async (more = {}) => {   // restart({ GIT_COMMIT: … }): come back as another version
+    Object.assign(fullEnv, more);
     log = '';
     proc = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'src/index.js'], { cwd: SERVER_DIR, env: { ...fullEnv, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
     proc.stdout.on('data', (d) => { log += d; });

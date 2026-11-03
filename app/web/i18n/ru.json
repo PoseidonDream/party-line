@@ -1297,5 +1297,7 @@
 "On": "Вкл.",
 "Keeps your voice and removes everything else: music, keyboard, fans, TV. Turn it off only to share music or an instrument on purpose.": "Оставляет твой голос и убирает всё остальное: музыку, клавиатуру, вентиляторы, телевизор. Выключай, только если хочешь специально поделиться музыкой или инструментом.",
 "A much better noise filter": "Гораздо лучшее шумоподавление",
-"It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Теперь оно оставляет твой голос и убирает всё остальное, даже музыку. Один переключатель: кнопка 🌊 (или N) включает и выключает его."
+"It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Теперь оно оставляет твой голос и убирает всё остальное, даже музыку. Один переключатель: кнопка 🌊 (или N) включает и выключает его.",
+"✅ Running now: only your voice gets through.": "✅ Работает: проходит только твой голос.",
+"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Это устройство не может запустить голосовой фильтр, поэтому убирается только ровный шум (вентиляторы, гул). Помогут наушники."
 }

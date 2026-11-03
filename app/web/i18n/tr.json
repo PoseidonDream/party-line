@@ -1297,5 +1297,7 @@
 "On": "Açık",
 "Keeps your voice and removes everything else: music, keyboard, fans, TV. Turn it off only to share music or an instrument on purpose.": "Sesini korur, geri kalan her şeyi siler: müzik, klavye, fan, televizyon. Yalnızca bilerek müzik ya da enstrüman paylaşmak istediğinde kapat.",
 "A much better noise filter": "Çok daha iyi bir gürültü filtresi",
-"It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Artık sesini korur, müzik dahil geri kalan her şeyi siler. Tek düğme: 🌊 düğmesi (veya N) açar ya da kapatır."
+"It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Artık sesini korur, müzik dahil geri kalan her şeyi siler. Tek düğme: 🌊 düğmesi (veya N) açar ya da kapatır.",
+"✅ Running now: only your voice gets through.": "✅ Şu an çalışıyor: yalnızca sesin geçiyor.",
+"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Bu cihaz ses filtresini çalıştıramıyor; yalnızca sabit gürültü (fan, uğultu) siliniyor. Kulaklık yardımcı olur."
 }

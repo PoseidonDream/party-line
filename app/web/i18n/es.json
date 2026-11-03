@@ -1297,5 +1297,7 @@
 "On": "Activado",
 "Keeps your voice and removes everything else: music, keyboard, fans, TV. Turn it off only to share music or an instrument on purpose.": "Mantiene tu voz y quita todo lo demás: música, teclado, ventiladores, tele. Apágalo solo para compartir música o un instrumento a propósito.",
 "A much better noise filter": "Un filtro de ruido mucho mejor",
-"It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Ahora mantiene tu voz y quita todo lo demás, música incluida. Un solo interruptor: el botón 🌊 (o N) lo activa o desactiva."
+"It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Ahora mantiene tu voz y quita todo lo demás, música incluida. Un solo interruptor: el botón 🌊 (o N) lo activa o desactiva.",
+"✅ Running now: only your voice gets through.": "✅ Funcionando: solo pasa tu voz.",
+"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Este dispositivo no puede usar el filtro de voz, así que solo se quita el ruido constante (ventiladores, zumbidos). Los auriculares ayudan."
 }
