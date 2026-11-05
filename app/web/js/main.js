@@ -297,7 +297,7 @@ async function signOut() {
 }
 
 /* ================= live events ================= */
-live.on('auth-failed', () => { setToken(''); S.ready = false; if (V.channelId) Voice.leaveVoice(false); showJoinScreen(); });
+live.on('auth-failed', () => { setToken(''); S.ready = false; if (V.channelId) Voice.leaveVoice(false); outbox = []; saveOutbox(); renderOutbox(); showJoinScreen(); });
 live.on('down', () => { $('#offlineBar').hidden = !S.ready; renderConn(); });
 live.on('open', () => { $('#offlineBar').hidden = true; renderConn(); });
 /* After the server updates, an open app reloads itself to run the new version too (new features, fixes, the newest
@@ -1660,14 +1660,15 @@ const oneTimeTag = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now(
 const saveOutbox = () => store.set('outbox', outbox);
 const sameTarget = (a, b) => (a.channelId && a.channelId === b.channelId) || (a.toUserId && a.toUserId === b.toUserId);
 function queueMsg(target, body, replyTo, nonce) {
-  outbox.push({ target: { channelId: target.channelId || undefined, toUserId: target.toUserId || undefined }, body, replyTo, nonce, at: Date.now() });
+  outbox.push({ uid: S.me ? S.me.id : 0, target: { channelId: target.channelId || undefined, toUserId: target.toUserId || undefined }, body, replyTo, nonce, at: Date.now() });
   saveOutbox(); renderOutbox();
+  if (live.open) setTimeout(flushOutbox, 3000);   // the connection is still up (the server was just slow): try again soon
 }
 function renderOutbox() {
   const ol = $('#outbox'), here = composeTarget();
   ol.textContent = '';
   for (const x of outbox) {
-    if (!here || !sameTarget(x.target, here)) continue;
+    if (!here || !sameTarget(x.target, here) || x.uid !== S.me.id) continue;
     const li = document.createElement('li');
     const text = document.createElement('span'); text.textContent = decodeMentions(x.body);
     const note = document.createElement('small'); note.textContent = live.open ? t('Sending…') : t('Waiting for the connection…');
@@ -1679,13 +1680,14 @@ function renderOutbox() {
 }
 let flushing = false;
 async function flushOutbox() {
-  if (flushing || !live.open || !outbox.length) return;
+  if (flushing || !live.open || !outbox.length || !S.me) return;
+  outbox = outbox.filter((x) => x.uid === S.me.id); saveOutbox();   // only what this account wrote
   flushing = true; renderOutbox();
   try {
     while (outbox.length && live.open) {
       const x = outbox[0];
       try { await live.req('msg.send', Object.assign({ body: x.body, attachments: [], replyTo: x.replyTo, nonce: x.nonce }, x.target)); }
-      catch (e) { if (e.offline) break; toast(t('A message couldn’t be sent: {0}', e.message), 6000); }
+      catch (e) { if (e.offline) { if (live.open) setTimeout(flushOutbox, 5000); break; } toast(t('A message couldn’t be sent: {0}', e.message), 6000); }
       outbox = outbox.filter((y) => y !== x); saveOutbox(); renderOutbox();
     }
   } finally { flushing = false; renderOutbox(); }

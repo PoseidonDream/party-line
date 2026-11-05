@@ -1,6 +1,6 @@
 /* Messages wait for the connection: written while the server is unreachable, they show above the message box as
    "Waiting for the connection…", are saved on the device, and go out by themselves (in order, once each) when it's back. */
-import { startServer, launchBrowser, signUp } from './lib.mjs';
+import { startServer, launchBrowser, signUp, openDb } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer();
@@ -42,6 +42,25 @@ export default async function (ok) {
     await a.waitForSelector('#offlineBar', { state: 'hidden', timeout: 20000 });
     await b.waitForTimeout(1500);
     ok('…and one can be taken back before it goes (✕)', await b.locator('#messages .msg:has-text("never mind")').count() === 0);
+    // The tag is kept with the message: sent again after a server restart, still only once
+    await srv.kill(); await srv.restart();
+    await a.waitForSelector('#offlineBar', { state: 'hidden', timeout: 20000 });
+    const r3 = await req(a, 'msg.send', { channelId: 1, body: 'only once please', attachments: [], nonce: 'tag-123456789' });
+    ok('…even after the server restarts in between', r3.msg.id === r1.msg.id && r3.again === true);
+
+    // Signed out by the server while offline (password changed elsewhere): waiting messages are dropped, not sent as the next person
+    await srv.kill();
+    await a.waitForSelector('#offlineBar:not([hidden])', { timeout: 10000 });
+    await a.fill('#chatInput', 'from the old sign-in'); await a.keyboard.press('Enter');
+    await a.waitForSelector('#outbox li:has-text("from the old sign-in")');
+    const db = openDb(srv); db.prepare("DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE name = 'Deniz')").run(); db.close();
+    await srv.restart();
+    await a.waitForSelector('#join:not([hidden])', { timeout: 20000 });
+    await a.click('#tabRegister'); await a.fill('#authName', 'Lale'); await a.fill('#authPass', 'pass1234'); await a.check('#authAgree'); await a.click('#authBtn');
+    await a.waitForSelector('#room:not([hidden])');
+    await b.waitForTimeout(2000);
+    ok('…and when the server signs you out, your waiting messages are dropped, never sent by whoever signs in next', await b.locator('#messages .msg:has-text("from the old sign-in")').count() === 0 && await a.evaluate(() => (JSON.parse(localStorage.getItem('pl:outbox')) || []).length === 0));
+
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }

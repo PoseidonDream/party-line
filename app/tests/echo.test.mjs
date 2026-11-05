@@ -1,5 +1,5 @@
 /* Echo warning: when your speakers reach your microphone, friends hear themselves a moment later. The app notices
-   your microphone following their voices 50–300 ms later and tells you privately (once per call) that headphones
+   your microphone following their voices 60–360 ms later and tells you privately (once per call) that headphones
    fix it. Here Bora talks (a recorded voice); on Deniz's side Bora's voice is fed back, 150 ms later, into what
    Deniz's echo check listens to: a real echo, made in the audio engine. */
 import path from 'node:path';

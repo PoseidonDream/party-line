@@ -16,7 +16,7 @@ export const V = {
   ice: null,
 };
 let hooks = { myId: () => 0, change: () => {}, speaking: () => {}, micIssue: () => {}, system: () => {} };
-export function initVoice(h) { hooks = Object.assign(hooks, h); setInterval(speakLoop, 120); setInterval(heal, 2000); setInterval(echoWatch, 50); }
+export function initVoice(h) { hooks = Object.assign(hooks, h); setInterval(speakLoop, 60); setInterval(heal, 2000); }
 
 /* ================= microphone ================= */
 export function issueFromError(err) {
@@ -497,13 +497,17 @@ function applyVolume(p) {
   if (!p.audioEl) return;
   const pref = peerPrefs(p.id);
   const v = V.deafened || pref.mute ? 0 : clampLevel(pref.vol) * settings.outputVol * (p.autoGain || 1);
-  if (v <= 1 || !p.source) {
+  // Switch paths with some room either side of 100% (in at 105%, out below 90%), so a level hovering around 100%
+  // (even volumes moves it in small steps) doesn't flip back and forth with a click each time.
+  const boost = !!p.source && v > 0 && (p.gain ? v >= 0.9 : v > 1.05);
+  if (!boost) {
     try { p.gain && p.gain.disconnect(); } catch {}
     p.gain = null;
     p.audioEl.muted = false; p.audioEl.volume = Math.min(1, v);
   } else {
-    if (!p.gain) { p.gain = audioCtx().createGain(); p.source.connect(p.gain); p.gain.connect(bus()); }
-    p.gain.gain.value = v;
+    const c = audioCtx();
+    if (!p.gain) { p.gain = c.createGain(); p.gain.gain.value = v; p.source.connect(p.gain); p.gain.connect(bus()); }
+    else p.gain.gain.setTargetAtTime(v, c.currentTime, 0.08);   // glide, no zipper noise
     p.audioEl.muted = true;
   }
 }
@@ -519,21 +523,22 @@ export function unlockAudio() { for (const p of V.peers.values()) if (p.audioEl)
    volume you set for them, so quiet friends get a bit louder and loud ones a bit softer without touching a slider. */
 const EVEN_TARGET = 0.08;
 export function evenOut(p, lv) {
-  p.loud = p.loud ? p.loud * 0.97 + lv * 0.03 : lv;
+  p.loud = p.loud ? p.loud * 0.985 + lv * 0.015 : lv;
   p.heard = (p.heard || 0) + 1;
-  if (p.heard < 15) return;   // about 2 seconds of talking first
-  const want = Math.min(2, Math.max(0.5, EVEN_TARGET / p.loud)), g = p.autoGain || 1, next = g + (want - g) * 0.15;
+  if (p.heard < 30) return;   // about 2 seconds of talking first
+  const want = Math.min(2, Math.max(0.5, EVEN_TARGET / p.loud)), g = p.autoGain || 1, next = g + (want - g) * 0.08;
   if (Math.abs(next - g) / g > 0.03) { p.autoGain = next; applyVolume(p); }
 }
 /* Echo warning: if your speakers reach your microphone, friends hear themselves a moment later. Every 50 ms this notes
    how loud friends are (what you hear) and how loud your microphone is (what you send, after the filters). When your
-   microphone keeps following their voices 50–300 ms later, while you aren't the one talking, it's their echo: you
-   get a private hint (once per call), and nobody else is told. */
-const ECHO_N = 160;   // 8 seconds
+   microphone keeps following their voices 60–360 ms later, while you aren't the one talking, it's their echo: you
+   get a private hint (once per call), and nobody else is told. It uses the levels the talking loop measures (every
+   60 ms), so nothing extra is sampled. */
+const ECHO_N = 160;   // about 10 seconds
 const echoRemote = [], echoMic = [];
 let echoTick = 0, echoHits = 0, echoToldFor = null;
 export function echoScore(mic, remote) {
-  // the best match between the mic's loudness and friends' loudness 1–6 steps (50–300 ms) earlier
+  // the best match between the mic's loudness and friends' loudness 1–6 steps (60–360 ms) earlier
   const n = Math.min(mic.length, remote.length);
   let best = 0;
   for (let lag = 1; lag <= 6; lag++) {
@@ -548,24 +553,26 @@ export function echoScore(mic, remote) {
   }
   return best;
 }
-function echoWatch() {
+function echoWatch(remote, mic) {
   if (!V.channelId || !micLive() || !localMeter.analyser || !V.peers.size) { echoRemote.length = echoMic.length = 0; echoHits = 0; return; }
-  let r = 0;
-  for (const p of V.peers.values()) if (p.analyser && peerPrefs(p.id).vol > 0 && !peerPrefs(p.id).mute) r = Math.max(r, level(p.analyser));
-  echoRemote.push(V.deafened ? 0 : r); echoMic.push(level(localMeter.analyser));
+  echoRemote.push(V.deafened ? 0 : remote); echoMic.push(mic);
   if (echoRemote.length > ECHO_N) { echoRemote.shift(); echoMic.shift(); }
-  if (++echoTick % 40 || echoRemote.length < ECHO_N) return;   // look every 2 seconds, once there's 8 seconds to look at
+  if (++echoTick % 33 || echoRemote.length < ECHO_N) return;   // look every 2 seconds, once there's 10 seconds to look at
   echoHits = echoScore(echoMic, echoRemote) > 0.7 ? echoHits + 1 : 0;
   if (echoHits >= 2 && echoToldFor !== V.channelId) { echoToldFor = V.channelId; hooks.echo && hooks.echo(); }
 }
 function speakLoop() {
-  const now = new Set();
-  if (V.channelId && micLive() && level(localMeter.analyser) > 0.02) now.add(hooks.myId());
+  const now = new Set(), sending = V.channelId && micLive(), mic = sending ? level(localMeter.analyser) : 0;
+  if (sending && mic > 0.02) now.add(hooks.myId());
+  let heard = 0;   // the loudest friend you hear, for the echo check
   for (const p of V.peers.values()) {
     const lv = p.analyser ? level(p.analyser) : 0;
     if (lv > 0.02) now.add(p.id);
     if (lv > 0.012) evenOut(p, lv);   // they're talking (quiet talkers too: everyone else's noise filter keeps silence near zero)
+    const pref = peerPrefs(p.id);
+    if (pref.vol > 0 && !pref.mute) heard = Math.max(heard, lv);
   }
+  echoWatch(heard, mic);
   let changed = now.size !== V.speaking.size;
   if (!changed) for (const id of now) if (!V.speaking.has(id)) { changed = true; break; }
   if (changed) { V.speaking = now; hooks.speaking(now); }

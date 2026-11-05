@@ -27,6 +27,11 @@ export default async function (ok) {
     ok('…names are written safely (a server called Fun & "Games" <3)', tag(odd, 'og:title') === 'You’re invited to Fun &amp; &quot;Games&quot; &lt;3' && !odd.includes('"Games" <3'));
     db.prepare('UPDATE invites SET expires_at = ? WHERE code = ?').run(Date.now() - 1000, code); db.close();
     ok('…an expired invite says so', tag(await page(`/invite/${code}`), 'og:title') === 'This invite has expired');
+    const own = await startServer({ DOMAIN: 'party.example.com' });
+    try {
+      const html = await (await fetch(`${own.url}/`, { headers: { 'user-agent': WHATSAPP, host: 'evil.example' } })).text();
+      ok('…and the cards use the server’s own address, not whatever a request claims', tag(html, 'og:image') === 'https://party.example.com/img/share.png' && !html.includes('evil.example'));
+    } finally { await own.stop(); }
     ok(`no JavaScript errors${a.errors.length ? ': ' + a.errors.join(' | ') : ''}`, !a.errors.length);
   } finally { await browser.close(); await srv.stop(); }
 }

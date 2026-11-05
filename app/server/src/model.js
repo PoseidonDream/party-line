@@ -45,10 +45,6 @@ async function hashPassAsync(pass) {
   const salt = crypto.randomBytes(16);
   return formatHash(salt, await scryptAsync(String(pass), salt, SCRYPT));
 }
-function checkPass(pass, stored) {
-  const h = parseHash(stored);
-  return !!h && sameKey(crypto.scryptSync(String(pass), h.salt, 32, { ...h.o, maxmem: MAXMEM }), h.hash);
-}
 async function checkPassAsync(pass, stored) {
   const h = parseHash(stored);
   return !!h && sameKey(await scryptAsync(String(pass), h.salt, h.o), h.hash);
@@ -68,6 +64,7 @@ function newPassOk(pass, msg) {
 const FAIL_WINDOW = 15 * 60_000, FAIL_MAX = 10;
 const failures = new Map();   // name key -> times of recent failures
 const recentFailures = (key) => (failures.get(key) || []).filter((t) => now() - t < FAIL_WINDOW);
+function takeBackFailure(key) { const a = recentFailures(key); a.pop(); if (a.length) failures.set(key, a); else failures.delete(key); }
 function noteFailure(key) {
   failures.set(key, [...recentFailures(key), now()]);
   if (failures.size > 2000) for (const [k] of failures) if (!recentFailures(k).length) failures.delete(k);
@@ -125,11 +122,14 @@ export async function login(name, pass, code, device) {
   const key = foldKey(name);
   if (recentFailures(key).length >= FAIL_MAX) fail('Too many wrong tries for this account. Wait 15 minutes, or press “Forgot your password?”.');
   const u = userByName(name);
+  // Counted as a wrong try before the (slow, background) check, and taken back if it was right: many tries sent at
+  // once can't all slip past the limit while they're being checked.
+  noteFailure(key);
   const passOk = await checkPassAsync(pass, u ? u.pass_hash : NOBODY_HASH);
-  if (!u || !passOk) { noteFailure(key); fail('Wrong name or password.'); }
+  if (!u || !passOk) fail('Wrong name or password.');
   if (u.totp_secret) {
-    if (!code) return { needCode: true };
-    if (!totpOk(u.totp_secret, code)) { noteFailure(key); fail('That code is wrong or too old. Check the time on your phone and try the newest code.'); }
+    if (!code) { takeBackFailure(key); return { needCode: true }; }
+    if (!totpOk(u.totp_secret, code)) fail('That code is wrong or too old. Check the time on your phone and try the newest code.');
   }
   failures.delete(key);
   if (weakHash(u.pass_hash)) run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(pass), u.id);   // upgrade an older fingerprint
@@ -172,8 +172,8 @@ export function confirmTotp(userId, code) {
   if (!totpOk(u.totp_pending, code)) fail('That code doesn’t match. Type the 6 digits your app shows right now.');
   run('UPDATE users SET totp_secret = totp_pending, totp_pending = NULL WHERE id = ?', userId);
 }
-export function stopTotp(userId, pass) {
-  if (!checkPass(pass, getUser(userId).pass_hash)) fail('Your password is wrong.');
+export async function stopTotp(userId, pass) {
+  if (!await checkPassAsync(pass, getUser(userId).pass_hash)) fail('Your password is wrong.');
   run('UPDATE users SET totp_secret = NULL, totp_pending = NULL WHERE id = ?', userId);
 }
 
@@ -253,12 +253,12 @@ export function startEmailReset(name) {
   if (!u || !u.email || u.is_bot) return null;
   return { email: u.email, code: issueCode(u), name: u.name };
 }
-export function finishEmailReset(name, code, newPass, device) {
+export async function finishEmailReset(name, code, newPass, device) {
   const u = userByName(name);
   if (!u || !u.email) fail('That code doesn’t match. Check the email and try again.');
   newPassOk(newPass, 'Pick a password with at least 8 characters.');
   codeOk(u, code);
-  run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(newPass), u.id);
+  run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(newPass), u.id);
   const ended = all('SELECT token_hash FROM sessions WHERE user_id = ?', u.id).map((r) => r.token_hash);
   signOutEverywhere(u.id);
   return { user: getUser(u.id), token: newSession(u.id, device), ended };
@@ -326,21 +326,21 @@ export function expireSessions() {
 export function logout(t) { const k = sha(String(t || '')); run('DELETE FROM sessions WHERE token_hash = ?', k); run('DELETE FROM push_subs WHERE session = ?', k); }
 /* A new password signs out every other device (keepKey is this device's sign-in): whoever knew the old one is out.
    Returns the signed-out sign-ins, so their open apps can be closed. */
-export function changePassword(userId, oldPass, newPass, keepKey) {
+export async function changePassword(userId, oldPass, newPass, keepKey) {
   const u = getUser(userId);
-  if (!checkPass(oldPass, u.pass_hash)) fail('Your current password is wrong.');
   newPassOk(newPass, 'Pick a password with at least 8 characters.');
-  run('UPDATE users SET pass_hash = ? WHERE id = ?', hashPass(newPass), userId);
+  if (!await checkPassAsync(oldPass, u.pass_hash)) fail('Your current password is wrong.');
+  run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(newPass), userId);
   const others = all('SELECT token_hash FROM sessions WHERE user_id = ? AND token_hash != ?', userId, String(keepKey || '')).map((r) => r.token_hash);
   endSessions(userId, others);
   return others;
 }
 /* Admin reset: a new temporary password, and the person is signed out everywhere. */
 const WORDS = ['amber', 'brass', 'comet', 'falcon', 'harbor', 'lantern', 'meteor', 'otter', 'pixel', 'radio', 'raven', 'signal', 'tiger', 'velvet'];
-export function resetPassword(userId) {
+export async function resetPassword(userId) {
   const pick = () => WORDS[crypto.randomInt(WORDS.length)];
   const temp = `${pick()}-${pick()}-${crypto.randomInt(100, 1000)}`;
-  run('UPDATE users SET pass_hash = ?, totp_secret = NULL, totp_pending = NULL WHERE id = ?', hashPass(temp), userId);
+  run('UPDATE users SET pass_hash = ?, totp_secret = NULL, totp_pending = NULL WHERE id = ?', await hashPassAsync(temp), userId);
   signOutEverywhere(userId);
   return temp;
 }
@@ -348,14 +348,15 @@ export function resetPassword(userId) {
    password is stored only as a hash, so the admin never sees it. The requester's device holds a secret for
    the request and is signed in once it's approved. Requests expire after 24 hours. */
 const RESET_TTL = 24 * 3600_000;
-export function createResetRequest(name, newPass, note, device) {
+export async function createResetRequest(name, newPass, note, device) {
   const u = userByName(name);
   if (!u || u.is_bot) fail('There’s no account with that name. Check the spelling.');
   newPassOk(newPass, 'Pick a new password with at least 8 characters.');
+  const passHash = await hashPassAsync(newPass);
   run("UPDATE reset_requests SET state = 'replaced' WHERE user_id = ? AND state = 'pending'", u.id);
   const secret = token();
   const id = Number(run('INSERT INTO reset_requests (user_id, secret_hash, pass_hash, note, device, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    u.id, sha(secret), hashPass(newPass), String(note || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200) || null,
+    u.id, sha(secret), passHash, String(note || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200) || null,
     String(device || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 60) || null, now()).lastInsertRowid);
   return { id, secret, request: resetView(one('SELECT * FROM reset_requests WHERE id = ?', id)) };
 }
@@ -805,7 +806,7 @@ function checkSpecial(body) {
   if (g) { const up = getUpload(g[1]); if (!up || !up.type.startsWith('image/')) fail('That GIF is gone.'); }
   if (st) { const e = getEmoji(Number(st[1])); if (!e || e.kind !== 'sticker') fail('That sticker is gone.'); }
 }
-export function postMessage(userId, where, body, attachments, replyTo) {
+export function postMessage(userId, where, body, attachments, replyTo, tag) {
   body = cleanBody(body);
   const att = attachmentsFrom(userId, attachments);
   if (!body && !att.length) fail('Empty message.');
@@ -818,12 +819,17 @@ export function postMessage(userId, where, body, attachments, replyTo) {
   const parent = replyTo ? getMessage(Number(replyTo)) : null;
   const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
   const ttl = disappearOf(where);
-  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null, ttl ? now() + ttl * 1000 : null).lastInsertRowid);
+  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to, expires_at, client_tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null, ttl ? now() + ttl * 1000 : null, tag || null).lastInsertRowid);
   if (poll) run('UPDATE polls SET message_id = ? WHERE id = ?', id, poll.id);
   if (group) run('UPDATE lfg SET message_id = ? WHERE id = ?', id, group.id);
   markRead(userId, where.channelId ? `c:${where.channelId}` : `d:${where.dmId}`, id);
   return publicMessage(one('SELECT * FROM messages WHERE id = ?', id));
+}
+/* The message someone already sent with this one-time tag (in the last day), if any. */
+export function taggedMessage(userId, tag) {
+  const r = one('SELECT * FROM messages WHERE user_id = ? AND client_tag = ? AND created_at > ?', userId, tag, now() - 86_400_000);
+  return r ? publicMessage(r) : null;
 }
 /* A message as plain words: @names instead of <@12>, times written out, :emoji: names, [sticker] and [GIF].
    For push notifications and /ask. */
@@ -1317,11 +1323,11 @@ export function pruneOld() {
    Your messages, private chats, reactions, sounds, emoji, feedback and everything else that's yours go too. Servers
    you own pass to the member who joined first, or go if nobody else is in them. Photos and files nobody uses any
    more are swept up by the hourly cleanup (index.js). Returns the servers you were in, to tell them. */
-export const passwordOk = (userId, pass) => { const u = getUser(userId); return !!u && checkPass(pass, u.pass_hash); };
-export function deleteAccount(userId, pass) {
+export const passwordOk = async (userId, pass) => { const u = getUser(userId); return !!u && checkPassAsync(pass, u.pass_hash); };
+/* The password is checked by the caller (hub.deleteAccount, with passwordOk), off the main thread. */
+export function deleteAccount(userId) {
   const u = getUser(userId);
   if (!u || u.is_bot) fail('That account can’t be deleted.');
-  if (!checkPass(pass, u.pass_hash)) fail('That password isn’t right.');
   const servers = serverIdsOf(userId);
   tx(() => {
     run('DELETE FROM messages WHERE user_id = ?', userId);

@@ -112,6 +112,11 @@ export default async function (ok) {
       ok('the database file is readable by the server only', mode('party-line.db') === 0o600 && (fs.statSync(srv.dataDir).mode & 0o077) === 0);
     }
 
+    // Many wrong passwords sent at the same moment still stop at the limit (10 per account)
+    const guesses = await Promise.all(Array.from({ length: 12 }, () => get('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Mal', password: 'wrong-guess' }) }).then((r) => r.json())));
+    const stopped = guesses.filter((r) => /Too many wrong tries/.test(r.error || '')).length;
+    ok(`wrong passwords sent all at once still stop at the limit (${stopped} of 12 refused)`, stopped >= 2);
+
     // A script hammering the API
     const burst = await Promise.all(Array.from({ length: 450 }, () => get('/api/info').then((r) => r.status)));
     ok('a script hammering the API is told to slow down', burst.includes(429) && burst.filter((s) => s === 200).length >= 50);

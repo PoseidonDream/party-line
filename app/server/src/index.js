@@ -122,9 +122,9 @@ app.post('/api/login', throttle, wrap(async (req) => {
   return { token: r.token, user: M.publicUser(r.user) };
 }));
 /* Forgot password: ask an admin to confirm, then poll until they answer. */
-app.post('/api/reset-request', throttle, wrap((req) => {
+app.post('/api/reset-request', throttle, wrap(async (req) => {
   const b = req.body || {};
-  const r = M.createResetRequest(b.name, b.newPassword, b.note, b.device);
+  const r = await M.createResetRequest(b.name, b.newPassword, b.note, b.device);
   hub.resetRequested(r.request);
   return { id: r.id, secret: r.secret };
 }));
@@ -136,20 +136,20 @@ app.post('/api/reset-email', throttle, wrap(async (req) => {
   if (r) await sendMail(r.email, `Your Party Line reset code: ${r.code}`, `Hi ${r.name},\n\nSomeone (hopefully you) asked to reset your Party Line password. Your code is: ${r.code}\n\nIt works for 15 minutes. If it wasn’t you, ignore this email: your password stays the same.`).catch(() => {});
   return { ok: true };
 }));
-app.post('/api/reset-email/confirm', throttle, wrap((req) => {
+app.post('/api/reset-email/confirm', throttle, wrap(async (req) => {
   const b = req.body || {};
-  const r = M.finishEmailReset(b.name, b.code, b.newPassword, b.device);
+  const r = await M.finishEmailReset(b.name, b.code, b.newPassword, b.device);
   hub.closeSessions(r.user.id, r.ended);   // every other device goes back to the sign-in screen
   return { token: r.token, user: M.publicUser(r.user) };
 }));
 app.post('/api/reset-request/:id', wrap((req) => M.resetStatus(Number(req.params.id), (req.body || {}).secret)));
 app.post('/api/logout', wrap((req) => { M.logout(bearer(req)); return { ok: true }; }));
 /* Deleting your account from the web page (/delete-account), for people without the app: sign in there, then this. */
-app.post('/api/account/delete', throttle, auth, wrap((req) => { hub.deleteAccount(req.user.id, (req.body || {}).password); return { ok: true }; }));
+app.post('/api/account/delete', throttle, auth, wrap(async (req) => { await hub.deleteAccount(req.user.id, (req.body || {}).password); return { ok: true }; }));
 /* Changing your password signs out your other devices. */
-app.post('/api/password', throttle, auth, wrap((req) => {
+app.post('/api/password', throttle, auth, wrap(async (req) => {
   const b = req.body || {};
-  hub.closeSessions(req.user.id, M.changePassword(req.user.id, b.oldPassword, b.newPassword, M.sessionKey(bearer(req))));
+  hub.closeSessions(req.user.id, await M.changePassword(req.user.id, b.oldPassword, b.newPassword, M.sessionKey(bearer(req))));
   return { ok: true };
 }));
 
@@ -390,7 +390,7 @@ const pages = new Map();
 const pageText = (file) => { if (!pages.has(file)) pages.set(file, fs.readFileSync(path.join(config.webDir, file), 'utf8')); return pages.get(file); };
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 function withCard(file, req, { title, description }) {
-  const origin = `${req.protocol}://${req.get('host')}`;
+  const origin = config.domain ? `https://${config.domain}` : `${req.protocol}://${req.get('host')}`;   // the server's own address when known
   const meta = [['og:type', 'website'], ['og:site_name', 'Party Line'], ['og:title', title], ['og:description', description], ['og:url', origin + req.originalUrl.split('?')[0]],
     ['og:image', `${origin}/img/share.png`], ['og:image:width', '1200'], ['og:image:height', '630'], ['og:image:alt', 'Party Line']]
     .map(([k, v]) => `<meta property="${k}" content="${esc(v)}">`).join('\n');

@@ -36,6 +36,7 @@ export const config = {
   // Shown on the privacy policy and community rules pages as the way to reach whoever runs this server.
   contactEmail: env.CONTACT_EMAIL || '',
   // Where the desktop and Android apps are published (GitHub releases): the welcome page's download buttons.
+  domain: String(env.DOMAIN || '').replace(/^https?:\/\//, '').replace(/[^\w.:-]/g, ''),   // the server's public address (deploy/.env), for link cards
   releasesRepo: env.RELEASES_REPO || 'PoseidonDream/party-line',
   releasesApi: env.RELEASES_API || '',   // tests point this at a stand-in
   playUrl: env.PLAY_URL || '',   // the Google Play listing, once it's public: Android downloads go there instead

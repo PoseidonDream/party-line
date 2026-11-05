@@ -22,9 +22,14 @@ const account = readAccount();
 export const fcmReady = () => !!account;
 
 const b64url = (b) => Buffer.from(b).toString('base64url');
-let access = { token: null, until: 0 };
-async function accessToken() {
-  if (access.token && Date.now() < access.until - 60_000) return access.token;
+let access = { token: null, until: 0 }, signingIn = null;
+function accessToken() {
+  if (access.token && Date.now() < access.until - 60_000) return Promise.resolve(access.token);
+  // Many notifications at once (an @everyone) share one sign-in instead of each asking Google for a token.
+  signingIn ||= signIn().finally(() => { signingIn = null; });
+  return signingIn;
+}
+async function signIn() {
   const now = Math.floor(Date.now() / 1000);
   const head = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claims = b64url(JSON.stringify({ iss: account.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging', aud: TOKEN_URL, iat: now, exp: now + 3600 }));
@@ -50,7 +55,9 @@ export async function sendFcm(token, payload) {
   if (r.ok) return true;
   const j = await r.json().catch(() => ({}));
   const why = JSON.stringify(j);
-  if (r.status === 404 || /UNREGISTERED|registration-token-not-registered/.test(why)) return 'gone';
+  // Only Firebase's explicit "unregistered" answer means the app was uninstalled: a 404 alone can also mean a wrong
+  // project in the settings, and then the addresses must be kept for when the settings are fixed.
+  if (/UNREGISTERED|registration-token-not-registered/.test(why)) return 'gone';
   if (r.status === 401) access = { token: null, until: 0 };   // sign in again next time
   throw new Error(`Firebase didn't take a notification (${r.status})`);
 }

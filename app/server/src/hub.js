@@ -129,10 +129,10 @@ export const hub = {
 };
 /* Deleting an account (see M.deleteAccount): out of voice, its data gone, everyone's apps drop its messages, and its
    own apps are signed out. */
-function deleteAccount(userId, password) {
-  if (!M.passwordOk(userId, password)) fail('That password isn’t right.');
+async function deleteAccount(userId, password) {
+  if (!await M.passwordOk(userId, password)) fail('That password isn’t right.');
   if (voice.has(userId)) leaveVoice(userId);
-  const servers = M.deleteAccount(userId, password);
+  const servers = M.deleteAccount(userId);
   for (const c of conns.values()) send(c, { t: 'user.deleted', userId });
   for (const sid of servers) refreshServer(sid);
   setTimeout(() => { for (const c of byUser.get(userId) || []) try { c.ws.close(4001, 'deleted'); } catch {} }, 300);
@@ -243,17 +243,17 @@ function leaveVoice(userId, reason) {
   if (reason) { const c = conns.get(v.connId); send(c, { t: 'voice.kicked', reason }); }
 }
 
-const sentOnce = new Map();   // "userId:tag" -> { msg, at }: messages sent with a one-time tag (see msg.send)
 const handlers = {
   ping: () => ({ pong: Date.now() }),
 
   /* ---- messages ---- */
   'msg.send'(c, user, d) {
-    // An app that lost its connection sends again what it isn't sure arrived, with the same one-time tag: send that
-    // message's copy back instead of posting it twice.
-    const nk = typeof d.nonce === 'string' && d.nonce.length >= 8 && d.nonce.length <= 64 ? `${user.id}:${d.nonce}` : null;
-    if (nk && sentOnce.has(nk)) return { msg: sentOnce.get(nk).msg, again: true };
-    const done = (m) => { if (nk) { sentOnce.set(nk, { msg: m, at: Date.now() }); if (sentOnce.size > 5000) for (const [k, v] of sentOnce) if (Date.now() - v.at > 30 * 60_000) sentOnce.delete(k); } return { msg: m }; };
+    // An app that lost its connection sends again what it isn't sure arrived, with the same one-time tag (saved with
+    // the message, so this works across a server restart too): send that message back instead of posting it twice.
+    const tag = typeof d.nonce === 'string' && /^[\w-]{8,64}$/.test(d.nonce) ? d.nonce : null;
+    const again = tag && M.taggedMessage(user.id, tag);
+    if (again) return { msg: again, again: true };
+    const done = (m) => ({ msg: m });
     const command = Bot.isCommand(d.body) && !(d.attachments || []).length;
     // At most 8 bot commands per person every 10 s, and 30 messages every 30 s.
     if (command && !allow(cmdTimes, user.id, 10_000, 8)) return { command: true, ephemeral: 'Slow down a little. Try that again in a few seconds.' };
@@ -263,7 +263,7 @@ const handlers = {
       if (!ch || !M.isMember(user.id, ch.server_id)) fail('You can’t post there.');   // text channels, and voice channels' own chat
       if (!M.canOpenChannel(user.id, ch)) fail('This channel is for people 18 and older. Confirm your age in Settings → Account.');
       if (command) return Bot.runCommand(user, { channelId: ch.id }, d.body).then((r) => Object.assign({ command: true }, r));
-      const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo);
+      const m = M.postMessage(user.id, { channelId: ch.id }, d.body, d.attachments, d.replyTo, tag);
       toServer(ch.server_id, { t: 'msg', msg: m, serverId: ch.server_id, nonce: d.nonce });
       chatted(user.id, { channelId: ch.id });
       pushMessage(m, user);
@@ -277,7 +277,7 @@ const handlers = {
     if (M.friendState(user.id, other.id) !== 'friends' && !shares) fail(`Add ${other.name} as a friend first.`);
     const dm = M.dmWith(user.id, other.id, true);
     if (command) return Bot.runCommand(user, { dmId: dm.id }, d.body).then((r) => Object.assign({ command: true }, r));
-    const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo);
+    const m = M.postMessage(user.id, { dmId: dm.id }, d.body, d.attachments, d.replyTo, tag);
     toUser(user.id, { t: 'dm', msg: m, withUserId: other.id, nonce: d.nonce });
     toUser(other.id, { t: 'dm', msg: m, withUserId: user.id, user: userView(user.id) });
     if (!other.is_bot) chatted(user.id, null);
@@ -926,12 +926,12 @@ const handlers = {
     return {};
   },
 
-  'admin.resetPassword'(c, user, d) {
+  async 'admin.resetPassword'(c, user, d) {
     if (!user.is_admin) fail('Only an admin can reset passwords.');
     const target = M.getUser(Number(d.userId));
     if (!target) fail('That person doesn’t exist.');
     if (target.id === user.id) fail('Change your own password in Settings.');
-    const temp = M.resetPassword(target.id);
+    const temp = await M.resetPassword(target.id);
     log(user, null, 'Made a temporary password', target.name);
     for (const tc of [...(byUser.get(target.id) || [])]) tc.ws.close(4001, 'auth');   // signed out on every device
     return { password: temp, name: target.name };
@@ -1032,7 +1032,7 @@ const handlers = {
     hub.userChanged(M.getUser(user.id));
     return {};
   },
-  'totp.stop'(c, user, d) { M.stopTotp(user.id, d.password); hub.userChanged(M.getUser(user.id)); return {}; },
+  async 'totp.stop'(c, user, d) { await M.stopTotp(user.id, d.password); hub.userChanged(M.getUser(user.id)); return {}; },
   'dev.stats'(c, user) {
     if (!user.is_admin) fail('Admins only.');
     const mem = process.memoryUsage();
@@ -1083,7 +1083,7 @@ const handlers = {
     return { id };
   },
   /* Deleting your own account (Settings -> Account). The /delete-account web page does the same (index.js). */
-  'account.delete'(c, user, d) { deleteAccount(user.id, d.password); return {}; },
+  async 'account.delete'(c, user, d) { await deleteAccount(user.id, d.password); return {}; },
   /* Blocking (see M.setBlock): your devices get the new list, and a friendship between you ends. */
   'block.set'(c, user, d) {
     const id = Number(d.userId);

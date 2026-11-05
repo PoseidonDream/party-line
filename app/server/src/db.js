@@ -102,6 +102,10 @@ if (!columns('messages').includes('reply_to')) db.exec('ALTER TABLE messages ADD
 if (!columns('users').includes('last_seen')) db.exec('ALTER TABLE users ADD COLUMN last_seen INTEGER');
 if (!columns('messages').includes('pinned_at')) db.exec('ALTER TABLE messages ADD COLUMN pinned_at INTEGER; ALTER TABLE messages ADD COLUMN pinned_by INTEGER;');
 if (!columns('messages').includes('embeds')) db.exec('ALTER TABLE messages ADD COLUMN embeds TEXT');
+// The one-time tag an app sends with each message, so a message sent again after a dropped connection (even across a
+// server restart) isn't posted twice (see msg.send).
+if (!columns('messages').includes('client_tag')) db.exec('ALTER TABLE messages ADD COLUMN client_tag TEXT');
+db.exec('CREATE INDEX IF NOT EXISTS messages_tag ON messages (user_id, client_tag) WHERE client_tag IS NOT NULL');
 for (const [col, def] of [['status', "TEXT NOT NULL DEFAULT 'online'"], ['custom_status', 'TEXT'], ['bio', 'TEXT'], ['banner', 'TEXT'],
   ['birthday', 'TEXT'], ['news_seen', 'INTEGER NOT NULL DEFAULT 0'], ['flair', 'TEXT'], ['banner_fx', 'TEXT'], ['fav_games', 'TEXT'],
   // streaks, achievements (JSON: key -> when) and the counters they need; a name color (a level reward)

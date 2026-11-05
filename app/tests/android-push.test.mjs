@@ -8,7 +8,7 @@ import { startServer, launchBrowser, signUp, androidContext, openDb } from './li
 export default async function (ok) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   const sent = [], logins = [];
-  let goneNext = false;
+  let goneNext = false, bare404Next = false;
   const google = http.createServer((req, res) => {
     let body = ''; req.on('data', (c) => { body += c; });
     req.on('end', () => {
@@ -21,6 +21,7 @@ export default async function (ok) {
         return res.end(JSON.stringify(good ? { access_token: 'access-123', expires_in: 3600 } : { error: 'invalid_grant' }));
       }
       sent.push({ url: req.url, auth: req.headers.authorization, body: JSON.parse(body) });
+      if (bare404Next) { bare404Next = false; res.writeHead(404, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { status: 'NOT_FOUND', message: 'Requested entity was not found.' } })); }
       if (goneNext) { res.writeHead(404, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { status: 'NOT_FOUND', details: [{ errorCode: 'UNREGISTERED' }] } })); }
       res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"name":"projects/test-proj/messages/1"}');
     });
@@ -63,6 +64,12 @@ export default async function (ok) {
     ok('with the app closed, a private message goes to the phone through Firebase', !!m && m.token === TOKEN && m.data.title === 'Bora' && m.data.body === 'are you coming tonight?');
     ok('…opening that chat when tapped, as a high-priority message', !!m && /^\/app\?dm=\d+$/.test(m.data.url) && m.android.priority === 'high');
     ok('…sent with the server’s own signed sign-in (service account, Firebase messaging only)', logins.length >= 1 && logins.every((l) => l.good) && logins[0].claims.iss === account.client_email && /firebase\.messaging/.test(logins[0].claims.scope) && sent[0].auth === 'Bearer access-123' && sent[0].url === '/v1/projects/test-proj/messages:send');
+    ok('…signing in to Firebase once, not once per notification', logins.length === 1);
+    bare404Next = true;   // what a wrong project in the settings looks like
+    await bora.evaluate(async (id) => { const { live } = await import('/js/net.js'); await live.req('msg.send', { toUserId: id, body: 'still there?', attachments: [] }); }, laleId);
+    for (let i = 0; i < 20 && bare404Next; i++) await bora.waitForTimeout(250);
+    await bora.waitForTimeout(500);
+    ok('a plain “not found” (like a wrong project in the settings) keeps the phone’s address', subs().length === 1);
     goneNext = true;
     await bora.evaluate(async (id) => { const { live } = await import('/js/net.js'); await live.req('msg.send', { toUserId: id, body: 'hello?', attachments: [] }); }, laleId);
     for (let i = 0; i < 40 && subs().length; i++) await bora.waitForTimeout(250);
