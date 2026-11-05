@@ -404,14 +404,19 @@ let releaseCache = { at: 0, data: null };
 async function latestRelease() {
   if (releaseCache.data && Date.now() - releaseCache.at < 10 * 60_000) return releaseCache.data;
   try {
-    const r = await fetch(config.releasesApi || `https://api.github.com/repos/${config.releasesRepo}/releases/latest`, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'party-line-server' }, signal: AbortSignal.timeout(5000) });
+    // The newest few releases: each download comes from the newest one that has it (a desktop release may not
+    // carry the Android app yet, and the other way round).
+    const r = await fetch(config.releasesApi || `https://api.github.com/repos/${config.releasesRepo}/releases?per_page=10`, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'party-line-server' }, signal: AbortSignal.timeout(5000) });
     if (!r.ok) throw new Error(`GitHub ${r.status}`);
-    const rel = await r.json(), files = {};
+    const got = await r.json(), list = (Array.isArray(got) ? got : [got]).filter((x) => x && !x.draft && !x.prerelease), files = {};
     for (const [what, re] of Object.entries(ASSETS)) {
-      const a = (rel.assets || []).find((x) => re.test(x.name) && /^https:\/\/github\.com\//.test(x.browser_download_url || ''));
-      if (a) files[what] = { url: a.browser_download_url, size: a.size, name: a.name };
+      for (const rel of list) {
+        const a = (rel.assets || []).find((x) => re.test(x.name) && /^https:\/\/github\.com\//.test(x.browser_download_url || ''));
+        if (a) { files[what] = { url: a.browser_download_url, size: a.size, name: a.name }; break; }
+      }
     }
-    releaseCache = { at: Date.now(), data: { version: String(rel.tag_name || '').replace(/^\D+/, ''), files } };
+    const desk = list.find((x) => (x.assets || []).some((a) => ASSETS.windows.test(a.name))) || list[0] || {};
+    releaseCache = { at: Date.now(), data: { version: String(desk.tag_name || '').replace(/^\D+/, ''), files } };
   } catch (e) {
     releaseCache.at = Date.now() - 9 * 60_000;   // try again in a minute
     if (!releaseCache.data) return { version: null, files: {} };

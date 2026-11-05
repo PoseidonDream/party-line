@@ -21,13 +21,14 @@ export default async function (ok) {
   // A stand-in for GitHub's "newest release" answer (no .deb in it)
   const gh = http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ tag_name: 'v9.9.9', assets: [
+    res.end(JSON.stringify([{ tag_name: 'v10.0.0', assets: [{ name: 'Party-Line-10.0.0-win-x64.exe', size: 1, browser_download_url: 'https://example.com/not-github.exe' }], draft: true },   // drafts don't count
+      { tag_name: 'v9.9.9', assets: [
       { name: 'Party-Line-9.9.9-win-x64.exe', size: 82_000_000, browser_download_url: `${GH}Party-Line-9.9.9-win-x64.exe` },
       { name: 'Party-Line-9.9.9-mac-universal.dmg', size: 180_000_000, browser_download_url: `${GH}Party-Line-9.9.9-mac-universal.dmg` },
       { name: 'Party-Line-9.9.9-linux-x86_64.AppImage', size: 108_000_000, browser_download_url: `${GH}Party-Line-9.9.9-linux-x86_64.AppImage` },
       { name: 'Party-Line-android.apk', size: 3_200_000, browser_download_url: `${GH}Party-Line-android.apk` },
       { name: 'latest.yml', size: 300, browser_download_url: `${GH}latest.yml` },
-    ] }));
+    ] }, { tag_name: 'v9.0.0', assets: [{ name: 'Party-Line-9.0.0-linux-amd64.deb', size: 75_000_000, browser_download_url: `${GH.replace('v9.9.9', 'v9.0.0')}Party-Line-9.0.0-linux-amd64.deb` }] }]));
   });
   await new Promise((r) => gh.listen(0, '127.0.0.1', r));
   const srv = await startServer({ RELEASES_API: `http://127.0.0.1:${gh.address().port}/latest` });
@@ -66,7 +67,7 @@ export default async function (ok) {
     const where = async (what) => { const r = await fetch(`${srv.url}/download/${what}`, { redirect: 'manual' }); return [r.status, r.headers.get('location')]; };
     ok('“Download” for Windows fetches the newest Windows installer', String(await where('windows')) === `302,${GH}Party-Line-9.9.9-win-x64.exe`);
     ok('…and the Mac, Linux and Android ones', (await where('mac'))[1].endsWith('.dmg') && (await where('linux'))[1].endsWith('.AppImage') && (await where('android'))[1].endsWith('android.apk'));
-    ok('…one the newest release doesn’t have opens the releases page instead', (await where('deb'))[1] === 'https://github.com/PoseidonDream/party-line/releases/latest');
+    ok('…one the newest release doesn’t have comes from the newest release that does', (await where('deb'))[1].endsWith('v9.0.0/Party-Line-9.0.0-linux-amd64.deb'));
     ok('…and an unknown one is “not found”', (await where('nonsense'))[0] === 404);
 
     // Into the app
