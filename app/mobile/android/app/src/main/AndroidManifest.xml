@@ -26,6 +26,15 @@
 
         </activity>
 
+        <!-- Notifications while Party Line is closed (Firebase Cloud Messaging) -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".VoiceService"
             android:exported="false"

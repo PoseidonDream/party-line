@@ -6,4 +6,5 @@
     <string name="custom_url_scheme">com.poseidondream.partyline</string>
     <string name="downloading">Downloading %1$s</string>
     <string name="download_failed">Couldn’t download it. Try again.</string>
+    <string name="push_channel">Messages and calls</string>
 </resources>

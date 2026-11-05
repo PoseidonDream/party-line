@@ -15,7 +15,7 @@ const PATTERNS = [
   ['an AWS key', /\bAKIA[0-9A-Z]{16}\b/],
   ['a Slack token', /\bxox[baprs]-[A-Za-z0-9-]{20,}/],
   ['a private key', /-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/],
-  ['a filled-in secret setting', /^[ \t#]*(TURN_SECRET|LIVEKIT_SECRET|LIVEKIT_KEY|SMTP_PASS|ANTHROPIC_API_KEY|GIPHY_KEY|BACKUP_SECRET|PL_KEYSTORE_PASSWORD|PL_KEY_PASSWORD)[ \t]*=[ \t]*(?![^\n]*(change|example|your|xxx|\$|<|…|\.\.\.|abcd efgh|the 16))[^\s'"]{6,}/m],
+  ['a filled-in secret setting', /^[ \t#]*(TURN_SECRET|LIVEKIT_SECRET|LIVEKIT_KEY|SMTP_PASS|ANTHROPIC_API_KEY|GIPHY_KEY|BACKUP_SECRET|PL_KEYSTORE_PASSWORD|PL_KEY_PASSWORD|FIREBASE_SERVICE_ACCOUNT)[ \t]*=[ \t]*(?![^\n]*(change|example|your|xxx|\$|<|…|\.\.\.|abcd efgh|the 16))[^\s'"]{6,}/m],
 ];
 
 export default async function (ok) {

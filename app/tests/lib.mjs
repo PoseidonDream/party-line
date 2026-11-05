@@ -91,7 +91,7 @@ export const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 16; SM-S928B Build/BP2A.2
 const NATIVE_BRIDGE = path.join(here, '..', 'mobile', 'node_modules', '@capacitor', 'android', 'capacitor', 'src', 'main', 'assets', 'native-bridge.js');
 export async function androidContext(browser, base, answers = {}, opts = {}) {
   const ctx = await browser.newContext(Object.assign({ userAgent: ANDROID_UA, viewport: { width: 400, height: 800 }, isMobile: true, hasTouch: true, permissions: ['microphone'] }, opts));
-  const headers = [{ name: 'PartyLine', methods: [{ name: 'setInCall', rtype: 'promise' }, { name: 'getVersion', rtype: 'promise' }] }];
+  const headers = [{ name: 'PartyLine', methods: [{ name: 'setInCall', rtype: 'promise' }, { name: 'getVersion', rtype: 'promise' }, { name: 'getPushToken', rtype: 'promise' }] }];
   await ctx.addInitScript({ content: [
     `delete window.Notification; delete window.PushManager;`,
     `window.__native = []; const __answers = ${JSON.stringify(answers)};`,

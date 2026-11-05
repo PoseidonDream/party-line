@@ -90,6 +90,24 @@ The app updates itself: when you publish a newer release, everyone gets it on th
 
 The website also works in any phone browser for chat, voice and watching screen shares. On the website, voice stops when the phone locks. Sharing your screen from a phone isn't supported.
 
+## Android notifications while the app is closed (optional)
+
+Browsers already get notifications with Party Line closed. The Android app gets them through Google's Firebase, which needs a free Firebase project (about 10 minutes, once):
+
+1. Go to **console.firebase.google.com**, sign in with your Google account, and press **Create a project**. Call it `Party Line`. Google Analytics isn't needed: turn it off.
+2. In the project, press the **Android** icon (Add app). Package name: `com.poseidondream.partyline`. Press **Register app**, then **Download google-services.json**. Skip the remaining steps.
+3. On GitHub: your repository → **Settings → Secrets and variables → Actions → New repository secret**. Name: `GOOGLE_SERVICES_JSON`. Value: open the downloaded `google-services.json` in a text editor and paste all of it. Save.
+4. Back in Firebase: the gear next to **Project Overview** → **Project settings** → **Service accounts** → **Generate new private key** → **Generate key**. A second file downloads (its name ends in `.json`). Keep it private: it lets the server send notifications.
+5. Put that file on the server and tell Party Line about it (on your Mac, in Terminal; change the file name to yours):
+   ```
+   scp ~/Downloads/party-line-xxxxx.json root@YOUR-ADDRESS:/root/firebase.json
+   ssh root@YOUR-ADDRESS
+   cd /opt/party-line/deploy && echo "FIREBASE_SERVICE_ACCOUNT=$(base64 -w0 /root/firebase.json)" >> .env && rm /root/firebase.json && docker compose up -d
+   ```
+6. Build the new Android app: GitHub → **Actions → Android app → Run workflow**. It goes to Google Play internal testing as before (or download the `.apk` from the run). Update the app on your phone.
+
+That's it: with the new app, private messages, @mentions, calls and friend requests arrive even when Party Line is closed. Each person can turn it off in Settings → Alerts.
+
 ## Looking after it
 
 Connect with `ssh root@YOUR-IP`, then:

@@ -2,4 +2,5 @@
 <resources>
     <string name="downloading">%1$s indiriliyor</string>
     <string name="download_failed">İndirilemedi. Tekrar dene.</string>
+    <string name="push_channel">Mesajlar ve aramalar</string>
 </resources>

@@ -2,4 +2,5 @@
 <resources>
     <string name="downloading">Загрузка: %1$s</string>
     <string name="download_failed">Не удалось скачать. Попробуй ещё раз.</string>
+    <string name="push_channel">Сообщения и звонки</string>
 </resources>

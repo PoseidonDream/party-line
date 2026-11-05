@@ -258,8 +258,14 @@ app.get('/api/gifs', auth, perMinute(30, 'Slow down a little with the GIF search
 app.post('/api/gifs/send', auth, perMinute(20, 'Slow down a little with the GIFs.'), wrap(async (req) => ({ uploadId: await Gifs.saveGif(req.user.id, (req.body || {}).id) })));
 
 /* Push notifications (see push.js). */
-app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey() }));
-app.post('/api/push/subscribe', auth, wrap((req) => { Usage.countOnce(req.user.id, 'push', 86_400_000); Push.subscribe(req.user.id, req.body.subscription, req.body.device, M.sessionKey(bearer(req))); return { ok: true }; }));
+app.get('/api/push/key', (req, res) => res.json({ key: Push.publicKey(), android: Push.androidPushReady() }));
+app.post('/api/push/subscribe', auth, wrap((req) => {
+  Usage.countOnce(req.user.id, 'push', 86_400_000);
+  const b = req.body || {};
+  if (b.fcm) Push.subscribeFcm(req.user.id, b.fcm, b.device, M.sessionKey(bearer(req)));   // the Android app (Firebase)
+  else Push.subscribe(req.user.id, b.subscription, b.device, M.sessionKey(bearer(req)));
+  return { ok: true };
+}));
 app.post('/api/push/unsubscribe', auth, wrap((req) => { Push.unsubscribe(req.user.id, req.body.endpoint); return { ok: true }; }));
 
 app.get('/api/bookmarks', auth, wrap((req) => { Usage.countOnce(req.user.id, 'bookmarks'); return { messages: M.bookmarksOf(req.user.id) }; }));

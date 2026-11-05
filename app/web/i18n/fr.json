@@ -1305,5 +1305,11 @@
 "Don’t send": "Ne pas envoyer",
 "A message couldn’t be sent: {0}": "Un message n’a pas pu être envoyé : {0}",
 "Waiting to be sent": "En attente d’envoi",
-"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Tes amis s’entendent peut-être eux-mêmes : le son de tes haut-parleurs arrive dans ton micro. Un casque règle ça (ou baisse tes haut-parleurs)."
+"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Tes amis s’entendent peut-être eux-mêmes : le son de tes haut-parleurs arrive dans ton micro. Un casque règle ça (ou baisse tes haut-parleurs).",
+"A calmer top bar": "Une barre du haut plus calme",
+"Events, games, media, pinned messages and the invite link are now in the ⋯ menu at the top right.": "Les événements, jeux, médias, messages épinglés et le lien d’invitation sont maintenant dans le menu ⋯ en haut à droite.",
+"Nothing lost offline": "Rien de perdu hors ligne",
+"If the connection drops, what you type waits and sends by itself when you’re back.": "Si la connexion coupe, ce que tu écris attend et part tout seul à ton retour.",
+"Even volumes": "Volumes équilibrés",
+"Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Les amis discrets passent maintenant un peu plus fort et les bruyants un peu moins, automatiquement."
 }

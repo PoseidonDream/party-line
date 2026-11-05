@@ -358,7 +358,7 @@ live.on('ready', (d) => {
   if (S.pendingOpen) { const q = S.pendingOpen; S.pendingOpen = null; openFromPush(q); }
   flushOutbox();   // messages that waited for the connection
   if (first) showNews();
-  if (first) syncPush();
+  if (first) { syncPush(); syncPhonePush(); }
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
 /* What a person's messages show of them: only a change here redraws the chat (not their XP or streak). */
@@ -990,7 +990,7 @@ const phoneApp = (() => {
   if (!cap || typeof cap.isNativePlatform !== 'function' || !cap.isNativePlatform()) return null;
   if (typeof cap.nativePromise === 'function') {
     const call = (method) => (options = {}) => cap.nativePromise('PartyLine', method, options);
-    return { getVersion: call('getVersion'), setInCall: call('setInCall') };
+    return { getVersion: call('getVersion'), setInCall: call('setInCall'), getPushToken: call('getPushToken') };
   }
   return typeof cap.registerPlugin === 'function' ? cap.registerPlugin('PartyLine') : null;
 })();
@@ -3959,6 +3959,25 @@ $('#newsOk').addEventListener('click', () => $('#newsDlg').close());
 const pushSupported = () => !desktop && !phoneApp && window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
 const b64bytes = (s) => { const t = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(t, (ch) => ch.charCodeAt(0)); };
 async function pushSub() { const reg = await navigator.serviceWorker.ready; return { reg, sub: await reg.pushManager.getSubscription() }; }
+/* The Android app: Firebase delivers its notifications while it's closed (see PushService in the app). On unless
+   turned off in Settings → Alerts; the server has to be set up for it (FIREBASE_SERVICE_ACCOUNT) and the app
+   built with Firebase, otherwise the switch stays hidden. */
+const phonePushOn = () => settings.phonePush !== false;
+async function setPhonePush(on) {
+  const { token } = await phoneApp.getPushToken();
+  if (on) await api('/api/push/subscribe', { method: 'POST', body: { fcm: token, device: S.appLabel || 'Android app' } });
+  else await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: `fcm:${token}` } }).catch(() => {});
+  settings.phonePush = !!on; saveSettings();
+  S.phonePushOk = true;
+}
+async function syncPhonePush() {
+  if (!phoneApp || !phoneApp.getPushToken) return;
+  try {
+    const { android } = await api('/api/push/key');
+    if (!android) return;   // this server doesn't send to Android yet
+    if (phonePushOn()) await setPhonePush(true); else { await phoneApp.getPushToken(); S.phonePushOk = true; }
+  } catch { S.phonePushOk = false; }   // this build has no Firebase, or notifications are blocked
+}
 async function setPush(on) {
   const { reg, sub } = await pushSub();
   if (!on) {
@@ -3979,6 +3998,7 @@ async function syncPush() {
   setPush(true).catch(() => {});
 }
 async function syncPushBox() {
+  if (phoneApp) { $('#pushField').hidden = !S.phonePushOk; $('#setPush').checked = !!S.phonePushOk && phonePushOn(); return; }
   $('#pushField').hidden = !pushSupported();
   if (!pushSupported()) return;
   const { sub } = await pushSub().catch(() => ({}));
@@ -3986,7 +4006,7 @@ async function syncPushBox() {
 }
 $('#setPush').addEventListener('change', async (e) => {
   const on = e.target.checked; e.target.disabled = true;
-  try { await setPush(on); if (on) toast('Done. You’ll get notifications even when Party Line is closed.', 4000); }
+  try { await (phoneApp ? setPhonePush(on) : setPush(on)); if (on) toast('Done. You’ll get notifications even when Party Line is closed.', 4000); }
   catch (err) { e.target.checked = false; toast(err.message || 'Couldn’t turn on notifications in this browser.', 6000); }
   finally { e.target.disabled = false; }
 });

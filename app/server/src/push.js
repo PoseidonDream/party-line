@@ -9,6 +9,7 @@ import webpush from 'web-push';
 import { one, all, run } from './db.js';
 import { config } from './config.js';
 import { UserError } from './model.js';
+import { fcmReady, sendFcm } from './fcm.js';
 
 const parseKeys = (s) => { try { const k = JSON.parse(s); return k && k.publicKey && k.privateKey ? k : null; } catch { return null; } };
 let keys = parseKeys((one("SELECT value FROM kv WHERE key = 'vapid'") || {}).value);
@@ -33,12 +34,26 @@ export function subscribe(userId, sub, device, session) {
     run('DELETE FROM push_subs WHERE user_id = ? AND endpoint NOT IN (SELECT endpoint FROM push_subs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10)', userId, userId);
   }
 }
+/* The Android app: its Firebase address, kept as endpoint "fcm:<token>" next to the browsers' subscriptions. */
+export function subscribeFcm(userId, token, device, session) {
+  token = String(token || '');
+  if (!fcmReady()) throw new UserError('Android notifications aren’t set up on this server yet.');
+  if (!/^[\w:.-]{50,4096}$/.test(token)) throw new UserError('That isn’t a phone notification address.');
+  run('INSERT OR REPLACE INTO push_subs (endpoint, user_id, p256dh, auth, device, created_at, session) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    `fcm:${token}`, userId, '', '', String(device || '').slice(0, 60), Date.now(), session || null);
+}
+export const androidPushReady = () => fcmReady();
 export const unsubscribe = (userId, endpoint) => run('DELETE FROM push_subs WHERE user_id = ? AND endpoint = ?', userId, String(endpoint || ''));
 export const hasPush = (userId) => !!one('SELECT 1 AS x FROM push_subs WHERE user_id = ?', userId);
 
 /* payload: { title, body, url, tag }. Subscriptions the push service says are gone are forgotten. */
 export function pushTo(userId, payload) {
   for (const s of all('SELECT * FROM push_subs WHERE user_id = ?', userId)) {
+    if (s.endpoint.startsWith('fcm:')) {
+      sendFcm(s.endpoint.slice(4), { title: payload.title, body: payload.body, url: payload.url, tag: payload.tag, kind: payload.call ? 'call' : 'message' })
+        .then((r) => { if (r === 'gone') run('DELETE FROM push_subs WHERE endpoint = ?', s.endpoint); }, (e) => console.error('android notification', e.message));
+      continue;
+    }
     webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(payload), { TTL: 6 * 3600, urgency: 'high' })
       .catch((e) => { if (e && (e.statusCode === 404 || e.statusCode === 410)) run('DELETE FROM push_subs WHERE endpoint = ?', s.endpoint); });
   }

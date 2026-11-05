@@ -37,6 +37,13 @@ jobs:
         if: vars.PARTY_LINE_SERVER != ''
         run: node -e "const f='capacitor.config.json',c=require('./'+f);c.server.url=process.argv[1];require('fs').writeFileSync(f,JSON.stringify(c,null,2))" "${{ vars.PARTY_LINE_SERVER }}"
       - run: npx cap sync android
+      - name: Firebase (notifications while the app is closed)
+        # Optional: the google-services.json from your Firebase project, saved as the repository secret
+        # GOOGLE_SERVICES_JSON (see deploy/DEPLOY.md → Android notifications). Without it the app builds without them.
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        shell: bash
+        run: if [ -n "$GOOGLE_SERVICES_JSON" ]; then printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json; echo "Firebase is on."; else echo "No GOOGLE_SERVICES_JSON secret: notifications while closed stay off."; fi
       - name: Signing key
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

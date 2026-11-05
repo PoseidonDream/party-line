@@ -22,11 +22,15 @@ import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    /** Where a tapped notification should open, like "/app?dm=5" (see PushService). */
+    static final String EXTRA_OPEN = "partyline.open";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(PartyLinePlugin.class);
         super.onCreate(savedInstanceState);
         WebView web = getBridge().getWebView();
+        openFromNotification(getIntent());
         // Let voice and Listen together (YouTube) start playing without an extra tap.
         web.getSettings().setMediaPlaybackRequiresUserGesture(false);
         // Android 13+: ask once, so the "In voice" notification can show while voice runs in the background.
@@ -49,6 +53,29 @@ public class MainActivity extends BridgeActivity {
                 });
             }
         });
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        openFromNotification(intent);
+    }
+
+    /** A tapped notification: open the server's page at that chat (the page reads ?dm=, ?channel=, ?call=). */
+    private void openFromNotification(android.content.Intent intent) {
+        String path = intent == null ? null : intent.getStringExtra(EXTRA_OPEN);
+        if (path == null || !path.startsWith("/")) return;
+        intent.removeExtra(EXTRA_OPEN);
+        WebView web = getBridge().getWebView();
+        String base = getBridge().getConfig().getServerUrl();
+        if (base == null || base.isEmpty()) {
+            String cur = web.getUrl();
+            if (cur == null) return;
+            Uri u = Uri.parse(cur);
+            base = u.getScheme() + "://" + u.getAuthority();
+        }
+        final String target = base.replaceAll("/+$", "") + path;
+        web.post(() -> web.loadUrl(target));
     }
 
     private void download(String url, String userAgent, String contentDisposition, String mimeType) {

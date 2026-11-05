@@ -43,6 +43,25 @@ public class PartyLinePlugin extends Plugin {
         }
     }
 
+    /**
+     * This phone's notification address from Firebase, for the Party Line server to send to while the app is closed.
+     * Rejects when this build has no Firebase setup (google-services.json), so the page simply leaves it off.
+     */
+    @PluginMethod
+    public void getPushToken(PluginCall call) {
+        try {
+            if (com.google.firebase.FirebaseApp.getApps(getContext()).isEmpty()) { call.reject("Notifications aren't set up in this build"); return; }
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                if (!task.isSuccessful() || task.getResult() == null) { call.reject("Couldn't get a notification address", task.getException()); return; }
+                JSObject r = new JSObject();
+                r.put("token", task.getResult());
+                call.resolve(r);
+            });
+        } catch (Exception e) {
+            call.reject("Notifications aren't set up in this build", e);
+        }
+    }
+
     @PluginMethod
     public void getVersion(PluginCall call) {
         try {

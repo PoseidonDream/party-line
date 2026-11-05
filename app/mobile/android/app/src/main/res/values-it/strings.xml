@@ -2,4 +2,5 @@
 <resources>
     <string name="downloading">Download di %1$s</string>
     <string name="download_failed">Download non riuscito. Riprova.</string>
+    <string name="push_channel">Messaggi e chiamate</string>
 </resources>

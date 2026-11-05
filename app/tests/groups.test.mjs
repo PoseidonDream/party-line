@@ -1,5 +1,5 @@
 /* Group chats (create, chat, add people, leave), group calls that ring, and 1-on-1 calls from a private chat. */
-import { startServer, launchBrowser, signUp, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, RESULTS, fromMore } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer();
@@ -50,7 +50,7 @@ export default async function (ok) {
     ok('the ring stops when the call ends', true);
 
     await c.click('#dmList .dm-item:has-text("Squad")');
-    await c.click('#groupLeaveBtn'); await c.click('#cfOk');
+    await fromMore(c, 'groupLeaveBtn'); await c.click('#cfOk');
     await a.click('#dmList .dm-item:has-text("Squad")');
     await a.waitForSelector('#messages .msg:has(.bot-tag):has-text("Cem left the group")');
     ok('leaving a group tells the others', await c.locator('#dmList .dm-item:has-text("Squad")').count() === 0);

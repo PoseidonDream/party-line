@@ -2,6 +2,11 @@
    Add a new entry at the top with the next id; everyone sees it once (the server remembers, so not again on
    their other devices). New accounts skip notes from before they joined. */
 export const NEWS = [
+  { id: 16, items: [
+    ['⋯', 'A calmer top bar', 'Events, games, media, pinned messages and the invite link are now in the ⋯ menu at the top right.'],
+    ['📶', 'Nothing lost offline', 'If the connection drops, what you type waits and sends by itself when you’re back.'],
+    ['🔊', 'Even volumes', 'Quiet friends now come through a bit louder and loud ones a bit softer, automatically.'],
+  ] },
   { id: 15, items: [
     ['🎧', 'A much better noise filter', 'It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.'],
   ] },

@@ -1305,5 +1305,11 @@
 "Don’t send": "Gönderme",
 "A message couldn’t be sent: {0}": "Bir mesaj gönderilemedi: {0}",
 "Waiting to be sent": "Gönderilmeyi bekliyor",
-"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Arkadaşların kendi seslerini duyuyor olabilir: hoparlörlerinin sesi mikrofonuna ulaşıyor. Kulaklık takarsan düzelir (ya da hoparlörlerin sesini kıs)."
+"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Arkadaşların kendi seslerini duyuyor olabilir: hoparlörlerinin sesi mikrofonuna ulaşıyor. Kulaklık takarsan düzelir (ya da hoparlörlerin sesini kıs).",
+"A calmer top bar": "Daha sade bir üst çubuk",
+"Events, games, media, pinned messages and the invite link are now in the ⋯ menu at the top right.": "Etkinlikler, oyunlar, medya, sabitlenmiş mesajlar ve davet bağlantısı artık sağ üstteki ⋯ menüsünde.",
+"Nothing lost offline": "Bağlantı kopsa da kaybolmaz",
+"If the connection drops, what you type waits and sends by itself when you’re back.": "Bağlantı koparsa yazdıkların bekler ve geri geldiğinde kendiliğinden gönderilir.",
+"Even volumes": "Dengeli ses seviyesi",
+"Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Kısık sesli arkadaşlar artık biraz daha yüksek, yüksek sesliler biraz daha alçak duyuluyor; otomatik olarak."
 }
