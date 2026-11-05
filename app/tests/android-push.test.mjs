@@ -42,13 +42,16 @@ export default async function (ok) {
     const subs = () => db.prepare("SELECT endpoint FROM push_subs WHERE endpoint LIKE 'fcm:%'").all().map((r) => r.endpoint);
     for (let i = 0; i < 20 && !subs().length; i++) await phone.waitForTimeout(250);
     ok('the Android app gives the server its notification address when it opens', subs().includes(`fcm:${TOKEN}`));
+    const lastAuth = () => phone.evaluate(() => { const c = window.__native.filter((x) => x.method === 'getPushToken').pop(); return { auth: c && c.options ? c.options.auth : undefined, mine: JSON.parse(localStorage.getItem('pl:token')) }; });
+    const kept = await lastAuth();
+    ok('…and leaves the app its sign-in, to pass on a new address while Party Line is closed', !!kept.auth && kept.auth === kept.mine);
 
     await phone.evaluate(() => document.querySelector('#setBtn').click());
     await phone.click('#settings [data-settab="alerts"]');
     ok('…Settings → Alerts shows “Even when Party Line is closed”, on', await phone.isVisible('#pushField') && await phone.isChecked('#setPush'));
     await phone.click('#setPush');
     for (let i = 0; i < 20 && subs().length; i++) await phone.waitForTimeout(250);
-    ok('…and turning it off forgets the address', !subs().length);
+    ok('…and turning it off forgets the address (and the app forgets the sign-in)', !subs().length && (await lastAuth()).auth === '');
     await phone.click('#setPush');
     for (let i = 0; i < 20 && !subs().length; i++) await phone.waitForTimeout(250);
     await phone.keyboard.press('Escape');

@@ -13,7 +13,10 @@ const UA = {
   android: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
   iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
   electron: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) PartyLine/1.2.4 Chrome/140.0.0.0 Electron/45.2.1 Safari/537.36',
-  androidApp: 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36',
+  androidApp: 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36 PartyLineApp',
+  androidAppOld: 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36',
+  instagram: 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36 Instagram 350.0.0.37.109 Android (34/14; 420dpi; 1080x2400; Google; Pixel 8; shiba; shiba; en_US; 640000000)',
+  facebook: 'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/480.0.0.40.109;]',
 };
 const GH = 'https://github.com/PoseidonDream/party-line/releases/download/v9.9.9/';
 
@@ -44,6 +47,8 @@ export default async function (ok) {
     const html = async (ua) => (await fetch(srv.url, { headers: { 'user-agent': ua } })).text();
     ok('a browser opening the server’s address gets the welcome page', (await html(UA.windows)).includes('id="get"'));
     ok('…the desktop and Android apps get the app itself', (await html(UA.electron)).includes('id="join"') && (await html(UA.androidApp)).includes('id="join"'));
+    ok('…older Android app builds too', (await html(UA.androidAppOld)).includes('id="join"'));
+    ok('…but a link opened inside Instagram or Facebook gets the welcome page', (await html(UA.instagram)).includes('id="get"') && (await html(UA.facebook)).includes('id="get"'));
 
     // A download for this device first
     const first = async (ua, opts) => { const p = await visit(ua, opts); await p.waitForSelector('.pk.rec'); const r = await p.evaluate(() => { const c = document.querySelector('#get .pk'); return { os: c.dataset.os, rec: c.classList.contains('rec'), note: getComputedStyle(c.querySelector('.rec-note')).display !== 'none', ios: getComputedStyle(c.querySelector('.ios-note') || document.body).display !== 'none' && !!c.querySelector('.ios-note') }; }); return { p, ...r }; };

@@ -302,8 +302,8 @@ live.on('down', () => { $('#offlineBar').hidden = !S.ready; renderConn(); });
 live.on('open', () => { $('#offlineBar').hidden = true; renderConn(); });
 /* After the server updates, an open app reloads itself to run the new version too (new features, fixes, the newest
    noise filter), but never over something unfinished: not in a call (or while voice reconnects), not with a
-   half-typed message in the box or a window open. Until then it checks again every few seconds. */
-const calmForReload = () => !V.channelId && !V.rejoining && !chatInput.value.trim() && !document.querySelector('dialog[open]') && !S.attach.length;
+   half-typed message or an edit, a voice message being recorded, joining voice, a window open. Until then it checks again every few seconds. */
+const calmForReload = () => !V.channelId && !V.rejoining && !V.joining && !chatInput.value.trim() && !document.querySelector('dialog[open], .msg-editbox') && !S.attach.length && !rec;   // rec: a voice message being recorded
 function reloadIfUpdated() {
   if (!S.reloadForUpdate || S.reloadTimer) return;
   S.reloadTimer = setInterval(() => { if (calmForReload()) location.reload(); }, 3000);
@@ -1690,8 +1690,14 @@ async function flushOutbox() {
   try {
     while (outbox.length && live.open) {
       const x = outbox[0];
-      try { await live.req('msg.send', Object.assign({ body: x.body, attachments: [], replyTo: x.replyTo, nonce: x.nonce }, x.target)); }
-      catch (e) { if (e.offline) { if (live.open) setTimeout(flushOutbox, 5000); break; } toast(t('A message couldn’t be sent: {0}', e.message), 6000); }
+      try {
+        const r = await live.req('msg.send', Object.assign({ body: x.body, attachments: [], replyTo: x.replyTo, nonce: x.nonce }, x.target));
+        if (r && r.ephemeral) botNote(r.ephemeral);   // a bot command's private answer
+      } catch (e) {
+        // offline again, or a long backlog reached the "Slow down" limit (30 messages in 30 s): it waits and tries again
+        if (e.offline || /^Slow down/.test(e.message)) { if (live.open) setTimeout(flushOutbox, e.offline ? 5000 : 10_000); break; }
+        toast(t('A message couldn’t be sent: {0}', e.message), 6000);
+      }
       outbox = outbox.filter((y) => y !== x); saveOutbox(); renderOutbox();
     }
   } finally { flushing = false; renderOutbox(); }
@@ -3972,7 +3978,8 @@ async function pushSub() { const reg = await navigator.serviceWorker.ready; retu
    built with Firebase, otherwise the switch stays hidden. */
 const phonePushOn = () => settings.phonePush !== false;
 async function setPhonePush(on) {
-  const { token } = await phoneApp.getPushToken();
+  // the app keeps the sign-in while it's on, to pass on a new notification address even while Party Line is closed
+  const { token } = await phoneApp.getPushToken({ auth: on ? store.get('token', '') : '' });
   if (on) await api('/api/push/subscribe', { method: 'POST', body: { fcm: token, device: S.appLabel || 'Android app' } });
   else await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: `fcm:${token}` } }).catch(() => {});
   settings.phonePush = !!on; saveSettings();
@@ -3983,7 +3990,7 @@ async function syncPhonePush() {
   try {
     const { android } = await api('/api/push/key');
     if (!android) return;   // this server doesn't send to Android yet
-    if (phonePushOn()) await setPhonePush(true); else { await phoneApp.getPushToken(); S.phonePushOk = true; }
+    if (phonePushOn()) await setPhonePush(true); else { await phoneApp.getPushToken({ auth: '' }); S.phonePushOk = true; }
   } catch { S.phonePushOk = false; }   // this build has no Firebase, or notifications are blocked
 }
 async function setPush(on) {

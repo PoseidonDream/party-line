@@ -139,7 +139,7 @@ export async function login(name, pass, code, device) {
     if (!code) { takeBackFailure(key); return { needCode: true }; }
     if (!totpOk(u.totp_secret, code)) fail('That code is wrong or too old. Check the time on your phone and try the newest code.');
   }
-  failures.delete(key);
+  takeBackFailure(key);   // only this try: wrong guesses from elsewhere still count
   if (weakHash(u.pass_hash)) run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(pass), u.id);   // upgrade an older fingerprint
   return { user: u, token: newSession(u.id, device) };
 }

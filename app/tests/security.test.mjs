@@ -37,6 +37,8 @@ export default async function (ok) {
     ok('HTTPS-only (HSTS) is only sent over HTTPS', !home.headers.get('strict-transport-security'));
     const android = await fetch(srv.url + '/', { headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 16; Pixel 9; wv) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36' } });
     ok('…the Android app’s WebView may run its own bridge script', /script-src 'self' https:\/\/www\.youtube\.com 'wasm-unsafe-eval' 'unsafe-inline'/.test(android.headers.get('content-security-policy') || ''));
+    const insta = await fetch(srv.url + '/', { headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 16; Pixel 9; wv) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36 Instagram 350.0.0.0 Android' } });
+    ok('…but a browser inside another app (Instagram here) keeps the strict rules', !/script-src[^;]*unsafe-inline/.test(insta.headers.get('content-security-policy') || ''));
 
     const page = await signUp(browser, srv.url, 'Lale');
     const blocked = await page.evaluate(async () => {

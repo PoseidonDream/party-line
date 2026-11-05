@@ -501,15 +501,15 @@ function bus() {
 }
 export const peerPrefs = (id) => friendVols[id] || { vol: 1, mute: false };
 // Small changes (even volumes) slide over a fraction of a second instead of stepping; muting and big jumps are instant.
+// The talking loop (every 60 ms) moves it along (stepVolume), so there are no extra timers.
 function glideVolume(p, target) {
-  const el = p.audioEl;
-  clearInterval(p.volGlide);
-  if (target === 0 || Math.abs(el.volume - target) > 0.25) { el.volume = target; return; }
-  p.volGlide = setInterval(() => {
-    const d = target - el.volume;
-    if (Math.abs(d) <= 0.01) { el.volume = target; clearInterval(p.volGlide); return; }
-    el.volume = Math.min(1, Math.max(0, el.volume + Math.sign(d) * 0.01));
-  }, 20);
+  if (target === 0 || Math.abs(p.audioEl.volume - target) > 0.25) { p.audioEl.volume = target; p.volTarget = null; return; }
+  p.volTarget = target;
+}
+function stepVolume(p) {
+  if (p.volTarget == null || !p.audioEl) return;
+  const d = p.volTarget - p.audioEl.volume;
+  if (Math.abs(d) <= 0.03) { p.audioEl.volume = p.volTarget; p.volTarget = null; } else p.audioEl.volume += Math.sign(d) * 0.03;
 }
 // Up to 100% a person plays through a normal audio element. Above that their voice goes through a gain node and a limiter.
 function applyVolume(p) {
@@ -527,7 +527,7 @@ function applyVolume(p) {
     const c = audioCtx();
     if (!p.gain) { p.gain = c.createGain(); p.gain.gain.value = v; p.source.connect(p.gain); p.gain.connect(bus()); }
     else p.gain.gain.setTargetAtTime(v, c.currentTime, 0.08);   // glide, no zipper noise
-    p.audioEl.muted = true;
+    p.audioEl.muted = true; p.volTarget = null;
   }
 }
 export function applyAllVolumes() { for (const p of V.peers.values()) applyVolume(p); }
@@ -548,7 +548,7 @@ export function evenOut(p, lv) {
   const want = Math.min(2, Math.max(0.5, EVEN_TARGET / p.loud)), g = p.autoGain || 1, next = g + (want - g) * 0.08;
   if (Math.abs(next - g) / g > 0.03) { p.autoGain = next; applyVolume(p); }
 }
-/* Echo warning: if your speakers reach your microphone, friends hear themselves a moment later. Every 50 ms this notes
+/* Echo warning: if your speakers reach your microphone, friends hear themselves a moment later. Every 60 ms this notes
    how loud friends are (what you hear) and how loud your microphone is (what you send, after the filters). When your
    microphone keeps following their voices 60–360 ms later, while you aren't the one talking, it's their echo: you
    get a private hint (once per call), and nobody else is told. It uses the levels the talking loop measures (every
@@ -588,6 +588,7 @@ function speakLoop() {
     const lv = p.analyser ? level(p.analyser) : 0;
     if (lv > 0.02) now.add(p.id);
     if (lv > 0.012) evenOut(p, lv);   // they're talking (quiet talkers too: everyone else's noise filter keeps silence near zero)
+    stepVolume(p);
     const pref = peerPrefs(p.id);
     if (pref.vol > 0 && !pref.mute) heard = Math.max(heard, lv);
   }

@@ -103,13 +103,21 @@ export default async function (ok) {
     ok('someone who had “Standard” or “Strong” before now simply has it on', await old.evaluate(async () => (await import('/js/util.js')).settings.noiseMode === 'on'));
 
     // A server update: open apps reload to run the new version (a call isn't cut: that app waits until it's over)
+    await old.fill('#chatInput', 'my own line'); await old.keyboard.press('Enter');
+    await old.waitForSelector('#messages .msg:has-text("my own line")');
     await a.evaluate(() => { window.__before = 1; }); await old.evaluate(() => { window.__before = 1; });
     await old.fill('#chatInput', 'half a messa');
     await srv.kill(); await srv.restart({ GIT_COMMIT: 'f00dbab 2026-11-03' });
     await old.waitForSelector('#offlineBar', { state: 'hidden', timeout: 20000 });
     await old.waitForTimeout(4000);
     ok('a half-typed message holds the reload (nothing you were writing is lost)', await old.evaluate(() => window.__before === 1) && (await old.inputValue('#chatInput')) === 'half a messa');
+    // …and so does a message being edited
+    await old.evaluate(() => { const b = [...document.querySelectorAll('#messages .msg')].find((m) => m.textContent.includes('my own line')).querySelector('.msg-tool[aria-label="Edit"]'); b.click(); });
+    await old.waitForSelector('.msg-editbox textarea');
     await old.fill('#chatInput', '');
+    await old.waitForTimeout(4000);
+    ok('…and so does a message being edited', await old.evaluate(() => window.__before === 1));
+    await old.press('.msg-editbox textarea', 'Escape');
     await old.waitForFunction(() => !window.__before, null, { timeout: 20000 });
     await old.waitForSelector('#room:not([hidden])');
     ok('after a server update, an open app reloads itself to run the new version', true);

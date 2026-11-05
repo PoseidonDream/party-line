@@ -68,6 +68,15 @@ export default async function (ok) {
     await b.waitForTimeout(1000);
     ok('messages waiting from before an update (whose writer is unknown) aren’t sent, and you’re told', await b.locator('#messages .msg:has-text("from an older version")').count() === 0);
 
+    // A long backlog: more than the server takes at once ("Slow down", 5 in 30 s here) waits and goes out after it
+    await srv.kill();
+    await a.waitForSelector('#offlineBar:not([hidden])', { timeout: 10000 });
+    for (let i = 1; i <= 7; i++) { await a.fill('#chatInput', `backlog ${i}`); await a.keyboard.press('Enter'); }
+    await srv.restart({ MSG_BURST: '5' });
+    await b.waitForSelector('#messages .msg:has-text("backlog 7")', { timeout: 60000 });
+    const backlog = await b.$$eval('#messages .msg-body', (els) => els.map((e) => e.textContent).filter((x) => x.startsWith('backlog')));
+    ok(`a long backlog that reaches the “Slow down” limit isn’t lost: the rest waits and goes out after (${backlog.length} of 7)`, backlog.length === 7 && backlog[6] === 'backlog 7' && !(await a.locator('.toast:has-text("A message couldn’t be sent")').count()));
+
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }

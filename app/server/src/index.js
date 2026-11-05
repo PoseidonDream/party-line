@@ -43,9 +43,14 @@ setInterval(() => { const t = Date.now(); for (const [k, w] of apiHits) if (t - 
    text slipped into a page can't run as code. The app can't be shown inside another site (which could trick
    clicks), and once it's on HTTPS, browsers stay on HTTPS. Uploads and link pictures set stricter rules of their own. */
 const livekitOrigins = (() => { try { const o = new URL(config.livekit.url).origin; return [o, o.replace(/^ws/, 'http')]; } catch { return []; } })();
+/* The Party Line Android app. Newer builds say so in their user agent ("PartyLineApp"); older ones only show
+   Android's WebView ("; wv)"), like the browsers inside Instagram, Facebook, TikTok and others, which add their own
+   name: those are visitors, and get the welcome page and the normal safety rules. */
+const IN_APP_BROWSER = /Instagram|FBAN|FBAV|FB_IAB|FB4A|Twitter|Line\/|MicroMessenger|Snapchat|musical_ly|TikTok|Bytedance|Telegram|Pinterest|LinkedInApp|GSA\/|KAKAOTALK|NAVER/;
+const androidApp = (req) => { const ua = req.get('user-agent') || ''; return /PartyLineApp/.test(ua) || (/; wv\)/.test(ua) && !IN_APP_BROWSER.test(ua)); };
 function contentPolicy(req) {
   // The Android app (Capacitor, in Android's WebView) adds its bridge to the page as an inline script.
-  const inline = /; wv\)/.test(req.get('user-agent') || '') ? " 'unsafe-inline'" : '';
+  const inline = androidApp(req) ? " 'unsafe-inline'" : '';
   const testEval = process.env.CSP_TEST_EVAL === '1' ? " 'unsafe-eval'" : '';   // tests only: the test tool's waitForFunction
   return [
     "default-src 'self'",
@@ -383,7 +388,7 @@ app.get('/api/link-image', async (req, res) => {
 /* The welcome page: what Party Line is, a download for this device, or "Open in your browser" (/app). The desktop
    and Android apps open the server's address too; they get the app itself. So does anyone signed in on this device
    (welcome-go.js sends them on before the page is drawn). */
-const appClient = (req) => /Electron\/|; wv\)/.test(req.get('user-agent') || '');
+const appClient = (req) => /Electron\//.test(req.get('user-agent') || '') || androidApp(req);
 /* Link cards: pasted into WhatsApp, Instagram, Discord or iMessage, the address (and each invite link) shows a picture,
    a title and a line about Party Line instead of a bare address. */
 const pages = new Map();

@@ -43,12 +43,23 @@ public class PartyLinePlugin extends Plugin {
         }
     }
 
+    /** Where PushService finds the server and the sign-in, to send a new notification address while the app is closed. */
+    static final String PUSH_PREFS = "push";
+
     /**
      * This phone's notification address from Firebase, for the Party Line server to send to while the app is closed.
      * Rejects when this build has no Firebase setup (google-services.json), so the page simply leaves it off.
+     * With "auth" (the page's sign-in, when notifications are on) it's kept for PushService; an empty one forgets it.
      */
     @PluginMethod
     public void getPushToken(PluginCall call) {
+        if (call.getData().has("auth")) {
+            String auth = call.getString("auth", ""), base = getBridge().getConfig().getServerUrl();
+            android.content.SharedPreferences.Editor e = getContext().getSharedPreferences(PUSH_PREFS, Context.MODE_PRIVATE).edit();
+            if (auth.isEmpty() || base == null || !base.startsWith("https://")) e.clear();
+            else e.putString("auth", auth).putString("base", base.replaceAll("/+$", ""));
+            e.apply();
+        }
         try {
             if (com.google.firebase.FirebaseApp.getApps(getContext()).isEmpty()) { call.reject("Notifications aren't set up in this build"); return; }
             com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {

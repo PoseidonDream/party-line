@@ -4,12 +4,18 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import org.json.JSONObject;
 
 /**
  * Notifications while Party Line is closed: private messages, @mentions, calls and friend requests, sent by the
@@ -49,8 +55,32 @@ public class PushService extends FirebaseMessagingService {
         }
     }
 
+    /**
+     * Firebase gave this phone a new address (it does now and then, also while Party Line stays closed): tell the
+     * server straight away, with the sign-in the page left when notifications were turned on, so they keep coming.
+     * If that fails (offline, signed out), the page sends it the next time Party Line opens.
+     */
     @Override
     public void onNewToken(String token) {
-        // The page asks for the address each time Party Line opens and sends the new one to the server then.
+        SharedPreferences prefs = getSharedPreferences(PartyLinePlugin.PUSH_PREFS, MODE_PRIVATE);
+        String base = prefs.getString("base", null), auth = prefs.getString("auth", null);
+        if (base == null || auth == null) return;
+        HttpURLConnection c = null;
+        try {   // (this runs on Firebase's background thread, so it can wait for the network)
+            byte[] body = new JSONObject().put("fcm", token).put("device", "Android app").toString().getBytes(StandardCharsets.UTF_8);
+            c = (HttpURLConnection) new URL(base + "/api/push/subscribe").openConnection();
+            c.setConnectTimeout(10_000);
+            c.setReadTimeout(10_000);
+            c.setRequestMethod("POST");
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/json");
+            c.setRequestProperty("Authorization", "Bearer " + auth);
+            try (OutputStream out = c.getOutputStream()) { out.write(body); }
+            if (c.getResponseCode() == 401) prefs.edit().clear().apply();   // signed out since: nothing more to do
+        } catch (Exception e) {
+            // no connection right now
+        } finally {
+            if (c != null) c.disconnect();
+        }
     }
 }
