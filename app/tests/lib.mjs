@@ -62,11 +62,12 @@ export async function startServer(env = {}) {
   };
 }
 
-export async function launchBrowser() {
+export async function launchBrowser({ micFile } = {}) {   // micFile: a .wav the test microphones play (looping) instead of beeps
   return chromium.launch({
     executablePath: process.env.PL_CHROMIUM || undefined,   // uses Playwright's own Chromium unless set
     headless: true,
-    args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--auto-select-desktop-capture-source=Entire screen', '--autoplay-policy=no-user-gesture-required'],
+    args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--auto-select-desktop-capture-source=Entire screen', '--autoplay-policy=no-user-gesture-required',
+      ...(micFile ? [`--use-file-for-fake-audio-capture=${micFile}`] : [])],
   });
 }
 

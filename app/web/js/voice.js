@@ -496,7 +496,7 @@ export const peerPrefs = (id) => friendVols[id] || { vol: 1, mute: false };
 function applyVolume(p) {
   if (!p.audioEl) return;
   const pref = peerPrefs(p.id);
-  const v = V.deafened || pref.mute ? 0 : clampLevel(pref.vol) * settings.outputVol;
+  const v = V.deafened || pref.mute ? 0 : clampLevel(pref.vol) * settings.outputVol * (p.autoGain || 1);
   if (v <= 1 || !p.source) {
     try { p.gain && p.gain.disconnect(); } catch {}
     p.gain = null;
@@ -514,10 +514,25 @@ export function applySpeaker() {
 }
 export function unlockAudio() { for (const p of V.peers.values()) if (p.audioEl) p.audioEl.play().catch(() => {}); audioCtx(); }
 
+/* Even volumes: while a friend talks, their usual loudness is learned (slowly, over a few seconds of speech), and their
+   volume is nudged toward the same level for everyone, at most twice as loud or half as loud. It works on top of the
+   volume you set for them, so quiet friends get a bit louder and loud ones a bit softer without touching a slider. */
+const EVEN_TARGET = 0.08;
+export function evenOut(p, lv) {
+  p.loud = p.loud ? p.loud * 0.97 + lv * 0.03 : lv;
+  p.heard = (p.heard || 0) + 1;
+  if (p.heard < 15) return;   // about 2 seconds of talking first
+  const want = Math.min(2, Math.max(0.5, EVEN_TARGET / p.loud)), g = p.autoGain || 1, next = g + (want - g) * 0.15;
+  if (Math.abs(next - g) / g > 0.03) { p.autoGain = next; applyVolume(p); }
+}
 function speakLoop() {
   const now = new Set();
   if (V.channelId && micLive() && level(localMeter.analyser) > 0.02) now.add(hooks.myId());
-  for (const p of V.peers.values()) if (p.analyser && level(p.analyser) > 0.02) now.add(p.id);
+  for (const p of V.peers.values()) {
+    const lv = p.analyser ? level(p.analyser) : 0;
+    if (lv > 0.02) now.add(p.id);
+    if (lv > 0.012) evenOut(p, lv);   // they're talking (quiet talkers too: everyone else's noise filter keeps silence near zero)
+  }
   let changed = now.size !== V.speaking.size;
   if (!changed) for (const id of now) if (!V.speaking.has(id)) { changed = true; break; }
   if (changed) { V.speaking = now; hooks.speaking(now); }
@@ -741,7 +756,7 @@ export async function diagnostics() {
   };
   for (const p of V.peers.values()) {
     const d = { userId: p.id, net: p.net, hearing: !!(p.stream && p.stream.getAudioTracks().some((t) => t.readyState === 'live')),
-      audioEl: p.audioEl ? { paused: p.audioEl.paused, muted: p.audioEl.muted, volume: +p.audioEl.volume.toFixed(2) } : null };
+      audioEl: p.audioEl ? { paused: p.audioEl.paused, muted: p.audioEl.muted, volume: +p.audioEl.volume.toFixed(2) } : null, autoGain: +(p.autoGain || 1).toFixed(2) };
     // Direct mode: one connection per friend. Media server mode: this friend's audio receiver and our mic sender.
     const sources = p.pc ? [p.pc] : [p.lkAudio && p.lkAudio.receiver, lk && lk.mic && lk.mic.track && lk.mic.track.sender].filter(Boolean);
     if (p.pc) Object.assign(d, { state: p.pc.connectionState, ice: p.pc.iceConnectionState, signaling: p.pc.signalingState });
