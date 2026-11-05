@@ -125,6 +125,11 @@ Party Line keeps voice running when the phone locks or you switch apps (like a p
 - **Description**: *"Voice chat with friends keeps running while the screen is off or another app is open, like a phone call. It starts only when the user joins a voice channel and stops when they leave; a notification shows the whole time."*
 - **A short video** (YouTube, can be "unlisted"): record the phone's screen while you join a voice channel, show the "In voice" notification, lock the phone or open another app, keep talking, then leave voice and show the notification is gone. 30 seconds is enough.
 
+## Two more declarations (App content)
+
+- **Advertising ID** ("Reklam kimliği"): **No**. Party Line has no ads or tracking, and the app's manifest removes the advertising ID permission even if a library asks for it.
+- **Child safety standards** ("Çocuk Güvenliği Standartları"), asked of every social app: the standards page is `https://YOUR-SERVER/child-safety` (zero tolerance for child sexual abuse and exploitation, how to report, what happens). Answer **Yes** to: in-app reporting (the 🚩 flag and **Report** on a person), dealing with child sexual abuse material (removed, accounts removed, reported to NCMEC and the police), and complying with child safety laws. The child safety contact is whoever runs the server (the same email as CONTACT_EMAIL). Whoever runs Party Line commits to doing this: if such content is ever reported, delete it, remove the account, and report it to the police (and NCMEC: report.cybertip.org).
+
 ## Store texts
 
 ### English

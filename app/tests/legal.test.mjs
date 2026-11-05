@@ -6,7 +6,7 @@ import { startServer, launchBrowser, signUp, openDb, joinVoice, openPage } from 
 import { FAKE_YT } from './bot.test.mjs';
 
 export default async function (ok) {
-  const srv = await startServer();
+  const srv = await startServer({ CONTACT_EMAIL: 'hello@example.com' });
   const browser = await launchBrowser();
   try {
     // The pages
@@ -22,7 +22,16 @@ export default async function (ok) {
     // The cookie notice
     const v = await openPage(browser, `${srv.url}/terms`);
     const navLinks = await v.$$eval('.legal-nav a', (as) => as.map((a) => a.getAttribute('href')));
-    ok('…each page links to the others at the bottom', ['/privacy', '/terms', '/rules', '/cookies', '/delete-account'].every((h) => navLinks.includes(h)));
+    ok('…each page links to the others at the bottom', ['/privacy', '/terms', '/rules', '/child-safety', '/cookies', '/delete-account'].every((h) => navLinks.includes(h)));
+
+    // Child safety standards (Google Play asks every social app for this page)
+    const cs = await openPage(browser, `${srv.url}/child-safety`);
+    const csText = await cs.textContent('main');
+    ok('the child safety standards page bans child sexual abuse and exploitation, says how to report, and what happens', ['zero tolerance for child sexual abuse and exploitation', 'CSAM', 'Grooming', 'How to report', 'removed', 'NCMEC', 'Child safety contact'].every((x) => csText.includes(x)));
+    await cs.waitForSelector('#safetyContact a[href^="mailto:"]');
+    ok('…with the server’s contact address as the child safety contact', (await cs.textContent('#safetyContact')).includes('Child safety contact: '));
+    await cs.screenshot({ path: new URL('./results/child-safety.png', import.meta.url).pathname, fullPage: true });
+    await cs.close();
     await v.goto(srv.url + '/app');
     await v.waitForSelector('#cookieBanner:not([hidden])');
     ok('a first visit shows the cookie notice, with a link to the cookie policy', await v.locator('#cookieBanner a[href="/cookies"]').count() === 1);
