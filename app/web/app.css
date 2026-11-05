@@ -1172,7 +1172,14 @@ dialog::backdrop { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px
 .head-actions .in-more { display: none !important; }
 .head-actions #moreBtn { display: grid; position: relative; }
 #moreBadge { position: absolute; top: 5px; right: 5px; }
-.feature-hidden { display: none !important; }   /* tucked away by an admin: in ⋯ → More instead */
+.feature-hidden { display: none !important; }
+/* messages waiting for the connection (see the outbox in main.js) */
+.outbox { list-style: none; margin: 0; padding: 4px clamp(16px, 2.5vw, 28px) 0; display: grid; gap: 4px; max-height: 30vh; overflow-y: auto; }
+.outbox[hidden] { display: none; }
+.outbox li { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; border: 1px dashed var(--line); border-radius: 12px; color: var(--dim); }
+.outbox li span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--fg); opacity: .7; }
+.outbox li small { flex: none; font-size: 12px; }
+.outbox li button { flex: none; }   /* tucked away by an admin: in ⋯ → More instead */
 .more-tucked { display: grid; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
 .more-tucked[hidden] { display: none; }
 .menu-label { margin: 4px 10px; font: 700 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }

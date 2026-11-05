@@ -243,11 +243,17 @@ function leaveVoice(userId, reason) {
   if (reason) { const c = conns.get(v.connId); send(c, { t: 'voice.kicked', reason }); }
 }
 
+const sentOnce = new Map();   // "userId:tag" -> { msg, at }: messages sent with a one-time tag (see msg.send)
 const handlers = {
   ping: () => ({ pong: Date.now() }),
 
   /* ---- messages ---- */
   'msg.send'(c, user, d) {
+    // An app that lost its connection sends again what it isn't sure arrived, with the same one-time tag: send that
+    // message's copy back instead of posting it twice.
+    const nk = typeof d.nonce === 'string' && d.nonce.length >= 8 && d.nonce.length <= 64 ? `${user.id}:${d.nonce}` : null;
+    if (nk && sentOnce.has(nk)) return { msg: sentOnce.get(nk).msg, again: true };
+    const done = (m) => { if (nk) { sentOnce.set(nk, { msg: m, at: Date.now() }); if (sentOnce.size > 5000) for (const [k, v] of sentOnce) if (Date.now() - v.at > 30 * 60_000) sentOnce.delete(k); } return { msg: m }; };
     const command = Bot.isCommand(d.body) && !(d.attachments || []).length;
     // At most 8 bot commands per person every 10 s, and 30 messages every 30 s.
     if (command && !allow(cmdTimes, user.id, 10_000, 8)) return { command: true, ephemeral: 'Slow down a little. Try that again in a few seconds.' };
@@ -262,7 +268,7 @@ const handlers = {
       chatted(user.id, { channelId: ch.id });
       pushMessage(m, user);
       addPreviews(M.getMessage(m.id)).catch(() => {});
-      return { msg: m };
+      return done(m);
     }
     const other = M.getUser(Number(d.toUserId));
     if (!other) fail('That person doesn’t exist.');
@@ -277,7 +283,7 @@ const handlers = {
     if (!other.is_bot) chatted(user.id, null);
     pushMessage(m, user);
     addPreviews(M.getMessage(m.id)).catch(() => {});
-    return { msg: m };
+    return done(m);
   },
   /* Polls (see M.createPoll). Targets like msg.send: { channelId } or { toUserId }. */
   'poll.create'(c, user, d) {

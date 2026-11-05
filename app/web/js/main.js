@@ -290,6 +290,7 @@ async function signOut() {
   if (V.channelId) Voice.leaveVoice();
   if (pushSupported() && settings.push) await Promise.race([setPush(false).catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);   // the next person on this device shouldn't get your messages
   try { await api('/api/logout', { method: 'POST' }); } catch {}
+  outbox = []; saveOutbox(); renderOutbox();   // the next person on this device doesn't send your waiting messages
   live.close(); setToken(''); S.ready = false;
   $('#settings').close();
   showJoinScreen();
@@ -355,6 +356,7 @@ live.on('ready', (d) => {
   if (myActivity) live.req('presence.activity', { name: myActivity }).catch(() => {});
   if (S.pendingInvite) { const code = S.pendingInvite; S.pendingInvite = null; joinInvite(code); }
   if (S.pendingOpen) { const q = S.pendingOpen; S.pendingOpen = null; openFromPush(q); }
+  flushOutbox();   // messages that waited for the connection
   if (first) showNews();
   if (first) syncPush();
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
@@ -1458,6 +1460,7 @@ function renderMessages(keepScroll) {
     box.appendChild(messageEl(msg, prev, last)); prev = msg; last = msg;
   }
   lastRendered = { key, prev };
+  renderOutbox();
   renderSeen();
   if (keepScroll && !atBottom) box.scrollTop = top; else box.scrollTop = box.scrollHeight;
   // Opening a chat with lots of unread: start at the "New messages" line instead of the bottom.
@@ -1648,6 +1651,47 @@ chatInput.addEventListener('keydown', (e) => {
     if (li) { e.preventDefault(); editMessage(li, mine); }
   }
 });
+/* Messages that wait for the connection: typed while offline, or sent just as it dropped. They're kept on this device
+   (a reload or a restart doesn't lose them), shown above the message box in their chat, and go out by themselves, in
+   order, when Party Line is connected again. Each carries a one-time tag, so the server never posts one twice. */
+const DAY = 86_400_000;
+let outbox = (store.get('outbox', []) || []).filter((x) => x && Date.now() - x.at < DAY);
+const oneTimeTag = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
+const saveOutbox = () => store.set('outbox', outbox);
+const sameTarget = (a, b) => (a.channelId && a.channelId === b.channelId) || (a.toUserId && a.toUserId === b.toUserId);
+function queueMsg(target, body, replyTo, nonce) {
+  outbox.push({ target: { channelId: target.channelId || undefined, toUserId: target.toUserId || undefined }, body, replyTo, nonce, at: Date.now() });
+  saveOutbox(); renderOutbox();
+}
+function renderOutbox() {
+  const ol = $('#outbox'), here = composeTarget();
+  ol.textContent = '';
+  for (const x of outbox) {
+    if (!here || !sameTarget(x.target, here)) continue;
+    const li = document.createElement('li');
+    const text = document.createElement('span'); text.textContent = decodeMentions(x.body);
+    const note = document.createElement('small'); note.textContent = live.open ? t('Sending…') : t('Waiting for the connection…');
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'btn small icon-btn'; del.setAttribute('aria-label', t('Don’t send')); del.title = t('Don’t send'); del.innerHTML = iconSvg('x');
+    del.addEventListener('click', () => { outbox = outbox.filter((y) => y !== x); saveOutbox(); renderOutbox(); });
+    li.append(text, note, del); ol.appendChild(li);
+  }
+  ol.hidden = !ol.children.length;
+}
+let flushing = false;
+async function flushOutbox() {
+  if (flushing || !live.open || !outbox.length) return;
+  flushing = true; renderOutbox();
+  try {
+    while (outbox.length && live.open) {
+      const x = outbox[0];
+      try { await live.req('msg.send', Object.assign({ body: x.body, attachments: [], replyTo: x.replyTo, nonce: x.nonce }, x.target)); }
+      catch (e) { if (e.offline) break; toast(t('A message couldn’t be sent: {0}', e.message), 6000); }
+      outbox = outbox.filter((y) => y !== x); saveOutbox(); renderOutbox();
+    }
+  } finally { flushing = false; renderOutbox(); }
+}
+live.on('down', () => renderOutbox());
+
 /* Messages go out in order. Text-only messages clear the box at once, so you can keep typing; if one fails,
    its text comes back. Messages with files wait for their uploads. */
 let sendChain = Promise.resolve();
@@ -1658,13 +1702,19 @@ $('#chatForm').addEventListener('submit', async (e) => {
   if (!body && !S.attach.length) return;
   const target = composeTarget();
   if (!target) return;
+  const replyTo = S.replyTo ? S.replyTo.id : null, nonce = oneTimeTag();
+  if (!live.open && !S.attach.length) {   // offline: it waits, and goes out by itself when Party Line is back
+    chatInput.value = ''; autosize(); cancelReply();
+    queueMsg(target, body, replyTo, nonce);
+    return;
+  }
   if (!live.open) { toast('Not connected to the server right now. Your message is still in the box.', 4000); return; }
-  const replyTo = S.replyTo ? S.replyTo.id : null;
-  const send = (attachments) => live.req('msg.send', Object.assign({ body, attachments, replyTo }, target))
+  const send = (attachments) => live.req('msg.send', Object.assign({ body, attachments, replyTo, nonce }, target))
     .then((r) => { if (r && r.ephemeral) botNote(r.ephemeral); else hideBotNote(); });
   if (!S.attach.length) {
     chatInput.value = ''; autosize(); cancelReply(); typingSentAt = 0;
     sendChain = sendChain.then(() => send([]).catch((ex) => {
+      if (ex.offline) { queueMsg(target, body, replyTo, nonce); return; }   // the connection dropped: try again later (the tag stops a double)
       toast(ex.message, 5000);
       if (!chatInput.value) { chatInput.value = raw; autosize(); }
     }));

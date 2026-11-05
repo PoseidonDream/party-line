@@ -49,6 +49,8 @@ export function upload(path, file, onProgress) {
 const listeners = new Map();
 const pending = new Map();
 let ws = null, rid = 0, retry = 0, retryTimer = 0, wantOpen = false, queue = [];
+// A request that failed because the connection did (not because the server said no): it may be worth trying again.
+const offline = (msg) => Object.assign(new Error(msg), { offline: true });
 export const live = {
   get open() { return !!ws && ws.readyState === 1; },
   on(t, fn) { if (!listeners.has(t)) listeners.set(t, []); listeners.get(t).push(fn); },
@@ -65,9 +67,9 @@ export const live = {
   /* Ask and wait for the server's answer. Rejects with the server's error text. */
   req(t, data, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
-      if (!live.open) { reject(new Error('Not connected to the server right now.')); return; }
+      if (!live.open) { reject(offline('Not connected to the server right now.')); return; }
       const id = ++rid;
-      const timer = setTimeout(() => { pending.delete(id); reject(new Error('The server took too long to answer.')); }, timeoutMs);
+      const timer = setTimeout(() => { pending.delete(id); reject(offline('The server took too long to answer.')); }, timeoutMs);
       pending.set(id, { resolve, reject, timer });
       ws.send(JSON.stringify(Object.assign({ t, rid: id }, data)));
     });
@@ -103,7 +105,7 @@ function open() {
     if (ws !== sock) return;
     ws = null;
     live.lastClose = { code: e.code, opened: !!sock.opened };
-    for (const [id, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Lost connection to the server.')); pending.delete(id); }
+    for (const [id, p] of pending) { clearTimeout(p.timer); p.reject(offline('Lost connection to the server.')); pending.delete(id); }
     if (e.code === 4001) { wantOpen = false; live.emit('auth-failed'); return; }
     live.emit('down');
     if (!wantOpen) return;

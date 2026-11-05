@@ -1299,5 +1299,10 @@
 "🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} — уровень ∞: админ, со всеми наградами за уровни.",
 "🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} — уровень {1} ({2} XP, {3}-е место). До уровня {5} осталось {4} XP.",
 "🏆 Leaderboard": "🏆 Таблица лидеров",
-"Draw on the screen": "Рисовать на экране"
+"Draw on the screen": "Рисовать на экране",
+"Waiting for the connection…": "Ждёт подключения…",
+"Sending…": "Отправка…",
+"Don’t send": "Не отправлять",
+"A message couldn’t be sent: {0}": "Не удалось отправить сообщение: {0}",
+"Waiting to be sent": "Ждут отправки"
 }

@@ -1299,5 +1299,10 @@
 "🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} ∞ seviyede: bir yönetici, tüm seviye ödülleriyle.",
 "🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} {1}. seviyede ({2} XP, genelde {3}. sırada). {5}. seviyeye {4} XP kaldı.",
 "🏆 Leaderboard": "🏆 Liderlik tablosu",
-"Draw on the screen": "Ekrana çiz"
+"Draw on the screen": "Ekrana çiz",
+"Waiting for the connection…": "Bağlantı bekleniyor…",
+"Sending…": "Gönderiliyor…",
+"Don’t send": "Gönderme",
+"A message couldn’t be sent: {0}": "Bir mesaj gönderilemedi: {0}",
+"Waiting to be sent": "Gönderilmeyi bekliyor"
 }

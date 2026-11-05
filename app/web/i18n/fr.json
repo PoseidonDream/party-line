@@ -1299,5 +1299,10 @@
 "🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} est niveau ∞ : un admin, avec toutes les récompenses de niveau.",
 "🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} est niveau {1} ({2} XP, n° {3} au total). Encore {4} XP avant le niveau {5}.",
 "🏆 Leaderboard": "🏆 Classement",
-"Draw on the screen": "Dessiner sur l’écran"
+"Draw on the screen": "Dessiner sur l’écran",
+"Waiting for the connection…": "En attente de la connexion…",
+"Sending…": "Envoi…",
+"Don’t send": "Ne pas envoyer",
+"A message couldn’t be sent: {0}": "Un message n’a pas pu être envoyé : {0}",
+"Waiting to be sent": "En attente d’envoi"
 }
