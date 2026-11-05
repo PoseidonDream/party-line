@@ -378,9 +378,23 @@ app.get('/api/link-image', async (req, res) => {
    and Android apps open the server's address too; they get the app itself. So does anyone signed in on this device
    (welcome-go.js sends them on before the page is drawn). */
 const appClient = (req) => /Electron\/|; wv\)/.test(req.get('user-agent') || '');
+/* Link cards: pasted into WhatsApp, Instagram, Discord or iMessage, the address (and each invite link) shows a picture,
+   a title and a line about Party Line instead of a bare address. */
+const pages = new Map();
+const pageText = (file) => { if (!pages.has(file)) pages.set(file, fs.readFileSync(path.join(config.webDir, file), 'utf8')); return pages.get(file); };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+function withCard(file, req, { title, description }) {
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const meta = [['og:type', 'website'], ['og:site_name', 'Party Line'], ['og:title', title], ['og:description', description], ['og:url', origin + req.originalUrl.split('?')[0]],
+    ['og:image', `${origin}/img/share.png`], ['og:image:width', '1200'], ['og:image:height', '630'], ['og:image:alt', 'Party Line']]
+    .map(([k, v]) => `<meta property="${k}" content="${esc(v)}">`).join('\n');
+  return pageText(file).replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>\n${meta}\n<meta name="twitter:card" content="summary_large_image">`);
+}
+const ABOUT = 'A private hangout for your friends: voice, chat, screen sharing and game nights.';
 app.get('/', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache'); res.setHeader('Vary', 'User-Agent');
-  res.sendFile(path.join(config.webDir, appClient(req) ? 'index.html' : 'welcome.html'));
+  if (appClient(req)) return res.sendFile(path.join(config.webDir, 'index.html'));
+  res.type('html').send(withCard('welcome.html', req, { title: 'Party Line', description: ABOUT }));
 });
 
 /* Downloads: the newest GitHub release, looked up at most every 10 minutes. /download/windows (and mac, linux, deb,
@@ -421,7 +435,19 @@ app.get('/download/:what', async (req, res) => {
 app.use(express.static(config.webDir, { index: 'index.html', extensions: ['html'], setHeaders: (res, p) => {
   if (p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css')) res.setHeader('Cache-Control', 'no-cache');
 } }));
-app.get(['/invite/:code', '/app'], (req, res) => res.sendFile(path.join(config.webDir, 'index.html')));
+app.get('/app', (req, res) => res.sendFile(path.join(config.webDir, 'index.html')));
+app.get('/invite/:code', (req, res) => {
+  let card = { title: 'You’re invited to Party Line', description: `${ABOUT} Tap to join.` };
+  try {
+    const found = M.serverForInvite(req.params.code);
+    if (found && found.server) {
+      const by = found.invite && M.getUser(found.invite.creator_id), where = found.server.name;
+      card = { title: by ? `${by.name} invited you to ${where}` : `You’re invited to ${where}`, description: `Join ${where} on Party Line: voice, chat and game nights with your friends. Tap to join.` };
+    }
+  } catch { card = { title: 'This invite has expired', description: 'Ask your friend for a new invite link to Party Line.' }; }
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('html').send(withCard('index.html', req, card));
+});
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 /* Broken or oversized requests get a short answer the app can show, not a web page with the server's insides. */
 app.use((err, req, res, next) => {
