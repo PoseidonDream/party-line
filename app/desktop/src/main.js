@@ -8,6 +8,7 @@ const { pathToFileURL } = require('node:url');
 const fs = require('node:fs');
 const pkg = require('../package.json');
 const { watchGames } = require('./games');
+const { saveBackup } = require('./backup');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
@@ -261,6 +262,20 @@ ipcMain.handle('setup:save', async (e, url) => {
   return { ok: true };
 });
 ipcMain.handle('setup:current', () => cfg.server);
+/* Backups to this computer (see backup.js): only the Party Line page itself may ask, only for its server's one-time
+   backup links, and one at a time. */
+const backupDir = () => path.join(app.getPath('documents'), 'Party Line backups');
+const fromApp = (e) => { try { return !!origin() && new URL(e.senderFrame.url).origin === origin(); } catch { return false; } };
+let backingUp = null;
+ipcMain.handle('backup:save', (e, link) => {
+  if (!fromApp(e)) throw new Error('Not allowed.');
+  const u = new URL(String(link), cfg.server);
+  if (u.origin !== origin() || !/^\/api\/dev\/backup\/[\w-]+$/.test(u.pathname)) throw new Error('That isn’t a backup link.');
+  backingUp ||= saveBackup(u.href, backupDir(), fetch).finally(() => { backingUp = null; });
+  return backingUp;
+});
+ipcMain.handle('backup:folder', (e) => (fromApp(e) ? backupDir() : null));
+ipcMain.on('backup:open', (e) => { if (!fromApp(e)) return; fs.mkdirSync(backupDir(), { recursive: true }); shell.openPath(backupDir()); });
 ipcMain.on('retry', () => openApp());
 ipcMain.on('badge', (e, n) => {
   n = Math.max(0, Number(n) || 0);

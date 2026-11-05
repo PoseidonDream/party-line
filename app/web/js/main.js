@@ -3,7 +3,7 @@ import { api, upload, live, store, setToken, hasToken, absUrl } from './net.js';
 import { latestNews, unseenNews } from './news.js';
 import { $, iconSvg, settings, saveSettings, friendVols, saveVols, clampLevel, hue, initials, toast, chime, level, fmtTime, fmtDay, fmtSize, locale } from './util.js';
 import * as Voice from './voice.js';
-import { initDev, openDev, log } from './dev.js';
+import { initDev, openDev, log, backupOnOpen } from './dev.js';
 import { initMusic, updateMusic, listening, musicPlaying, listenAgain } from './music.js';
 import { builtinSounds, playSound, openClip, clipToWav, previewClip, MAX_CLIP } from './sounds.js';
 import { createDrawLayer, createClipBuffer, clipsSupported } from './stagefx.js';
@@ -361,6 +361,7 @@ live.on('ready', (d) => {
   flushOutbox();   // messages that waited for the connection
   if (first) showNews();
   if (first) { syncPush(); syncPhonePush(); }
+  if (first && S.me.admin) backupOnOpen();   // the admin's backup to this computer, if they turned it on here
   if (S.me.admin) live.req('feedback.list', {}).then((r) => { S.fbCount = r.items.filter((x) => !x.done).length; renderFbCount(); }).catch(() => {});
 });
 /* What a person's messages show of them: only a change here redraws the chat (not their XP or streak). */

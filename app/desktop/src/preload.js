@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('partyLineDesktop', {
   onUpdate: (cb) => { ipcRenderer.on('update-ready', (e, v) => cb(String(v || ''))); ipcRenderer.send('update:get'); },
   installUpdate: () => ipcRenderer.send('update:install'),
   onActivity: (cb) => { ipcRenderer.on('activity', (e, name) => cb(name || null)); ipcRenderer.send('activity:get'); },
+  // Backups to this computer (admins, from the developer panel): saves the newest, deletes the one before.
+  saveBackup: (url) => ipcRenderer.invoke('backup:save', url),
+  backupFolder: () => ipcRenderer.invoke('backup:folder'),
+  openBackupFolder: () => ipcRenderer.send('backup:open'),
   // used by the built-in setup and offline pages
   saveServer: (url) => ipcRenderer.invoke('setup:save', url),
   currentServer: () => ipcRenderer.invoke('setup:current'),

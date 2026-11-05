@@ -1263,7 +1263,7 @@ a.game-name:hover { color: var(--lamp-ink); text-decoration: underline; }
 .set-tab[hidden] { display: none; }
 
 /* Developer panel */
-#devBackup { width: auto; justify-self: start; }
+#devBackup, #devBackupFolder { width: auto; justify-self: start; }
 
 /* Media gallery */
 dialog.wide-dlg { width: min(860px, calc(100% - 32px)); }

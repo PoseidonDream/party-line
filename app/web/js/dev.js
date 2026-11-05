@@ -1,7 +1,27 @@
 /* Developer panel (admins only) and the event log every app keeps.
    Voice events and errors are also reported to the server, so an admin can see what went wrong on a friend's device. */
-import { live, api } from './net.js';
+import { live, api, store } from './net.js';
 import { fmtTime, fmtSize, toast, audioCtx, level } from './util.js';
+
+/* ---------- backups to this computer ----------
+   In the desktop app, an admin can choose to have the newest full backup saved on this computer each time Party Line
+   opens here (this computer only: the choice stays on it). The desktop app deletes the older one once the new one is
+   safely saved, so there's always exactly one, and not more than one an hour if the app is restarted a lot. */
+const desktopApp = window.partyLineDesktop || null;
+const canBackUpHere = () => !!(desktopApp && desktopApp.saveBackup);
+const plainError = (e) => String((e && e.message) || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+async function saveBackupHere() {
+  const { url } = await api('/api/dev/backup-link', { method: 'POST' });
+  const r = await desktopApp.saveBackup(url);
+  store.set('backupHereLast', { at: Date.now(), bytes: r.bytes });
+  return r;
+}
+export function backupOnOpen() {
+  if (!canBackUpHere() || !store.get('backupHere', false)) return;
+  if (Date.now() - ((store.get('backupHereLast', null) || {}).at || 0) < 60 * 60_000) return;
+  saveBackupHere().then((r) => toast(`Backup saved on this computer (${fmtSize(r.bytes)}). The older one was deleted.`, 6000),
+    (e) => toast(`The backup to this computer didn’t work: ${plainError(e)}`, 8000));
+}
 
 /* ---------- the log ---------- */
 export const events = [];   // this device, newest last
@@ -138,6 +158,30 @@ function renderOverview() {
     finally { dl.disabled = false; }
   });
   b.appendChild(dl);
+  if (canBackUpHere()) {
+    const lab = el('label', 'check'), cb = document.createElement('input'), txt = el('span');
+    cb.type = 'checkbox'; cb.id = 'devBackupHere'; cb.checked = !!store.get('backupHere', false);
+    txt.append(el('b', null, 'Back up to this computer each time I open Party Line here'), el('small', null, 'Only the newest backup is kept: the older one is deleted once the new one is safely saved.'));
+    lab.append(cb, txt);
+    const info = el('p', 'hint'); info.id = 'devBackupHereInfo';
+    const showInfo = async () => {
+      const last = store.get('backupHereLast', null), dir = await desktopApp.backupFolder().catch(() => '');
+      info.textContent = `${dir ? `Saved in ${dir}.` : ''}${last ? ` Last one: ${new Date(last.at).toLocaleString()} (${fmtSize(last.bytes)}).` : ''}`.trim();
+      info.hidden = !info.textContent;
+    };
+    cb.addEventListener('change', async () => {
+      store.set('backupHere', cb.checked);
+      if (!cb.checked) return;
+      cb.disabled = true; toast('Saving a backup on this computer…', 4000);
+      try { const r = await saveBackupHere(); toast(`Backup saved on this computer (${fmtSize(r.bytes)}).`, 5000); }
+      catch (e) { toast(`The backup to this computer didn’t work: ${plainError(e)}`, 8000); }
+      finally { cb.disabled = false; showInfo(); }
+    });
+    const open = el('button', 'btn small', 'Open the backup folder'); open.type = 'button'; open.id = 'devBackupFolder';
+    open.addEventListener('click', () => desktopApp.openBackupFolder());
+    b.append(lab, info, open);
+    showInfo();
+  } else if (desktopApp) b.appendChild(el('p', 'hint', 'Update the desktop app to have a backup saved on this computer each time you open it.'));
   b.appendChild(el('h3', 'dev-h', 'Voice channels'));
   if (!stats.voice.length) b.appendChild(el('p', 'hint', 'Nobody is in voice.'));
   const byChan = new Map();
