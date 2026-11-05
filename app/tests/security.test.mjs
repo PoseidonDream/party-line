@@ -63,6 +63,18 @@ export default async function (ok) {
     const changed = await post('/api/password', { oldPassword: 'goodpass1', newPassword: 'betterpass2' }, ana.token);
     ok('changing your password signs out your other devices, not this one', changed.ok && (await getAuthed('/api/bookmarks', second.token)).status === 401 && (await getAuthed('/api/bookmarks', ana.token)).ok);
 
+    // Your own typos are forgiven once you get it right (on a server of its own: sign-ins are limited per address)
+    const srv3 = await startServer();
+    try {
+      const post3 = (p, body) => fetch(srv3.url + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+      await post3('/api/register', { name: 'Typo', password: 'rightpass1', agree: true });
+      for (let i = 0; i < 8; i++) await post3('/api/login', { name: 'Typo', password: `typo-${i}` });
+      await post3('/api/login', { name: 'Typo', password: 'rightpass1' });
+      for (let i = 0; i < 3; i++) await post3('/api/login', { name: 'Typo', password: `again-${i}` });
+      const afterTypos = await post3('/api/login', { name: 'Typo', password: 'rightpass1' });
+      ok('typos before a successful sign-in are forgiven (a few more later don’t lock you out)', !!afterTypos.token);
+    } finally { await srv3.stop(); }
+
     // Guessing one account's password from many places: after 10 wrong tries it waits, even with the right one
     for (let i = 0; i < 9; i++) await post('/api/login', { name: 'Ana', password: `guess-${i}` });
     const locked = await post('/api/login', { name: 'Ana', password: 'betterpass2' });

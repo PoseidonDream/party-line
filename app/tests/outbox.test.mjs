@@ -77,6 +77,19 @@ export default async function (ok) {
     const backlog = await b.$$eval('#messages .msg-body', (els) => els.map((e) => e.textContent).filter((x) => x.startsWith('backlog')));
     ok(`a long backlog that reaches the “Slow down” limit isn’t lost: the rest waits and goes out after (${backlog.length} of 7)`, backlog.length === 7 && backlog[6] === 'backlog 7' && !(await a.locator('.toast:has-text("A message couldn’t be sent")').count()));
 
+    // Bot commands: more than the bot takes at once (8 in 10 s) wait too, and their private answers show at the end
+    await srv.kill();
+    await a.waitForSelector('#offlineBar:not([hidden])', { timeout: 10000 });
+    for (let i = 1; i <= 10; i++) { await a.fill('#chatInput', `/game Queued game ${i}`); await a.keyboard.press('Enter'); }
+    await srv.restart();
+    const db2 = openDb(srv), games = () => db2.prepare("SELECT COUNT(*) AS n FROM game_ideas WHERE name LIKE 'Queued game %'").get().n;
+    for (let i = 0; i < 100 && games() < 10; i++) await a.waitForTimeout(250);
+    const ran = games(); db2.close();
+    await a.waitForSelector('#botNote:not([hidden])', { timeout: 10000 });
+    const note = await a.textContent('#botNoteText');
+    ok(`bot commands written offline all run, past the bot’s limit too (${ran} of 10)`, ran === 10);
+    ok('…and their private answers show together once everything is sent', (note.match(/Added/g) || []).length === 10);
+
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }

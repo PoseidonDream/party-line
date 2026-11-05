@@ -74,8 +74,10 @@ const failures = new Map();   // name key -> times of recent failures
 const recentFailures = (key) => (failures.get(key) || []).filter((t) => now() - t < FAIL_WINDOW);
 function takeBackFailure(key) { const a = recentFailures(key); a.pop(); if (a.length) failures.set(key, a); else failures.delete(key); }
 function noteFailure(key) {
-  failures.set(key, [...recentFailures(key), now()]);
+  const t = now();
+  failures.set(key, [...recentFailures(key), t]);
   if (failures.size > 2000) for (const [k] of failures) if (!recentFailures(k).length) failures.delete(k);
+  return t;
 }
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const token = () => crypto.randomBytes(32).toString('base64url');
@@ -132,14 +134,17 @@ export async function login(name, pass, code, device) {
   const u = userByName(name);
   // Counted as a wrong try before the (slow, background) check, and taken back if it was right: many tries sent at
   // once can't all slip past the limit while they're being checked.
-  noteFailure(key);
+  const mine = noteFailure(key);
   const passOk = await checkPassAsync(pass, u ? u.pass_hash : NOBODY_HASH);
   if (!u || !passOk) fail('Wrong name or password.');
   if (u.totp_secret) {
     if (!code) { takeBackFailure(key); return { needCode: true }; }
     if (!totpOk(u.totp_secret, code)) fail('That code is wrong or too old. Check the time on your phone and try the newest code.');
   }
-  takeBackFailure(key);   // only this try: wrong guesses from elsewhere still count
+  // Signed in: earlier wrong tries are forgiven (typos), but wrong guesses that came in while this one was being
+  // checked still count.
+  const during = recentFailures(key).filter((t) => t > mine);
+  if (during.length) failures.set(key, during); else failures.delete(key);
   if (weakHash(u.pass_hash)) run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(pass), u.id);   // upgrade an older fingerprint
   return { user: u, token: newSession(u.id, device) };
 }

@@ -1681,6 +1681,7 @@ function renderOutbox() {
   ol.hidden = !ol.children.length;
 }
 let flushing = false;
+let flushAnswers = [];   // bot commands' private answers, shown together once all is sent, each with its chat if it's not this one
 async function flushOutbox() {
   if (flushing || !live.open || !outbox.length || !S.me) return;
   const unowned = outbox.filter((x) => !x.uid).length;
@@ -1692,7 +1693,12 @@ async function flushOutbox() {
       const x = outbox[0];
       try {
         const r = await live.req('msg.send', Object.assign({ body: x.body, attachments: [], replyTo: x.replyTo, nonce: x.nonce }, x.target));
-        if (r && r.ephemeral) botNote(r.ephemeral);   // a bot command's private answer
+        // too many bot commands at once (8 in 10 s): the rest wait and try again, like messages over the limit
+        if (r && r.command && /^Slow down/.test(r.ephemeral || '')) { if (live.open) setTimeout(flushOutbox, 10_000); break; }
+        if (r && r.ephemeral) {
+          const here = composeTarget(), f = x.target.channelId && findChannel(x.target.channelId);
+          flushAnswers.push(here && sameTarget(x.target, here) ? r.ephemeral : `${x.target.channelId ? `#${f ? f.channel.name : ''}` : `@${nameOf(x.target.toUserId)}`}:\n${r.ephemeral}`);
+        }
       } catch (e) {
         // offline again, or a long backlog reached the "Slow down" limit (30 messages in 30 s): it waits and tries again
         if (e.offline || /^Slow down/.test(e.message)) { if (live.open) setTimeout(flushOutbox, e.offline ? 5000 : 10_000); break; }
@@ -1700,7 +1706,10 @@ async function flushOutbox() {
       }
       outbox = outbox.filter((y) => y !== x); saveOutbox(); renderOutbox();
     }
-  } finally { flushing = false; renderOutbox(); }
+  } finally {
+    flushing = false; renderOutbox();
+    if (!outbox.length && flushAnswers.length) { botNote(flushAnswers.join('\n\n')); flushAnswers = []; }
+  }
 }
 live.on('down', () => renderOutbox());
 

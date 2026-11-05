@@ -61,10 +61,13 @@ public class MainActivity extends BridgeActivity {
         openFromNotification(intent);
     }
 
-    /** A tapped notification: open the server's page at that chat (the page reads ?dm=, ?channel=, ?call=). */
+    /**
+     * A tapped notification: open the server's page at that chat (the page reads ?dm=, ?channel=, ?call=). Any app can
+     * start Party Line with this extra, so only the addresses notifications use are taken (not, say, an invite link).
+     */
     private void openFromNotification(android.content.Intent intent) {
         String path = intent == null ? null : intent.getStringExtra(EXTRA_OPEN);
-        if (path == null || !path.startsWith("/")) return;
+        if (path == null || !path.matches("/app(\\?(dm|channel|call)=\\d{1,12}|\\?friends=1)?")) return;
         intent.removeExtra(EXTRA_OPEN);
         WebView web = getBridge().getWebView();
         String base = getBridge().getConfig().getServerUrl();
