@@ -1298,5 +1298,6 @@
 "⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Este dispositivo no puede usar el filtro de voz, así que solo se quita el ruido constante (ventiladores, zumbidos). Los auriculares ayudan.",
 "🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} es nivel ∞: admin, con todas las recompensas de nivel.",
 "🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} es nivel {1} ({2} XP, n.º {3} en total). Faltan {4} XP para el nivel {5}.",
-"🏆 Leaderboard": "🏆 Clasificación"
+"🏆 Leaderboard": "🏆 Clasificación",
+"Draw on the screen": "Dibujar en la pantalla"
 }

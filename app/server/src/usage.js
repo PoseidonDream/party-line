@@ -161,11 +161,24 @@ function between(from, to) {
 const since = () => (one('SELECT MIN(day) AS d FROM feature_use') || {}).d || null;
 
 /* For the developer panel: the last 7 days (today included) next to the 7 before, least used first. */
+/* Features an admin can tuck away: their button leaves its usual spot (the message box, the voice bar, the screen
+   viewer, the + menu) for everyone and waits in the ⋯ menu instead. Nothing is switched off or deleted. */
+export const HIDEABLE = ['sendlater', 'voicemsg', 'polls', 'lfg', 'soundboard', 'voicefx', 'camera', 'draw', 'clips', 'popout'];
+export function hiddenFeatures() { try { return JSON.parse(kvGet('hidden_features') || '[]').filter((k) => HIDEABLE.includes(k)); } catch { return []; } }
+export function setHidden(key, hide) {
+  if (!HIDEABLE.includes(key)) throw new M.UserError('That feature can’t be tucked away.');
+  const set = new Set(hiddenFeatures()); if (hide) set.add(key); else set.delete(key);
+  kvSet('hidden_features', JSON.stringify([...set]));
+  return [...set];
+}
 export function stats() {
   const week = between(dayOf(-6), dayOf(0)), prev = between(dayOf(-13), dayOf(-7));
   const last = new Map(all('SELECT feature, MAX(day) AS d FROM feature_use GROUP BY feature').map((r) => [r.feature, r.d]));
   const people = (one('SELECT COUNT(DISTINCT user_id) AS n FROM feature_use WHERE day BETWEEN ? AND ?', dayOf(-6), dayOf(0)) || {}).n || 0;
-  const features = FEATURES.map((f) => ({ key: f.key, name: f.name, where: f.where, off: (f.off && f.off()) || null, ...week.get(f.key), before: prev.get(f.key).uses, lastDay: last.get(f.key) || null }))
+  const hidden = new Set(hiddenFeatures()), first = since(), month = dayOf(-29);
+  const features = FEATURES.map((f) => ({ key: f.key, name: f.name, where: f.where, off: (f.off && f.off()) || null, ...week.get(f.key), before: prev.get(f.key).uses, lastDay: last.get(f.key) || null,
+    hideable: HIDEABLE.includes(f.key), hidden: hidden.has(f.key),
+    unusedMonth: !!first && first <= month && (!last.get(f.key) || last.get(f.key) < month) }))   // counted for a month, and nobody used it
     .sort((a, b) => (!!a.off - !!b.off) || (a.uses - b.uses) || (a.people - b.people) || plain(a.name).localeCompare(plain(b.name)));
   return { features, people, since: since(), from: dayOf(-6), to: dayOf(0) };
 }

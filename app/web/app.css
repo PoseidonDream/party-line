@@ -1168,15 +1168,17 @@ dialog::backdrop { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px
 ::-webkit-scrollbar-thumb:hover { background-color: var(--dim); }
 ::-webkit-scrollbar-track { background: transparent; }
 @media (prefers-reduced-motion: reduce) { .rail-btn:hover { transform: none; } }
-/* phones: only the header buttons you need most (Invite and Feedback are in the server menu) */
-/* Phones: the less used header buttons move into the ⋯ menu, so the channel's name has room. */
-.head-actions #moreBtn { display: none; }
+/* The header keeps what's used all the time (calls, search, notifications); everything else is in the ⋯ menu. */
+.head-actions .in-more { display: none !important; }
+.head-actions #moreBtn { display: grid; position: relative; }
+#moreBadge { position: absolute; top: 5px; right: 5px; }
+.feature-hidden { display: none !important; }   /* tucked away by an admin: in ⋯ → More instead */
+.more-tucked { display: grid; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+.more-tucked[hidden] { display: none; }
+.menu-label { margin: 4px 10px; font: 700 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.more-menu button[data-on="true"]::after { content: "●"; margin-left: auto; color: var(--lamp-ink); font-size: 10px; }
 .more-menu button[data-count]:not([data-count=""])::after { content: attr(data-count); margin-left: auto; min-width: 18px; padding: 0 6px; border-radius: 99px; background: var(--lamp); color: var(--on-lamp); font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
 .more-menu { position: absolute; top: 56px; right: 8px; left: auto; width: min(260px, calc(100vw - 16px)); z-index: 40; }
-@media (max-width: 560px) {
-  .head-actions #copyInvite, .head-actions #feedbackBtn, .head-actions #gamesBtn, .head-actions #galleryBtn, .head-actions #pinsBtn { display: none; }
-  .head-actions #moreBtn { display: grid; }
-}
 
 /* Games to play (each chat's list) */
 .games-panel { gap: 10px; }

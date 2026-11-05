@@ -129,4 +129,10 @@ export function openDb(srv) {
   return db;
 }
 
+/* The header's less used buttons live in the ⋯ menu: open it and pick one (by the real button's id). */
+export async function fromMore(page, id) {
+  await page.click('#moreBtn');
+  await page.click(`#moreMenu [data-proxy="${id}"]`);
+}
+
 export function assert(ok, msg) { if (!ok) throw new Error(msg); }

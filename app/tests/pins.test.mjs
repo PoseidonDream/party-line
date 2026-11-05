@@ -1,5 +1,5 @@
 /* Pinned messages: pin from the message menu, the bot's note, the 📌 list, unpin. */
-import { startServer, launchBrowser, signUp, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, RESULTS, fromMore } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer();
@@ -19,7 +19,7 @@ export default async function (ok) {
     ok('pinning marks the message for everyone', true);
     await a.waitForSelector('#messages .msg:has(.bot-tag):has-text("Bora pinned a message")');
     ok('Party Bot says who pinned it, replying to the message', await a.isVisible('#messages .msg:has-text("pinned a message") .reply-ref, #messages .msg.has-reply:has-text("pinned a message")'));
-    await a.click('#pinsBtn');
+    await fromMore(a, 'pinsBtn');
     await a.waitForSelector('#searchResults .search-hit:has-text("Game night is Friday")');
     ok('the 📌 button lists pinned messages', (await a.locator('#searchResults .search-hit').count()) === 1 && await a.isHidden('#searchForm'));
     await a.screenshot({ path: `${RESULTS}/pins.png` });
@@ -29,7 +29,7 @@ export default async function (ok) {
     await msg(a).hover();
     await msg(a).locator('.msg-tool[aria-label="Unpin"]').click();
     await b.waitForSelector('#messages .msg:not(:has(.msg-pinned)):has-text("Game night is Friday") >> nth=0');
-    await b.click('#pinsBtn');
+    await fromMore(b, 'pinsBtn');
     await b.waitForSelector('#searchNote:has-text("Nothing pinned here yet")');
     ok('unpinning removes it everywhere', true);
     const errs = [...a.errors, ...b.errors];

@@ -431,8 +431,11 @@ async function renderFeatures() {
   const send = el('button', 'btn small', 'Send me the report now'); send.type = 'button'; send.id = 'usageSend';
   send.addEventListener('click', () => live.req('usage.send', {}).then(() => toast('Party Bot sent you the report privately.', 3000), (e) => toast(e.message, 3000)));
   row.appendChild(send); b.appendChild(row);
+  const unused = s.features.filter((f) => f.hideable && f.unusedMonth && !f.hidden);
+  b.appendChild(el('p', 'hint', 'To keep the app tidy, you can tuck a feature away: its button leaves the message box or voice bar for everyone and waits in the ⋯ menu at the top instead. Nothing is switched off or deleted.'
+    + (unused.length ? ` Nobody used ${unused.map((f) => f.name).join(', ')} for a month.` : '')));
   const t = el('table', 'dev-table usage-table'), head = el('tr');
-  for (const h of ['Feature', 'Last 7 days', 'People', 'Week before', 'Last used']) head.appendChild(el('th', null, h));
+  for (const h of ['Feature', 'Last 7 days', 'People', 'Week before', 'Last used', 'Button']) head.appendChild(el('th', null, h));
   t.appendChild(el('thead')).appendChild(head);
   const tb = el('tbody'); t.appendChild(tb);
   for (const f of s.features) {
@@ -442,6 +445,14 @@ async function renderFeatures() {
     tr.appendChild(el('td', null, f.off ? '–' : String(f.people)));
     tr.appendChild(el('td', null, f.off ? '–' : String(f.before)));
     tr.appendChild(el('td', null, f.lastDay ? dayLabel(f.lastDay) : 'never'));
+    const where = el('td');
+    if (f.hideable) {
+      const btn = el('button', 'btn small' + (f.unusedMonth && !f.hidden ? ' primary' : ''), f.hidden ? 'In ⋯ · Put back' : f.unusedMonth ? 'Unused a month · Tuck away' : 'Tuck away');
+      btn.type = 'button'; btn.className += ' tuck-btn';
+      btn.addEventListener('click', () => live.req('features.hide', { key: f.key, hide: !f.hidden }).then(() => { toast(f.hidden ? `${f.name} is back in its place.` : `${f.name} is now in the ⋯ menu for everyone.`, 3000); renderFeatures(); }, (e) => toast(e.message, 3000)));
+      where.appendChild(btn);
+    }
+    tr.appendChild(where);
     tb.appendChild(tr);
   }
   b.appendChild(t);

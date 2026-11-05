@@ -1,5 +1,5 @@
 /* Polls, XP and levels, chat in voice channels, voice effects, "remind me about this" and disappearing messages. */
-import { startServer, launchBrowser, signUp, joinVoice, openDb, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, joinVoice, openDb, RESULTS, fromMore } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer({
@@ -154,10 +154,10 @@ export default async function (ok) {
     await a.click('#railList .rail-btn'); await a.click('#textList .chan:has-text("general")');
     await a.click('#messages .msg:has-text("message number") .mini-av >> nth=0'); await a.click('#popMsg');
     await a.waitForSelector('#viewTitle:text-is("Bora")');
-    await a.click('#disappearBtn');
+    await fromMore(a, 'disappearBtn');
     await a.click('#disappearOpts [data-secs="86400"]');
     await botSays(a, 'turned on disappearing messages');
-    ok('either person can turn on disappearing messages in a private chat', await a.isVisible('#disappearBtn.on'));
+    ok('either person can turn on disappearing messages in a private chat', await a.evaluate(() => document.querySelector('#disappearBtn').classList.contains('on')));
     await say(a, 'this goes away tomorrow');
     await a.waitForSelector('#messages .msg:has-text("this goes away tomorrow") .msg-expires');
     ok('new messages show when they’ll go', true);

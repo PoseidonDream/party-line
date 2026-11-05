@@ -1298,5 +1298,6 @@
 "⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Это устройство не может запустить голосовой фильтр, поэтому убирается только ровный шум (вентиляторы, гул). Помогут наушники.",
 "🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} — уровень ∞: админ, со всеми наградами за уровни.",
 "🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} — уровень {1} ({2} XP, {3}-е место). До уровня {5} осталось {4} XP.",
-"🏆 Leaderboard": "🏆 Таблица лидеров"
+"🏆 Leaderboard": "🏆 Таблица лидеров",
+"Draw on the screen": "Рисовать на экране"
 }

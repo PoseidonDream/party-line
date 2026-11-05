@@ -223,7 +223,8 @@ function readyFor(user) {
     commands: Bot.COMMAND_LIST,
     perks: { achievements: P.ACHIEVEMENTS, unlocks: M.UNLOCKS, nameColors: M.NAME_COLORS },
     serverNow: Date.now(),
-    version: config.version,   // the app reloads itself when this changes (a new version of the server and app)
+    version: config.version,
+    hiddenFeatures: Usage.hiddenFeatures(),   // the app reloads itself when this changes (a new version of the server and app)
     resets: user.is_admin ? M.pendingResets() : [],
     notify: M.notifyPrefs(user.id),
   };
@@ -1108,6 +1109,12 @@ const handlers = {
   /* Features friends use (see usage.js): things only the app sees are counted from this note, in Usage.track. */
   'feature.used': () => ({}),
   'usage.stats'(c, user) { if (!user.is_admin) fail('Admins only.'); return Usage.stats(); },
+  'features.hide'(c, user, d) {
+    if (!user.is_admin) fail('Admins only.');
+    const hidden = Usage.setHidden(String(d.key || ''), !!d.hide);
+    for (const x of conns.values()) send(x, { t: 'features', hidden });
+    return { hidden };
+  },
   'usage.send'(c, user) { if (!user.is_admin) fail('Admins only.'); tellAdmins(Usage.report(M.dayKey(-6), M.dayKey(0)), user.id); return {}; },
   'feedback.list'(c, user) { if (!user.is_admin) fail('Admins only.'); return { items: M.listFeedback() }; },
   'feedback.done'(c, user, d) { if (!user.is_admin) fail('Admins only.'); M.setFeedbackDone(Number(d.id), !!d.done); return {}; },

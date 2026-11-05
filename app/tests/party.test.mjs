@@ -1,6 +1,6 @@
 /* Vote tonight's game, accent colors, GIF search (a local stand-in for Giphy) and voice channel status. */
 import http from 'node:http';
-import { startServer, launchBrowser, signUp, joinVoice, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, joinVoice, RESULTS, fromMore } from './lib.mjs';
 
 const GIF = Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64');
 
@@ -31,7 +31,7 @@ export default async function (ok) {
     // Vote tonight's game
     for (const p of [a, b]) await p.click('#textList .chan:has-text("game-night")');
     await say(a, '/game Lethal Company'); await say(a, '/game Peak'); await say(b, '/game Among Us');
-    await a.click('#gamesBtn');
+    await fromMore(a, 'gamesBtn');
     await a.waitForSelector('#gamesList .game:has-text("Among Us")');
     await a.selectOption('#gamesPollMins', '15');   // 15 "minutes" of 200 ms each in this test
     await a.click('#gamesPoll');

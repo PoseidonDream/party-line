@@ -1,5 +1,5 @@
 /* Read receipts in private chats, search filters, the admin action log, and invite links that run out. */
-import { startServer, launchBrowser, signUp, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, RESULTS, fromMore } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer();
@@ -59,7 +59,7 @@ export default async function (ok) {
     await a.click('#railAdd');
     await a.fill('#asName', 'HQ'); await a.press('#asName', 'Enter');
     await a.waitForSelector('#serverName:text-is("HQ")');
-    await a.click('#copyInvite');
+    await fromMore(a, 'copyInvite');
     await a.selectOption('#ivUses', '1');
     await a.click('#ivCreate');
     await a.waitForSelector('#ivList .iv-item:has-text("0 of 1 used")');

@@ -241,27 +241,31 @@
       <div class="head-actions">
         <button type="button" class="btn small primary" id="callBtn" title="Start a call" hidden><svg class="ic"><use href="#i-phone"/></svg><span class="hide-sm">Call</span></button>
         <button type="button" class="btn small" id="groupAddBtn" title="Add people" hidden><svg class="ic"><use href="#i-user-plus"/></svg><span class="hide-sm">Add people</span></button>
-        <button type="button" class="btn small" id="groupLeaveBtn" title="Leave group" hidden><svg class="ic"><use href="#i-leave"/></svg><span class="sr">Leave group</span></button>
+        <button type="button" class="btn small in-more" id="groupLeaveBtn" title="Leave group" hidden><svg class="ic"><use href="#i-leave"/></svg><span class="sr">Leave group</span></button>
         <button type="button" class="btn small primary" id="vcChatBtn" hidden><svg class="ic"><use href="#i-chat"/></svg><span id="vcChatLabel">Chat</span><span class="count-pill" id="vcChatCount" hidden></span></button>
-        <button type="button" class="btn small" id="eventsBtn" title="Events" hidden><svg class="ic"><use href="#i-calendar"/></svg><span class="hide-sm">Events</span><span class="count-pill" id="eventsCount" hidden></span></button>
-        <button type="button" class="btn small icon-btn" id="disappearBtn" title="Disappearing messages" aria-controls="disappearPop" hidden><svg class="ic"><use href="#i-clock"/></svg><span class="sr">Disappearing messages</span></button>
+        <button type="button" class="btn small in-more" id="eventsBtn" title="Events" hidden><svg class="ic"><use href="#i-calendar"/></svg><span class="hide-sm">Events</span><span class="count-pill" id="eventsCount" hidden></span></button>
+        <button type="button" class="btn small icon-btn in-more" id="disappearBtn" title="Disappearing messages" aria-controls="disappearPop" hidden><svg class="ic"><use href="#i-clock"/></svg><span class="sr">Disappearing messages</span></button>
         <button type="button" class="btn small icon-btn" id="notifBtn" title="Notification settings" aria-controls="notifPop" hidden><svg class="ic"><use href="#i-bell"/></svg><span class="sr">Notification settings</span></button>
-        <button type="button" class="btn small" id="gamesBtn" title="Games to play (this chat’s list)" hidden><svg class="ic"><use href="#i-gamepad"/></svg><span class="hide-sm">Games</span><span class="count-pill" id="gamesCount" hidden></span></button>
-        <button type="button" class="btn small" id="galleryBtn" title="Photos, videos and files shared here" hidden><svg class="ic"><use href="#i-image"/></svg><span class="hide-sm">Media</span></button>
-        <button type="button" class="btn small" id="pinsBtn" title="Pinned messages" hidden><svg class="ic"><use href="#i-pin"/></svg><span class="hide-sm">Pinned</span></button>
+        <button type="button" class="btn small in-more" id="gamesBtn" title="Games to play (this chat’s list)" hidden><svg class="ic"><use href="#i-gamepad"/></svg><span class="hide-sm">Games</span><span class="count-pill" id="gamesCount" hidden></span></button>
+        <button type="button" class="btn small in-more" id="galleryBtn" title="Photos, videos and files shared here" hidden><svg class="ic"><use href="#i-image"/></svg><span class="hide-sm">Media</span></button>
+        <button type="button" class="btn small in-more" id="pinsBtn" title="Pinned messages" hidden><svg class="ic"><use href="#i-pin"/></svg><span class="hide-sm">Pinned</span></button>
         <button type="button" class="btn small" id="searchBtn" title="Search messages (Ctrl+K)"><svg class="ic"><use href="#i-search"/></svg><span class="hide-sm">Search</span></button>
-        <button type="button" class="btn small" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
-        <button type="button" class="btn small icon-btn" id="moreBtn" title="More" aria-controls="moreMenu" aria-expanded="false"><svg class="ic"><use href="#i-dots"/></svg><span class="sr">More</span></button>
-        <button type="button" class="btn small" id="feedbackBtn" title="Send feedback"><svg class="ic"><use href="#i-feedback"/></svg><span class="hide-sm">Feedback</span><span class="count-pill" id="fbCount" hidden></span></button>
+        <button type="button" class="btn small in-more" id="copyInvite" title="Copy invite link"><svg class="ic"><use href="#i-copy"/></svg><span class="hide-sm">Invite</span></button>
+        <button type="button" class="btn small icon-btn" id="moreBtn" title="More" aria-controls="moreMenu" aria-expanded="false"><svg class="ic"><use href="#i-dots"/></svg><span class="sr">More</span><span class="dot-badge" id="moreBadge" hidden></span></button>
+        <button type="button" class="btn small in-more" id="feedbackBtn" title="Send feedback"><svg class="ic"><use href="#i-feedback"/></svg><span class="hide-sm">Feedback</span><span class="count-pill" id="fbCount" hidden></span></button>
       </div>
     </header>
 
     <div class="menu more-menu" id="moreMenu" hidden>
+      <button type="button" data-proxy="eventsBtn"><svg class="ic"><use href="#i-calendar"/></svg>Events</button>
       <button type="button" data-proxy="gamesBtn"><svg class="ic"><use href="#i-gamepad"/></svg>Games to play</button>
       <button type="button" data-proxy="galleryBtn"><svg class="ic"><use href="#i-image"/></svg>Photos, videos and files</button>
       <button type="button" data-proxy="pinsBtn"><svg class="ic"><use href="#i-pin"/></svg>Pinned messages</button>
+      <button type="button" data-proxy="disappearBtn"><svg class="ic"><use href="#i-clock"/></svg>Disappearing messages</button>
       <button type="button" data-proxy="copyInvite"><svg class="ic"><use href="#i-copy"/></svg>Copy invite link</button>
       <button type="button" data-proxy="feedbackBtn"><svg class="ic"><use href="#i-feedback"/></svg>Feedback</button>
+      <button type="button" data-proxy="groupLeaveBtn" class="danger"><svg class="ic"><use href="#i-leave"/></svg>Leave group</button>
+      <div class="more-tucked" id="moreTucked" hidden><p class="menu-label">More</p></div>
     </div>
     <div class="search-panel" id="searchPanel" role="dialog" aria-label="Search messages" hidden>
       <form class="search-form" id="searchForm">

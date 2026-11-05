@@ -1,6 +1,6 @@
 /* Events: plan one, Party Bot announces it with a time in each person's time zone, Going / Maybe, the reminder
    that pings everyone going, and cancelling. */
-import { startServer, launchBrowser, signUp, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, RESULTS, fromMore } from './lib.mjs';
 
 export default async function (ok) {
   const srv = await startServer();
@@ -9,7 +9,7 @@ export default async function (ok) {
     const a = await signUp(browser, srv.url, 'Poseidon');
     const b = await signUp(browser, srv.url, 'Bora');
 
-    await a.click('#eventsBtn');
+    await fromMore(a, 'eventsBtn');
     await a.waitForSelector('#eventsDlg[open] #evEmpty:not([hidden])');
     await a.click('#evNewBtn');
     await a.fill('#evName', 'Game night');
@@ -25,12 +25,12 @@ export default async function (ok) {
 
     await b.waitForSelector('#messages .msg:has(.bot-tag):has-text("planned Game night") .time-tag');
     ok('Party Bot announces it, with the time shown in your own time zone', /\d/.test(await b.textContent('#messages .time-tag')));
-    await b.waitForSelector('#eventsCount:not([hidden]):text-is("1")');
+    await b.waitForSelector('#eventsCount:not([hidden]):text-is("1")', { state: 'attached' });
     ok('the Events button counts upcoming events', true);
 
-    await b.click('#eventsBtn');
+    await fromMore(b, 'eventsBtn');
     await b.click('#evList .ev:has-text("Game night") button:text-is("Going")');
-    await a.click('#eventsBtn');
+    await fromMore(a, 'eventsBtn');
     await a.waitForSelector('#evList .ev:has-text("2 going (Poseidon, Bora)")');
     ok('saying Going shows for everyone', true);
     await b.click('#evList .ev:has-text("Game night") button:text-is("Maybe")');
@@ -46,7 +46,7 @@ export default async function (ok) {
     await a.click('#evList .link-btn:text-is("Cancel event")');
     await a.click('#cfOk');
     await b.waitForSelector('#messages .msg:has(.bot-tag):has-text("was cancelled")');
-    await b.waitForSelector('#eventsCount', { state: 'hidden' });
+    await b.waitForSelector('#eventsCount[hidden]', { state: 'attached' });
     ok('cancelling removes it and tells the server', true);
 
     const errs = [...a.errors, ...b.errors];

@@ -1,6 +1,6 @@
 /* Watch party (/watch on the big screen), media gallery, game night planner, profile flair, quick switcher,
    saved messages and send later. */
-import { startServer, launchBrowser, signUp, joinVoice, RESULTS } from './lib.mjs';
+import { startServer, launchBrowser, signUp, joinVoice, RESULTS, fromMore } from './lib.mjs';
 import { FAKE_YT } from './bot.test.mjs';
 
 const RED = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
@@ -33,7 +33,7 @@ export default async function (ok) {
     await b.click('#chatForm button[type=submit]');
     await b.waitForSelector('#tray', { state: 'hidden' });
     await a.waitForSelector('#messages .msg:has(.media-img[alt="sunset.png"])');
-    await a.click('#galleryBtn');
+    await fromMore(a, 'galleryBtn');
     await a.waitForSelector('#galleryDlg[open] .gal-cell img[alt="sunset.png"]');
     ok('Media shows every photo shared in the chat', true);
     await a.click('#galleryDlg [data-gal="files"]');
@@ -67,7 +67,7 @@ export default async function (ok) {
     await b.keyboard.press('Escape'); await b.mouse.click(700, 300);
 
     // Game night planner
-    await a.click('#gamesBtn');
+    await fromMore(a, 'gamesBtn');
     await say(a, '/game Lethal Company'); await say(b, '/game Peak');
     await a.click('#gamesPlan');
     await a.waitForSelector('#eventsDlg[open] #evForm:not([hidden])');

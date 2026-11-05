@@ -307,6 +307,7 @@ function reloadIfUpdated() {
   S.reloadTimer = setTimeout(() => { S.reloadTimer = null; if (!V.channelId && !V.rejoining) location.reload(); }, 2000);
 }
 live.on('ready', (d) => {
+  applyTucked(d.hiddenFeatures);
   if (d.version) { if (S.version && S.version !== d.version) S.reloadForUpdate = true; else S.version = d.version; }
   if (S.reloadForUpdate && !V.channelId) { location.reload(); return; }
   S.me = d.me;
@@ -2641,7 +2642,7 @@ function renderHits(res) {
   }
 }
 
-/* ================= ⋯ on phones: the header buttons that don't fit (each item just presses the real button) ================= */
+/* ================= ⋯: the header's less used buttons (each item just presses the real, hidden button) ================= */
 function closeMore() { $('#moreMenu').hidden = true; $('#moreBtn').setAttribute('aria-expanded', 'false'); }
 $('#moreBtn').addEventListener('click', () => {
   const m = $('#moreMenu');
@@ -2651,9 +2652,44 @@ $('#moreBtn').addEventListener('click', () => {
     b.hidden = real.hidden;
     const pill = real.querySelector('.count-pill:not([hidden])');
     b.dataset.count = pill ? pill.textContent : '';
+    b.dataset.on = String(real.classList.contains('on'));
+    if (b.dataset.tucked) b.hidden = !tuckedHere(b.dataset.tucked);
   }
+  $('#moreTucked').hidden = ![...$('#moreTucked').querySelectorAll('[data-proxy]')].some((b) => !b.hidden);
   m.hidden = false; $('#moreBtn').setAttribute('aria-expanded', 'true');
 });
+/* Features an admin tucked away (Developer panel → Features, usually ones nobody uses): their button leaves its usual
+   spot for everyone and waits in ⋯ → More, shown there wherever the button would have been usable. */
+const TUCKED = {
+  sendlater: ['laterBtn', 'Send later'], voicemsg: ['recBtn', 'Record a voice message'], polls: ['attachPoll', 'Poll'], lfg: ['attachLfg', 'Looking for group'],
+  soundboard: ['soundBtn', 'Soundboard'], voicefx: ['fxBtn', 'Voice effects'], camera: ['camBtn', 'Camera'],
+  draw: ['stageDrawBtn', 'Draw on the screen'], clips: ['stageClipBtn', 'Clip it'], popout: ['stagePipBtn', 'Pop out'],
+};
+function tuckedHere(key) {
+  const real = $(`#${TUCKED[key][0]}`);
+  if (key === 'polls' || key === 'lfg') return $('#chatInput').offsetParent !== null && (key === 'polls' || S.view.kind === 'text');   // in the + menu
+  return !real.hidden && !!real.parentElement && real.parentElement.offsetParent !== null;
+}
+function applyTucked(list) {
+  S.tucked = new Set(list || []);
+  const box = $('#moreTucked');
+  for (const b of box.querySelectorAll('[data-proxy]')) b.remove();
+  for (const [key, [id, label]] of Object.entries(TUCKED)) {
+    const real = $(`#${id}`), on = S.tucked.has(key);
+    real.classList.toggle('feature-hidden', on);
+    if (!on) continue;
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.proxy = id; b.dataset.tucked = key;
+    const icon = real.querySelector('svg'); if (icon) b.appendChild(icon.cloneNode(true)); else b.append(real.textContent.trim().slice(0, 2), ' ');
+    b.append(t(label)); box.appendChild(b);
+  }
+}
+live.on('features', (d) => applyTucked(d.hidden));
+// a dot on ⋯ while something inside has news (a new event, a game suggestion, feedback to read)
+const moreBadge = () => {
+  const off = ![...$('#moreMenu').querySelectorAll('[data-proxy]')].some((b) => { const r = $(`#${b.dataset.proxy}`); return !r.hidden && r.querySelector('.count-pill:not([hidden])'); });
+  if ($('#moreBadge').hidden !== off) $('#moreBadge').hidden = off;   // only on a change: the badge is inside what's watched
+};
+new MutationObserver(moreBadge).observe($('.head-actions'), { subtree: true, attributes: true, attributeFilter: ['hidden'], childList: true });
 $('#moreMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-proxy]'); if (!b) return; closeMore(); $(`#${b.dataset.proxy}`).click(); });
 document.addEventListener('pointerdown', (e) => { if (!$('#moreMenu').hidden && !e.target.closest('#moreMenu, #moreBtn')) closeMore(); });
 
@@ -2945,6 +2981,7 @@ $('#pollForm').addEventListener('submit', async (e) => {
 let remindFor = null;
 function placePop(pop, anchor) {
   pop.hidden = false;
+  if (!anchor.offsetWidth) anchor = $('#moreBtn').offsetWidth ? $('#moreBtn') : anchor;   // opened from the ⋯ menu: under ⋯
   const r = anchor.getBoundingClientRect();
   pop.style.left = `${Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth))}px`;
   pop.style.top = `${r.bottom + 6 + pop.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - pop.offsetHeight - 6) : r.bottom + 6}px`;
