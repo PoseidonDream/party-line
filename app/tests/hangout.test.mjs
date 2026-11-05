@@ -161,6 +161,7 @@ export default async function (ok) {
     await say(a, 'this goes away tomorrow');
     await a.waitForSelector('#messages .msg:has-text("this goes away tomorrow") .msg-expires');
     ok('new messages show when they’ll go', true);
+    for (let i = 0; i < 20 && (await myXp()) < xpBeforeDm + 10; i++) await a.waitForTimeout(250);   // the new total arrives just after the message
     ok('chatting in private chats earns XP too', (await myXp()) >= xpBeforeDm + 10);
     await a.click('#dmList .dm-item:has-text("Bora")');
     await req(a, 'disappear.set', { userId: bId, seconds: 2 });
