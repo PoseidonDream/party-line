@@ -5,7 +5,6 @@
 "⏰ **{0}** starts {1}! {2}": "⏰ **{0}** empieza {1}! {2}",
 "⏰ **{0}** starts {1}!": "⏰ **{0}** empieza {1}!",
 "🚫 **{0}** was cancelled by **{1}**.": "🚫 **{1}** canceló **{0}**.",
-"🎉 **{0}** reached **level {1}**!": "🎉 ¡**{0}** llegó al **nivel {1}**!",
 "🎂 Happy birthday {0}! 🎉🥳 Have an amazing day!": "🎂 ¡Feliz cumpleaños, {0}! 🎉🥳 ¡Que tengas un día increíble!",
 "📌 **{0}** pinned a message. See all pinned messages with the 📌 button at the top.": "📌 **{0}** fijó un mensaje. Mira todos los fijados con el botón 📌 de arriba.",
 "⏳ **{0}** turned on disappearing messages: new messages here delete themselves after {1}.": "⏳ **{0}** activó los mensajes temporales: los nuevos mensajes de aquí se borran tras {1}.",
@@ -25,9 +24,6 @@
 "🪙 **{0}** flipped a coin: **{1}**": "🪙 **{0}** lanzó una moneda: **{1}**",
 "Heads": "Cara",
 "Tails": "Cruz",
-"🏅 **{0}** is **level ∞**: an admin, with every level reward.": "🏅 **{0}** es **nivel ∞**: admin, con todas las recompensas de nivel.",
-"🏅 **{0}** is **level {1}** ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 **{0}** es **nivel {1}** ({2} XP, n.º {3} en total). Faltan {4} XP para el nivel {5}.",
-"🏆 **Leaderboard**": "🏆 **Clasificación**",
 "{0} **{1}**: level {2} ({3} XP)": "{0} **{1}**: nivel {2} ({3} XP)",
 "Nobody here has any XP yet. Chat or hang out in voice to earn some!": "Aquí nadie tiene XP todavía. ¡Chatea o pasa el rato en voz para ganar!",
 "⏰ Okay, I’ll remind you here in {0}: {1}": "⏰ Vale, te lo recordaré aquí en {0}: {1}",
@@ -1299,5 +1295,8 @@
 "A much better noise filter": "Un filtro de ruido mucho mejor",
 "It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Ahora mantiene tu voz y quita todo lo demás, música incluida. Un solo interruptor: el botón 🌊 (o N) lo activa o desactiva.",
 "✅ Running now: only your voice gets through.": "✅ Funcionando: solo pasa tu voz.",
-"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Este dispositivo no puede usar el filtro de voz, así que solo se quita el ruido constante (ventiladores, zumbidos). Los auriculares ayudan."
+"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Este dispositivo no puede usar el filtro de voz, así que solo se quita el ruido constante (ventiladores, zumbidos). Los auriculares ayudan.",
+"🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} es nivel ∞: admin, con todas las recompensas de nivel.",
+"🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} es nivel {1} ({2} XP, n.º {3} en total). Faltan {4} XP para el nivel {5}.",
+"🏆 Leaderboard": "🏆 Clasificación"
 }

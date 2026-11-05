@@ -5,7 +5,6 @@
 "⏰ **{0}** starts {1}! {2}": "⏰ **{0}** {1} başlıyor! {2}",
 "⏰ **{0}** starts {1}!": "⏰ **{0}** {1} başlıyor!",
 "🚫 **{0}** was cancelled by **{1}**.": "🚫 **{0}**, **{1}** tarafından iptal edildi.",
-"🎉 **{0}** reached **level {1}**!": "🎉 **{0}** **{1}. seviyeye** ulaştı!",
 "🎂 Happy birthday {0}! 🎉🥳 Have an amazing day!": "🎂 Doğum günün kutlu olsun {0}! 🎉🥳 Harika bir gün geçir!",
 "📌 **{0}** pinned a message. See all pinned messages with the 📌 button at the top.": "📌 **{0}** bir mesajı sabitledi. Tüm sabitlenen mesajları üstteki 📌 düğmesiyle gör.",
 "⏳ **{0}** turned on disappearing messages: new messages here delete themselves after {1}.": "⏳ **{0}** kaybolan mesajları açtı: buradaki yeni mesajlar {1} sonra kendiliğinden silinir.",
@@ -25,9 +24,6 @@
 "🪙 **{0}** flipped a coin: **{1}**": "🪙 **{0}** yazı tura attı: **{1}**",
 "Heads": "Tura",
 "Tails": "Yazı",
-"🏅 **{0}** is **level ∞**: an admin, with every level reward.": "🏅 **{0}** **∞ seviyede**: bir yönetici, tüm seviye ödülleriyle.",
-"🏅 **{0}** is **level {1}** ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 **{0}** **{1}. seviyede** ({2} XP, genelde {3}. sırada). {5}. seviyeye {4} XP kaldı.",
-"🏆 **Leaderboard**": "🏆 **Liderlik tablosu**",
 "{0} **{1}**: level {2} ({3} XP)": "{0} **{1}**: {2}. seviye ({3} XP)",
 "Nobody here has any XP yet. Chat or hang out in voice to earn some!": "Burada henüz kimsenin XP’si yok. Kazanmak için sohbet et ya da seste takıl!",
 "⏰ Okay, I’ll remind you here in {0}: {1}": "⏰ Tamam, sana burada {0} sonra hatırlatacağım: {1}",
@@ -1299,5 +1295,8 @@
 "A much better noise filter": "Çok daha iyi bir gürültü filtresi",
 "It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Artık sesini korur, müzik dahil geri kalan her şeyi siler. Tek düğme: 🌊 düğmesi (veya N) açar ya da kapatır.",
 "✅ Running now: only your voice gets through.": "✅ Şu an çalışıyor: yalnızca sesin geçiyor.",
-"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Bu cihaz ses filtresini çalıştıramıyor; yalnızca sabit gürültü (fan, uğultu) siliniyor. Kulaklık yardımcı olur."
+"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Bu cihaz ses filtresini çalıştıramıyor; yalnızca sabit gürültü (fan, uğultu) siliniyor. Kulaklık yardımcı olur.",
+"🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} ∞ seviyede: bir yönetici, tüm seviye ödülleriyle.",
+"🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} {1}. seviyede ({2} XP, genelde {3}. sırada). {5}. seviyeye {4} XP kaldı.",
+"🏆 Leaderboard": "🏆 Liderlik tablosu"
 }

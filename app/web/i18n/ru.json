@@ -5,7 +5,6 @@
 "⏰ **{0}** starts {1}! {2}": "⏰ **{0}** начинается {1}! {2}",
 "⏰ **{0}** starts {1}!": "⏰ **{0}** начинается {1}!",
 "🚫 **{0}** was cancelled by **{1}**.": "🚫 **{1}** отменил(а) **{0}**.",
-"🎉 **{0}** reached **level {1}**!": "🎉 **{0}** достиг(ла) **уровня {1}**!",
 "🎂 Happy birthday {0}! 🎉🥳 Have an amazing day!": "🎂 С днём рождения, {0}! 🎉🥳 Отличного дня!",
 "📌 **{0}** pinned a message. See all pinned messages with the 📌 button at the top.": "📌 **{0}** закрепил(а) сообщение. Все закреплённые — по кнопке 📌 вверху.",
 "⏳ **{0}** turned on disappearing messages: new messages here delete themselves after {1}.": "⏳ **{0}** включил(а) исчезающие сообщения: новые сообщения здесь удаляются через {1}.",
@@ -25,9 +24,6 @@
 "🪙 **{0}** flipped a coin: **{1}**": "🪙 **{0}** подбросил(а) монетку: **{1}**",
 "Heads": "Орёл",
 "Tails": "Решка",
-"🏅 **{0}** is **level ∞**: an admin, with every level reward.": "🏅 **{0}** — **уровень ∞**: админ, со всеми наградами за уровни.",
-"🏅 **{0}** is **level {1}** ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 **{0}** — **уровень {1}** ({2} XP, {3}-е место). До уровня {5} осталось {4} XP.",
-"🏆 **Leaderboard**": "🏆 **Таблица лидеров**",
 "{0} **{1}**: level {2} ({3} XP)": "{0} **{1}**: уровень {2} ({3} XP)",
 "Nobody here has any XP yet. Chat or hang out in voice to earn some!": "Здесь пока ни у кого нет XP. Общайся в чате или в голосе, чтобы заработать!",
 "⏰ Okay, I’ll remind you here in {0}: {1}": "⏰ Хорошо, напомню здесь через {0}: {1}",
@@ -1299,5 +1295,8 @@
 "A much better noise filter": "Гораздо лучшее шумоподавление",
 "It now keeps your voice and removes everything else, music included. One switch: the 🌊 button (or N) turns it on or off.": "Теперь оно оставляет твой голос и убирает всё остальное, даже музыку. Один переключатель: кнопка 🌊 (или N) включает и выключает его.",
 "✅ Running now: only your voice gets through.": "✅ Работает: проходит только твой голос.",
-"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Это устройство не может запустить голосовой фильтр, поэтому убирается только ровный шум (вентиляторы, гул). Помогут наушники."
+"⚠️ This device can’t run the voice filter, so only steady noise (fans, hum) is removed. Headphones help.": "⚠️ Это устройство не может запустить голосовой фильтр, поэтому убирается только ровный шум (вентиляторы, гул). Помогут наушники.",
+"🏅 {0} is level ∞: an admin, with every level reward.": "🏅 {0} — уровень ∞: админ, со всеми наградами за уровни.",
+"🏅 {0} is level {1} ({2} XP, #{3} overall). {4} XP to level {5}.": "🏅 {0} — уровень {1} ({2} XP, {3}-е место). До уровня {5} осталось {4} XP.",
+"🏆 Leaderboard": "🏆 Таблица лидеров"
 }

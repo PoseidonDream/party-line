@@ -1164,14 +1164,12 @@ function laterTarget(user, d) {
   return { toUserId: other.id };
 }
 /* A poll changed: everyone in its chat gets the new results, each with their own picks. */
-/* XP (see M.addXp). Everyone who can see the person gets the new total; from level 2 up Party Bot cheers in the
-   server channel it happened in (a voice channel's own chat for time in voice). */
+/* XP (see M.addXp). Everyone who can see the person gets the new total. A new level is never announced, in any
+   chat or as a pop-up: people see levels by looking (profile, Home, leaderboard, /rank). */
 function gainXp(userId, amount, fromMessage, where) {
   const r = M.addXp(userId, amount, fromMessage);
   if (!r) return;
   toWatchers(userId, { t: 'xp', userId, xp: r.xp });
-  const ch = r.up >= 2 && where && M.getChannel(where.channelId), srv = ch && M.getServer(ch.server_id);
-  if (srv && srv.kind === 'server') botHost.post(where, `🎉 **${M.getUser(userId).name}** reached **level ${r.up}**!`);
   if (r.up >= 10) progress(userId, P.once(userId, 'double_digits'));
 }
 /* A message someone sent (not a bot command): XP, and their streak and chat achievements. */

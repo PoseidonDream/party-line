@@ -210,9 +210,10 @@ function lfg(ctx) {
 function rank(ctx) {
   const m = /<@(\d+)>/.exec(ctx.args), u = M.getUser(m ? Number(m[1]) : ctx.user.id);
   if (!u || u.is_bot) fail('Party Bot doesn’t collect XP.');
-  if (u.is_admin) { post(ctx.where, `🏅 ${who(u.id)} is **level ∞**: an admin, with every level reward.`); return; }
+  // Levels are never posted in a chat: the answer is only for whoever asked.
+  if (u.is_admin) return { ephemeral: `🏅 ${u.name} is level ∞: an admin, with every level reward.` };
   const lvl = M.levelOf(u.xp), next = 30 * (lvl + 1) ** 2;
-  post(ctx.where, `🏅 ${who(u.id)} is **level ${lvl}** (${u.xp} XP, #${M.xpRank(u.xp)} overall). ${next - u.xp} XP to level ${lvl + 1}.`);
+  return { ephemeral: `🏅 ${u.name} is level ${lvl} (${u.xp} XP, #${M.xpRank(u.xp)} overall). ${next - u.xp} XP to level ${lvl + 1}.` };
 }
 /* The top 10 of the people in this chat (everyone in the server, or both people in a private chat). */
 function top(ctx) {
@@ -221,7 +222,7 @@ function top(ctx) {
     .sort((a, b) => b.xp - a.xp);
   if (!board.length) return { ephemeral: 'Nobody here has any XP yet. Chat or hang out in voice to earn some!' };
   const medals = ['🥇', '🥈', '🥉'];
-  post(ctx.where, '🏆 **Leaderboard**\n' + board.slice(0, 10).map((u, i) => `${medals[i] || `${i + 1}.`} ${who(u.id)}: level ${M.levelOf(u.xp)} (${u.xp} XP)`).join('\n'));
+  return { ephemeral: '🏆 Leaderboard\n' + board.slice(0, 10).map((u, i) => `${medals[i] || `${i + 1}.`} ${u.name}: level ${M.levelOf(u.xp)} (${u.xp} XP)`).join('\n') };
 }
 const UNITS = { s: 1, sec: 1, second: 1, seconds: 1, m: 60, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hour: 3600, hours: 3600, d: 86400, day: 86400, days: 86400 };
 function remind(ctx) {
@@ -416,7 +417,7 @@ const HELP = [
   '/poll Question | Choice 1 | Choice 2: a poll (or press + then Poll for more options)',
   '/remind 10m take the pizza out: a reminder in this chat (s, m, h or d)',
   '🏅 **Levels** (chatting and time in voice anywhere in Party Line earn XP)',
-  '/rank: your level (or /rank @someone). /top: the leaderboard for this chat',
+  '/rank: your level (or /rank @someone). /top: the leaderboard for this chat. Only you see the answer',
   '🎮 **Games**',
   '/game Name: add a game to this chat’s list for later (or use the 🎮 button). /games: the list',
   '/vote: everyone votes on tonight’s game from the list (/vote 1h for a longer vote)',

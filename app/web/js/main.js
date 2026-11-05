@@ -2671,10 +2671,10 @@ function levelBits(xp, u) {
 live.on('xp', (d) => {
   const u = S.users.get(d.userId);
   if (!u) return;
-  const before = xpLevel(u.xp), lookBefore = looks(u);
+  const lookBefore = looks(u);
   u.xp = d.xp;
   if (looks(u) !== lookBefore) rerenderMessagesSoft();   // reached (or left) the Legend look
-  if (d.userId === S.me.id) { S.me.xp = d.xp; if (!isInfinite(S.me) && xpLevel(d.xp) > before) toast(`🎉 You reached level ${xpLevel(d.xp)}!`, 4000); }
+  if (d.userId === S.me.id) S.me.xp = d.xp;   // no "you reached level N" pop-up: levels are there to look up
   if (S.popUser === d.userId) fillUserPop(d.userId);
   if ($('#topDlg').open) { renderTop(); if (!$('#topAch').hidden) renderAchievements(); }
 });
@@ -2740,7 +2740,8 @@ document.querySelectorAll('[data-toptab]').forEach((t) => t.addEventListener('cl
 live.on('achievement', (d) => {
   for (const key of d.keys) {
     const a = S.perks.achievements.find((x) => x.key === key);
-    if (a) toast(`🏆 Achievement unlocked: ${a.emoji} ${a.name}`, 5000, { label: 'See all', fn: () => { openTop(); showTopTab('ach'); } });
+    if (a && key !== 'double_digits') toast(`🏆 Achievement unlocked: ${a.emoji} ${a.name}`, 5000,   // reaching level 10 isn't announced either: levels are there to look up
+      { label: 'See all', fn: () => { openTop(); showTopTab('ach'); } });
   }
 });
 function openTop() { closeMenu(); renderTop(); showTopTab('board'); $('#topDlg').showModal(); track('levels'); }

@@ -43,7 +43,8 @@ export default async function (ok) {
     const locked = await b.evaluate(async () => { const { live } = await import('/js/net.js'); try { await live.req('profile.set', { nameColor: '#ff6b6b' }); return ''; } catch (e) { return e.message; } });
     ok('name colors stay locked until level 5', /level 5/.test(locked));
     await b.evaluate(async (ch) => { const { live } = await import('/js/net.js'); for (let i = 0; i < 75; i++) await live.req('msg.send', { channelId: ch, body: `grinding ${i}`, attachments: [] }); }, general);
-    await b.waitForSelector('.toast:has-text("You reached level 5")');
+    await b.waitForTimeout(1000);   // the new XP arrives (a new level isn't announced)
+    ok('reaching level 5 isn’t announced (no pop-up)', await b.locator('.toast:has-text("level")').count() === 0);
     await clearToasts(b);
     await b.click('#setBtn'); await b.click('#settings [role="tab"][data-settab="profile"]');
     ok('…then unlock in Settings, while higher rewards still show a lock', await b.isEnabled('#setNameColor .swatch[aria-label="Name color #ff6b6b"]')

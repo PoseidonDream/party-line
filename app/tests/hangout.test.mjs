@@ -55,9 +55,8 @@ export default async function (ok) {
 
     // XP and levels
     for (let i = 1; i <= 12; i++) await say(b, `message number ${i}`);
-    await botSays(a, 'Bora reached level 2');
-    await b.waitForSelector('.toast:has-text("You reached level 2")');
-    ok('chatting earns XP, and level-ups get a cheer from Party Bot', true);
+    await a.waitForTimeout(1200);
+    ok('chatting earns XP, and a new level is never announced: no Party Bot message, no pop-up', await a.locator('#messages .msg:has-text("reached level")').count() === 0 && await b.locator('.toast:has-text("level")').count() === 0);
     await a.click('#messages .msg:has-text("message number") .mini-av >> nth=0');   // a run of messages shows the picture once
     await a.waitForSelector('#userPop:not([hidden]) #popLevel:not([hidden])');
     ok('the profile shows the level and how far to the next', (await a.textContent('#popLevelText')) === 'Level 2' && (await a.textContent('#popLevelXp')) === '0 / 150 XP to level 3');
@@ -70,10 +69,11 @@ export default async function (ok) {
     await a.screenshot({ path: `${RESULTS}/leaderboard.png` });
     await a.keyboard.press('Escape');
     await say(b, '/rank');
-    await botSays(a, 'is level 2 (120 XP, #1 overall)');
+    await b.waitForSelector('#botNote:not([hidden]):has-text("is level 2 (120 XP, #1 overall)")');
     await say(b, '/top');
-    await botSays(a, 'Leaderboard');
-    ok('/rank and /top post levels in the chat', true);
+    await b.waitForSelector('#botNote:not([hidden]):has-text("Leaderboard")');
+    await a.waitForTimeout(800);
+    ok('/rank and /top answer only the person who asked: levels are never posted in the chat', await a.locator('#messages .msg:has-text("Leaderboard"), #messages .msg:has-text("is level")').count() === 0);
 
     // Chat in voice channels
     await joinVoice(a); await joinVoice(b);
