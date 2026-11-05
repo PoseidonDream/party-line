@@ -16,7 +16,7 @@ export const V = {
   ice: null,
 };
 let hooks = { myId: () => 0, change: () => {}, speaking: () => {}, micIssue: () => {}, system: () => {} };
-export function initVoice(h) { hooks = Object.assign(hooks, h); setInterval(speakLoop, 120); setInterval(heal, 2000); }
+export function initVoice(h) { hooks = Object.assign(hooks, h); setInterval(speakLoop, 120); setInterval(heal, 2000); setInterval(echoWatch, 50); }
 
 /* ================= microphone ================= */
 export function issueFromError(err) {
@@ -524,6 +524,39 @@ export function evenOut(p, lv) {
   if (p.heard < 15) return;   // about 2 seconds of talking first
   const want = Math.min(2, Math.max(0.5, EVEN_TARGET / p.loud)), g = p.autoGain || 1, next = g + (want - g) * 0.15;
   if (Math.abs(next - g) / g > 0.03) { p.autoGain = next; applyVolume(p); }
+}
+/* Echo warning: if your speakers reach your microphone, friends hear themselves a moment later. Every 50 ms this notes
+   how loud friends are (what you hear) and how loud your microphone is (what you send, after the filters). When your
+   microphone keeps following their voices 50–300 ms later, while you aren't the one talking, it's their echo: you
+   get a private hint (once per call), and nobody else is told. */
+const ECHO_N = 160;   // 8 seconds
+const echoRemote = [], echoMic = [];
+let echoTick = 0, echoHits = 0, echoToldFor = null;
+export function echoScore(mic, remote) {
+  // the best match between the mic's loudness and friends' loudness 1–6 steps (50–300 ms) earlier
+  const n = Math.min(mic.length, remote.length);
+  let best = 0;
+  for (let lag = 1; lag <= 6; lag++) {
+    const xs = [], ys = [];
+    for (let i = lag; i < n; i++) if (remote[i - lag] > 0.02) { xs.push(remote[i - lag]); ys.push(mic[i]); }   // only while friends talk
+    if (xs.length < 30) continue;
+    const mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
+    let sxy = 0, sxx = 0, syy = 0;
+    for (let i = 0; i < xs.length; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+    if (my < 0.008 || !sxx || !syy) continue;   // the mic barely picks anything up: no echo worth mentioning
+    best = Math.max(best, sxy / Math.sqrt(sxx * syy));
+  }
+  return best;
+}
+function echoWatch() {
+  if (!V.channelId || !micLive() || !localMeter.analyser || !V.peers.size) { echoRemote.length = echoMic.length = 0; echoHits = 0; return; }
+  let r = 0;
+  for (const p of V.peers.values()) if (p.analyser && peerPrefs(p.id).vol > 0 && !peerPrefs(p.id).mute) r = Math.max(r, level(p.analyser));
+  echoRemote.push(V.deafened ? 0 : r); echoMic.push(level(localMeter.analyser));
+  if (echoRemote.length > ECHO_N) { echoRemote.shift(); echoMic.shift(); }
+  if (++echoTick % 40 || echoRemote.length < ECHO_N) return;   // look every 2 seconds, once there's 8 seconds to look at
+  echoHits = echoScore(echoMic, echoRemote) > 0.7 ? echoHits + 1 : 0;
+  if (echoHits >= 2 && echoToldFor !== V.channelId) { echoToldFor = V.channelId; hooks.echo && hooks.echo(); }
 }
 function speakLoop() {
   const now = new Set();

@@ -1304,5 +1304,6 @@
 "Sending…": "Gönderiliyor…",
 "Don’t send": "Gönderme",
 "A message couldn’t be sent: {0}": "Bir mesaj gönderilemedi: {0}",
-"Waiting to be sent": "Gönderilmeyi bekliyor"
+"Waiting to be sent": "Gönderilmeyi bekliyor",
+"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Arkadaşların kendi seslerini duyuyor olabilir: hoparlörlerinin sesi mikrofonuna ulaşıyor. Kulaklık takarsan düzelir (ya da hoparlörlerin sesini kıs)."
 }

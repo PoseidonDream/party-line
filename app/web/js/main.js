@@ -4786,6 +4786,7 @@ $('#frDev').addEventListener('click', openDev);
 /* ================= start ================= */
 Voice.initVoice({
   myId: () => (S.me ? S.me.id : 0),
+  echo: () => toast(t('🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).'), 10000),
   change: () => { if (S.ready) renderVoiceBits(); reloadIfUpdated(); },
   speaking: renderSpeaking,
   micIssue: (kind) => { if (kind && V.channelId) { micPanelOpen = true; renderMicPanel(); } },

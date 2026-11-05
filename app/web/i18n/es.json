@@ -1304,5 +1304,6 @@
 "Sending…": "Enviando…",
 "Don’t send": "No enviar",
 "A message couldn’t be sent: {0}": "No se pudo enviar un mensaje: {0}",
-"Waiting to be sent": "Esperando para enviarse"
+"Waiting to be sent": "Esperando para enviarse",
+"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Puede que tus amigos se estén oyendo a sí mismos: el sonido de tus altavoces llega a tu micrófono. Los auriculares lo arreglan (o baja los altavoces)."
 }

@@ -1304,5 +1304,6 @@
 "Sending…": "Отправка…",
 "Don’t send": "Не отправлять",
 "A message couldn’t be sent: {0}": "Не удалось отправить сообщение: {0}",
-"Waiting to be sent": "Ждут отправки"
+"Waiting to be sent": "Ждут отправки",
+"🎧 Your friends may be hearing themselves: sound from your speakers is reaching your microphone. Headphones fix it (or turn your speakers down).": "🎧 Друзья, возможно, слышат сами себя: звук из твоих колонок попадает в микрофон. Помогут наушники (или сделай колонки тише)."
 }
