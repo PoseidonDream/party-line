@@ -77,6 +77,14 @@ export default async function (ok) {
     ok(`music between sentences drops by more than 12 dB (${r.musicDrop?.toFixed(1)} dB)`, r.musicDrop < -12);
     ok(`…while the voice comes through (${r.voiceKept?.toFixed(1)} dB, delay ${r.lagMs?.toFixed(0)} ms)`, r.voiceKept > -6 && r.lagMs < 80);
 
+    // Muted: the filter rests (nothing of it is sent); unmuted: it works again
+    await a.click('#micBtn');
+    await a.waitForFunction(async () => { const V = await import('/js/voice.js'); return (await V.diagnostics()).filterResting; });
+    ok('while you’re muted, the noise filter rests (saving battery)', true);
+    await a.click('#micBtn');
+    await a.waitForFunction(async () => { const V = await import('/js/voice.js'); const d = await V.diagnostics(); return !d.filterResting && d.filter === 'speech'; });
+    ok('…and works again when you unmute', true);
+
     // Off, and back on
     await a.click('#noiseBtn');
     await a.waitForFunction(async () => { const V = await import('/js/voice.js'); return (await V.diagnostics()).noise === 'off'; });
@@ -96,7 +104,12 @@ export default async function (ok) {
 
     // A server update: open apps reload to run the new version (a call isn't cut: that app waits until it's over)
     await a.evaluate(() => { window.__before = 1; }); await old.evaluate(() => { window.__before = 1; });
+    await old.fill('#chatInput', 'half a messa');
     await srv.kill(); await srv.restart({ GIT_COMMIT: 'f00dbab 2026-11-03' });
+    await old.waitForSelector('#offlineBar', { state: 'hidden', timeout: 20000 });
+    await old.waitForTimeout(4000);
+    ok('a half-typed message holds the reload (nothing you were writing is lost)', await old.evaluate(() => window.__before === 1) && (await old.inputValue('#chatInput')) === 'half a messa');
+    await old.fill('#chatInput', '');
     await old.waitForFunction(() => !window.__before, null, { timeout: 20000 });
     await old.waitForSelector('#room:not([hidden])');
     ok('after a server update, an open app reloads itself to run the new version', true);

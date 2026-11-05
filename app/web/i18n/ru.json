@@ -1311,5 +1311,6 @@
 "Nothing lost offline": "Ничего не теряется без сети",
 "If the connection drops, what you type waits and sends by itself when you’re back.": "Если связь пропадёт, написанное подождёт и отправится само, когда она вернётся.",
 "Even volumes": "Ровная громкость",
-"Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Тихие друзья теперь звучат чуть громче, а громкие чуть тише, автоматически."
+"Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Тихие друзья теперь звучат чуть громче, а громкие чуть тише, автоматически.",
+"{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "Сообщений, написанных без сети до последнего обновления, не удалось отправить: {0}. Отправь их ещё раз."
 }

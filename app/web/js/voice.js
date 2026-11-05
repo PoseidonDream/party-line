@@ -201,6 +201,7 @@ export function setMonitor(on) {
   try { monitor && monitor.disconnect(); } catch {}
   monitor = null;
   if (on && V.micStream && !V.noMic) { const c = audioCtx(); monitor = c.createMediaStreamSource(V.micStream); monitor.connect(c.destination); }
+  applyMic();   // the noise filter works while you hear yourself, muted or not
 }
 export const monitoring = () => !!monitor;
 async function buildSend(raw) {
@@ -302,7 +303,14 @@ export function setInputVol(v) {
   rebuilding = installMic(V.rawStream, true).then(applyMic).finally(() => { rebuilding = null; });
 }
 export const micLive = () => !!V.channelId && !V.muted && !V.serverMuted && !V.deafened && !V.noMic && (!settings.ptt || V.pttHeld);
-export function applyMic() { if (V.sendTrack) V.sendTrack.enabled = micLive(); }
+export function applyMic() { if (V.sendTrack) V.sendTrack.enabled = micLive(); restFilter(!micLive() && !monitor); }   // (not while you're hearing yourself)
+/* While you're muted, deafened or not holding push to talk, the noise filter gets no sound to work on (it rests,
+   saving battery on phones), and picks up again the moment you can be heard. */
+function restFilter(rest) {
+  const fx = V.fx;
+  if (!fx || !fx.node || !!fx.resting === rest) return;
+  try { if (rest) fx.source.disconnect(fx.node); else fx.source.connect(fx.node); fx.resting = rest; } catch {}
+}
 
 /* ================= joining and leaving ================= */
 export async function joinVoice(channelId) {
@@ -492,6 +500,17 @@ function bus() {
   return outBus;
 }
 export const peerPrefs = (id) => friendVols[id] || { vol: 1, mute: false };
+// Small changes (even volumes) slide over a fraction of a second instead of stepping; muting and big jumps are instant.
+function glideVolume(p, target) {
+  const el = p.audioEl;
+  clearInterval(p.volGlide);
+  if (target === 0 || Math.abs(el.volume - target) > 0.25) { el.volume = target; return; }
+  p.volGlide = setInterval(() => {
+    const d = target - el.volume;
+    if (Math.abs(d) <= 0.01) { el.volume = target; clearInterval(p.volGlide); return; }
+    el.volume = Math.min(1, Math.max(0, el.volume + Math.sign(d) * 0.01));
+  }, 20);
+}
 // Up to 100% a person plays through a normal audio element. Above that their voice goes through a gain node and a limiter.
 function applyVolume(p) {
   if (!p.audioEl) return;
@@ -503,7 +522,7 @@ function applyVolume(p) {
   if (!boost) {
     try { p.gain && p.gain.disconnect(); } catch {}
     p.gain = null;
-    p.audioEl.muted = false; p.audioEl.volume = Math.min(1, v);
+    p.audioEl.muted = false; glideVolume(p, Math.min(1, v));
   } else {
     const c = audioCtx();
     if (!p.gain) { p.gain = c.createGain(); p.gain.gain.value = v; p.source.connect(p.gain); p.gain.connect(bus()); }
@@ -791,7 +810,7 @@ export async function diagnostics() {
     muted: V.muted, deafened: V.deafened, serverMuted: V.serverMuted, ptt: settings.ptt, sharing: V.sharing, camera: V.camera,
     mic: raw ? { label: raw.label, state: raw.readyState, muted: raw.muted, enabled: raw.enabled } : null,
     send: V.sendTrack ? { state: V.sendTrack.readyState, enabled: V.sendTrack.enabled, live: micLive() } : null,
-    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filter: V.fx ? V.fx.filter || null : null, audio: ctx,
+    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filterResting: !!(V.fx && V.fx.resting), filter: V.fx ? V.fx.filter || null : null, audio: ctx,
     peers: [],
   };
   for (const p of V.peers.values()) {

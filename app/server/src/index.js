@@ -406,9 +406,15 @@ app.get('/', (req, res) => {
 /* Downloads: the newest GitHub release, looked up at most every 10 minutes. /download/windows (and mac, linux, deb,
    android) sends the browser straight to the file; /api/downloads says which there are, with the version and sizes. */
 const ASSETS = { windows: /-win-x64\.exe$/i, mac: /\.dmg$/i, linux: /\.AppImage$/i, deb: /\.deb$/i, android: /android\.apk$/i };
-let releaseCache = { at: 0, data: null };
-async function latestRelease() {
-  if (releaseCache.data && Date.now() - releaseCache.at < 10 * 60_000) return releaseCache.data;
+let releaseCache = { at: 0, data: null, failedAt: 0 }, releaseLookup = null;
+const NO_RELEASE = { version: null, files: {} };
+function latestRelease() {
+  if (releaseCache.data && Date.now() - releaseCache.at < 10 * 60_000) return Promise.resolve(releaseCache.data);
+  if (Date.now() - releaseCache.failedAt < 60_000) return Promise.resolve(releaseCache.data || NO_RELEASE);   // GitHub just failed: wait a minute
+  releaseLookup ||= lookUpReleases().finally(() => { releaseLookup = null; });   // visitors at the same moment share one lookup
+  return releaseLookup;
+}
+async function lookUpReleases() {
   try {
     // The newest few releases: each download comes from the newest one that has it (a desktop release may not
     // carry the Android app yet, and the other way round).
@@ -422,12 +428,11 @@ async function latestRelease() {
       }
     }
     const desk = list.find((x) => (x.assets || []).some((a) => ASSETS.windows.test(a.name))) || list[0] || {};
-    releaseCache = { at: Date.now(), data: { version: String(desk.tag_name || '').replace(/^\D+/, ''), files } };
+    releaseCache = { at: Date.now(), data: { version: String(desk.tag_name || '').replace(/^\D+/, ''), files }, failedAt: 0 };
   } catch (e) {
-    releaseCache.at = Date.now() - 9 * 60_000;   // try again in a minute
-    if (!releaseCache.data) return { version: null, files: {} };
+    releaseCache.failedAt = Date.now();   // try again in a minute (also when nothing was ever found)
   }
-  return releaseCache.data;
+  return releaseCache.data || NO_RELEASE;
 }
 const releasesPage = () => `https://github.com/${config.releasesRepo}/releases/latest`;
 app.get('/api/downloads', wrap(async () => {
@@ -447,15 +452,21 @@ app.use(express.static(config.webDir, { index: 'index.html', extensions: ['html'
   if (p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css')) res.setHeader('Cache-Control', 'no-cache');
 } }));
 app.get('/app', (req, res) => res.sendFile(path.join(config.webDir, 'index.html')));
+/* Invite cards say who invited you and to where. An address that tries many codes that don't work (more than 10 in
+   10 minutes) gets only the general card, so the page can't be used to check which codes exist. */
+const inviteMisses = new Map();   // address -> times of codes that didn't work
+setInterval(() => { const t = Date.now(); for (const [k, a] of inviteMisses) if (!a.some((x) => t - x < 10 * 60_000)) inviteMisses.delete(k); }, 10 * 60_000).unref();
 app.get('/invite/:code', (req, res) => {
   let card = { title: 'You’re invited to Party Line', description: `${ABOUT} Tap to join.` };
-  try {
+  const t = Date.now(), misses = (inviteMisses.get(req.ip) || []).filter((x) => t - x < 10 * 60_000);
+  const miss = () => { misses.push(t); inviteMisses.set(req.ip, misses); };
+  if (misses.length < 10) try {
     const found = M.serverForInvite(req.params.code);
     if (found && found.server) {
       const by = found.invite && M.getUser(found.invite.creator_id), where = found.server.name;
       card = { title: by ? `${by.name} invited you to ${where}` : `You’re invited to ${where}`, description: `Join ${where} on Party Line: voice, chat and game nights with your friends. Tap to join.` };
-    }
-  } catch { card = { title: 'This invite has expired', description: 'Ask your friend for a new invite link to Party Line.' }; }
+    } else miss();
+  } catch { miss(); card = { title: 'This invite has expired', description: 'Ask your friend for a new invite link to Party Line.' }; }
   res.setHeader('Cache-Control', 'no-cache');
   res.type('html').send(withCard('index.html', req, card));
 });

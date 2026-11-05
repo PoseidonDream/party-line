@@ -28,7 +28,15 @@ const cleanBody = (s) => String(s || '').replace(/\r\n/g, '\n').replace(/[\u0000
 const SCRYPT = { N: 32768, r: 8, p: 3 };
 const OLD_SCRYPT = { N: 16384, r: 8, p: 1 };
 const MAXMEM = 128 * 1024 * 1024;
-const scryptAsync = (pass, salt, o) => new Promise((ok, no) => crypto.scrypt(pass, salt, 32, { ...o, maxmem: MAXMEM }, (e, k) => (e ? no(e) : ok(k))));
+/* At most two hashes at a time (the rest wait their turn): they share Node's small thread pool with reading files
+   (pictures, uploads, the app itself), which must never queue behind a crowd of sign-in attempts. */
+let hashing = 0;
+const hashQueue = [];
+async function scryptAsync(pass, salt, o) {
+  if (hashing >= 2) await new Promise((go) => hashQueue.push(go)); else hashing++;
+  try { return await new Promise((ok, no) => crypto.scrypt(pass, salt, 32, { ...o, maxmem: MAXMEM }, (e, k) => (e ? no(e) : ok(k)))); }
+  finally { const next = hashQueue.shift(); if (next) next(); else hashing--; }
+}
 function parseHash(stored) {
   const p = String(stored || '').split(':');
   if (p.length === 6 && p[0] === 'scrypt') return { o: { N: Number(p[1]), r: Number(p[2]), p: Number(p[3]) }, salt: Buffer.from(p[4], 'hex'), hash: Buffer.from(p[5], 'hex') };

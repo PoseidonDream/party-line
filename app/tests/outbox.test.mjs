@@ -61,6 +61,13 @@ export default async function (ok) {
     await b.waitForTimeout(2000);
     ok('…and when the server signs you out, your waiting messages are dropped, never sent by whoever signs in next', await b.locator('#messages .msg:has-text("from the old sign-in")').count() === 0 && await a.evaluate(() => (JSON.parse(localStorage.getItem('pl:outbox')) || []).length === 0));
 
+    // Left over from the previous version (no account on them): not sent, but you're told
+    await a.evaluate(() => localStorage.setItem('pl:outbox', JSON.stringify([{ target: { channelId: 1 }, body: 'from an older version', nonce: 'old-tag-12345', at: Date.now() }])));
+    await a.reload(); await a.waitForSelector('#room:not([hidden])');
+    await a.waitForSelector('.toast:has-text("before the last update")');
+    await b.waitForTimeout(1000);
+    ok('messages waiting from before an update (whose writer is unknown) aren’t sent, and you’re told', await b.locator('#messages .msg:has-text("from an older version")').count() === 0);
+
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
   } finally { await browser.close(); await srv.stop(); }

@@ -92,6 +92,16 @@ export default async function (ok) {
     await tr.waitForFunction(() => document.querySelector('#openBrowser').textContent.includes('Browser öffnen'));
     ok('…and switching it changes the page at once', true);
 
+    let asked = 0;
+    const down = http.createServer((q, s) => { asked++; s.writeHead(503); s.end(); });
+    await new Promise((r) => down.listen(0, '127.0.0.1', r));
+    const srv2 = await startServer({ RELEASES_API: `http://127.0.0.1:${down.address().port}/latest` });
+    try {
+      await Promise.all(Array.from({ length: 5 }, () => fetch(`${srv2.url}/api/downloads`)));
+      for (let i = 0; i < 5; i++) await fetch(`${srv2.url}/api/downloads`);
+      ok(`with GitHub down, visitors share one lookup and the server waits before asking again (${asked} asked)`, asked === 1);
+    } finally { await srv2.stop(); down.close(); }
+
     ok(`no JavaScript errors${errors.length ? ': ' + errors.join(' | ') : ''}`, !errors.length && !me.errors.length);
   } finally { await browser.close(); await srv.stop(); gh.close(); }
 }

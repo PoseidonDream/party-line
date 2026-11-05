@@ -1311,5 +1311,6 @@
 "Nothing lost offline": "Offline geht nichts verloren",
 "If the connection drops, what you type waits and sends by itself when you’re back.": "Wenn die Verbindung abbricht, wartet, was du schreibst, und wird von selbst gesendet, sobald du wieder da bist.",
 "Even volumes": "Gleichmäßige Lautstärke",
-"Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Leise Freunde kommen jetzt etwas lauter rüber und laute etwas leiser, ganz von selbst."
+"Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Leise Freunde kommen jetzt etwas lauter rüber und laute etwas leiser, ganz von selbst.",
+"{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "{0} Nachricht(en), offline vor dem letzten Update geschrieben, konnten nicht gesendet werden. Bitte sende sie nochmal."
 }

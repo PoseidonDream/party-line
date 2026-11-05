@@ -27,6 +27,9 @@ export default async function (ok) {
     ok('…names are written safely (a server called Fun & "Games" <3)', tag(odd, 'og:title') === 'You’re invited to Fun &amp; &quot;Games&quot; &lt;3' && !odd.includes('"Games" <3'));
     db.prepare('UPDATE invites SET expires_at = ? WHERE code = ?').run(Date.now() - 1000, code); db.close();
     ok('…an expired invite says so', tag(await page(`/invite/${code}`), 'og:title') === 'This invite has expired');
+    const { code: fresh } = await req('invite.create', { serverId: 1, hours: 24 });
+    for (let i = 0; i < 11; i++) await page(`/invite/nope${i}zzz`);
+    ok('after many codes that don’t work, an address only gets the general card (codes can’t be checked this way)', tag(await page(`/invite/${fresh}`), 'og:title') === 'You’re invited to Party Line');
     const own = await startServer({ DOMAIN: 'party.example.com' });
     try {
       const html = await (await fetch(`${own.url}/`, { headers: { 'user-agent': WHATSAPP, host: 'evil.example' } })).text();

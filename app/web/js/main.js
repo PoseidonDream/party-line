@@ -301,16 +301,18 @@ live.on('auth-failed', () => { setToken(''); S.ready = false; if (V.channelId) V
 live.on('down', () => { $('#offlineBar').hidden = !S.ready; renderConn(); });
 live.on('open', () => { $('#offlineBar').hidden = true; renderConn(); });
 /* After the server updates, an open app reloads itself to run the new version too (new features, fixes, the newest
-   noise filter): straight away, or right after a call, never in the middle of one. */
+   noise filter), but never over something unfinished: not in a call (or while voice reconnects), not with a
+   half-typed message in the box or a window open. Until then it checks again every few seconds. */
+const calmForReload = () => !V.channelId && !V.rejoining && !chatInput.value.trim() && !document.querySelector('dialog[open]') && !S.attach.length;
 function reloadIfUpdated() {
-  if (!S.reloadForUpdate || V.channelId || V.rejoining || S.reloadTimer) return;
-  // a moment later, still not in a call (rejoining or joining one passes through "not in voice" for a moment)
-  S.reloadTimer = setTimeout(() => { S.reloadTimer = null; if (!V.channelId && !V.rejoining) location.reload(); }, 2000);
+  if (!S.reloadForUpdate || S.reloadTimer) return;
+  S.reloadTimer = setInterval(() => { if (calmForReload()) location.reload(); }, 3000);
 }
 live.on('ready', (d) => {
   applyTucked(d.hiddenFeatures);
   if (d.version) { if (S.version && S.version !== d.version) S.reloadForUpdate = true; else S.version = d.version; }
-  if (S.reloadForUpdate && !V.channelId) { location.reload(); return; }
+  if (S.reloadForUpdate && calmForReload()) { location.reload(); return; }
+  reloadIfUpdated();   // busy right now: it reloads once things are calm
   S.me = d.me;
   S.perks = d.perks || S.perks;
   S.users = new Map(d.users.map((u) => [u.id, u]));
@@ -1681,6 +1683,8 @@ function renderOutbox() {
 let flushing = false;
 async function flushOutbox() {
   if (flushing || !live.open || !outbox.length || !S.me) return;
+  const unowned = outbox.filter((x) => !x.uid).length;
+  if (unowned) toast(t('{0} message(s) written offline before the last update couldn’t be sent. Please send them again.', unowned), 8000);
   outbox = outbox.filter((x) => x.uid === S.me.id); saveOutbox();   // only what this account wrote
   flushing = true; renderOutbox();
   try {
@@ -1705,9 +1709,11 @@ $('#chatForm').addEventListener('submit', async (e) => {
   const target = composeTarget();
   if (!target) return;
   const replyTo = S.replyTo ? S.replyTo.id : null, nonce = oneTimeTag();
-  if (!live.open && !S.attach.length) {   // offline: it waits, and goes out by itself when Party Line is back
+  const waiting = outbox.some((x) => S.me && x.uid === S.me.id);
+  if ((!live.open || waiting) && !S.attach.length) {   // offline (or older messages still waiting): it goes out after them, in order
     chatInput.value = ''; autosize(); cancelReply();
     queueMsg(target, body, replyTo, nonce);
+    flushOutbox();
     return;
   }
   if (!live.open) { toast('Not connected to the server right now. Your message is still in the box.', 4000); return; }
