@@ -43,7 +43,13 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         shell: bash
-        run: if [ -n "$GOOGLE_SERVICES_JSON" ]; then printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json; echo "Firebase is on."; else echo "No GOOGLE_SERVICES_JSON secret: notifications while closed stay off."; fi
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "Firebase is on."
+          else
+            echo "No GOOGLE_SERVICES_JSON secret, so notifications while the app is closed stay off."
+          fi
       - name: Signing key
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
