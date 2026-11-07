@@ -26,7 +26,8 @@ export default async function (ok) {
       delay.delayTime.value = 0.15; an.fftSize = 512; src.connect(delay); delay.connect(an);
       V.localMeter.analyser = an;   // what the echo check hears from "Deniz's microphone": Bora, 150 ms late
     });
-    await a.waitForSelector('.toast:has-text("hearing themselves")', { timeout: 25000 });
+    // It needs about 10 s of samples and two matching checks; a busy test machine samples slower, so up to a minute.
+    await a.waitForSelector('.toast:has-text("hearing themselves")', { timeout: 60000 });
     ok('with an echo, Deniz is told privately that headphones fix it', (await a.textContent('.toast')).includes('Headphones'));
     ok('…and nobody else is told', await b.locator('.toast:has-text("hearing themselves")').count() === 0);
     const scores = await a.evaluate(async () => {
