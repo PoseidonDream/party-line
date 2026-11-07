@@ -103,6 +103,7 @@ function pushMessage(m, author) {
   const hidden = srv.kind === 'group' || srv.kind === 'pair';
   for (const id of M.memberIds(srv.id)) {
     if (id === author.id || online(id) || !Push.hasPush(id) || M.hasBlocked(id, author.id)) continue;   // cheap checks first: this runs for every message
+    if (ch.adult && !M.isAdult(M.getUser(id))) continue;   // an 18+ channel: no notification for anyone who can't open it
     const prefs = M.notifyPrefs(id);
     const level = prefs[`c:${ch.id}`] || prefs[`s:${srv.id}`] || (hidden ? 'all' : 'mentions');
     if (level === 'mute' || (level === 'mentions' && !mentioned.has(id))) continue;
@@ -112,6 +113,16 @@ function pushMessage(m, author) {
 const voiceView = (userId, v) => ({ userId, channelId: v.channelId, serverId: v.serverId, muted: v.muted, deafened: v.deafened,
   sharing: v.sharing, camera: !!v.camera, screenId: v.screenId || null, serverMuted: v.serverMuted, since: v.since });
 const fail = (msg) => { throw new M.UserError(msg); };
+/* Moderators can't remove, disconnect or mute a server's owner or a global admin (only admins can). */
+function guardTarget(user, srv, targetId) {
+  const t = M.getUser(targetId);
+  if (!t || user.is_admin) return;
+  if (t.is_admin || (srv && srv.owner_id === t.id)) fail('You can’t do that to the server’s owner or an admin.');
+}
+/* Roles: someone with Manage server can only make, change, give or take roles with permissions they have themselves. */
+function onlyMyPerms(user, srv, bits) {
+  if ((bits & ~M.permsOf(user, srv)) !== 0) fail('You can only work with roles that have permissions you have yourself.');
+}
 /* Admin action log (developer panel). */
 const log = (user, serverId, action, details) => M.audit(user.id, serverId, action, details);
 const nm = (id) => (M.getUser(id) || { name: '?' }).name;
@@ -210,7 +221,7 @@ function readyFor(user) {
     friends: M.friendsOf(user.id),
     dms: M.dmsOf(user.id),
     voice: [...voice].filter(([, v]) => mine.has(v.serverId)).map(([id, v]) => voiceView(id, v)),
-    previews: [...voice].filter(([, v]) => mine.has(v.serverId) && v.preview).map(([userId, v]) => ({ userId, img: v.preview })),
+    previews: [...voice].filter(([, v]) => mine.has(v.serverId) && v.preview && M.canOpenChannel(user.id, M.getChannel(v.channelId))).map(([userId, v]) => ({ userId, img: v.preview })),
     voiceStatus: [...voiceStatus].filter(([chId]) => { const ch = M.getChannel(chId); return ch && mine.has(ch.server_id); }).map(([channelId, st]) => ({ channelId, status: st })),
     music: Bot.musicStates(mine),
     events: [...mine].flatMap((id) => M.eventsOf(id)),
@@ -423,6 +434,10 @@ const handlers = {
   'msg.pin'(c, user, d) {
     const m = M.getMessage(Number(d.id));
     if (!m || !canSee(user.id, m)) fail('That message is gone.');
+    if (m.channel_id) {   // in servers only moderators pin (in private chats and group chats, anyone)
+      const srv = M.getServer(M.getChannel(m.channel_id).server_id);
+      if ((srv.kind || 'server') === 'server' && !M.can(user, srv, 'messages')) fail('You need the Manage messages permission to pin in servers.');
+    }
     if (!!m.pinned_at === !!d.on) return {};
     const out = M.pin(m.id, user.id, !!d.on);
     broadcastAbout(m, { t: 'msg.edit', msg: out });
@@ -444,7 +459,7 @@ const handlers = {
       for (const id of M.memberIds(ch.server_id)) if (id !== user.id) toUser(id, { t: 'typing', userId: user.id, channelId: ch.id });
     } else if (d.toUserId) {
       const other = Number(d.toUserId);
-      if (M.friendState(user.id, other) === 'friends' || M.serverIdsOf(user.id).some((s) => M.isMember(other, s))) toUser(other, { t: 'typing', userId: user.id, dmUserId: user.id });
+      if (!M.blockedBetween(user.id, other) && (M.friendState(user.id, other) === 'friends' || M.serverIdsOf(user.id).some((s) => M.isMember(other, s)))) toUser(other, { t: 'typing', userId: user.id, dmUserId: user.id });
     }
     return {};
   },
@@ -482,6 +497,11 @@ const handlers = {
     const s = M.getServer(Number(d.id));
     if (!s) return {};
     removeFromServer(user.id, s.id);
+    if ((s.kind || 'server') === 'server' && s.owner_id === user.id) {   // the owner left: it passes to whoever joined first
+      const next = M.memberIds(s.id)[0];
+      if (next) { M.setOwner(s.id, next); log(user, s.id, 'Left the server they owned', `it now belongs to ${nm(next)}`); refreshServer(s.id); }
+      else if (!s.is_default) M.deleteServer(s.id);
+    }
     if (s.kind === 'group') {
       if (!M.memberIds(s.id).length) M.deleteServer(s.id);
       else { const t = M.getChannel(groupText(s.id)); if (t) botHost.post({ channelId: t.id }, `👋 **${user.name}** left the group.`); }
@@ -548,7 +568,7 @@ const handlers = {
   'group.add'(c, user, d) {
     const s = M.getServer(Number(d.serverId));
     if (!s || s.kind !== 'group' || !M.isMember(user.id, s.id)) fail('That group is gone.');
-    const add = [...new Set((d.userIds || []).map(Number))].filter((id) => !M.isMember(id, s.id) && M.getUser(id) && M.canSeeUser(user.id, id));
+    const add = [...new Set((d.userIds || []).map(Number))].filter((id) => !M.isMember(id, s.id) && M.getUser(id) && M.canSeeUser(user.id, id) && !M.blockedBetween(user.id, id));
     if (!add.length) return {};
     if (M.memberIds(s.id).length + add.length > 10) fail('Group chats can have up to 10 people.');
     for (const id of add) M.joinServer(id, s.id);
@@ -580,6 +600,8 @@ const handlers = {
   'chan.create'(c, user, d) {
     const s = M.getServer(Number(d.serverId));
     if (!s || !M.isMember(user.id, s.id)) fail('You’re not in that server.');
+    if ((s.kind || 'server') !== 'server') fail('Group chats and calls can’t have more channels.');
+    if (!M.can(user, s, 'channels')) fail('You need the Manage channels permission to make channels.');
     const ch = M.createChannel(s.id, d.kind, d.name);
     toServer(s.id, { t: 'chan', channel: { id: ch.id, serverId: s.id, kind: ch.kind, name: ch.name, position: ch.position, lastId: 0, unread: 0 } });
     return { id: ch.id };
@@ -639,6 +661,7 @@ const handlers = {
   'role.create'(c, user, d) {
     const s = M.getServer(Number(d.serverId));
     if (!s || !M.can(user, s, 'server')) fail('You need the Manage server permission.');
+    onlyMyPerms(user, s, M.permBits(d.perms));
     const id = M.createRole(s.id, d);
     log(user, s.id, 'Created a role', d.name);
     refreshServer(s.id);
@@ -647,6 +670,7 @@ const handlers = {
   'role.edit'(c, user, d) {
     const r = M.getRole(Number(d.id));
     if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    onlyMyPerms(user, M.getServer(r.server_id), r.perms | (d.perms !== undefined ? M.permBits(d.perms) : 0));
     log(user, r.server_id, 'Changed a role', `${r.name}${d.perms ? ` (can: ${d.perms.join(', ') || 'nothing'})` : ''}`);
     M.editRole(r.id, d);
     refreshServer(r.server_id);
@@ -655,6 +679,7 @@ const handlers = {
   'role.delete'(c, user, d) {
     const r = M.getRole(Number(d.id));
     if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    onlyMyPerms(user, M.getServer(r.server_id), r.perms);
     log(user, r.server_id, 'Deleted a role', r.name);
     M.deleteRole(r.id);
     refreshServer(r.server_id);
@@ -663,6 +688,8 @@ const handlers = {
   'role.assign'(c, user, d) {
     const r = M.getRole(Number(d.roleId));
     if (!r || !M.can(user, M.getServer(r.server_id), 'server')) fail('You need the Manage server permission.');
+    onlyMyPerms(user, M.getServer(r.server_id), r.perms);
+    if (!d.on) guardTarget(user, M.getServer(r.server_id), Number(d.userId));
     M.assignRole(r.server_id, Number(d.userId), r.id, !!d.on);
     log(user, r.server_id, d.on ? 'Gave a role' : 'Took a role away', `${r.name} ${d.on ? 'to' : 'from'} ${nm(Number(d.userId))}`);
     refreshServer(r.server_id);
@@ -700,6 +727,8 @@ const handlers = {
     const ch = M.getChannel(Number(d.channelId));
     if (!ch || ch.kind !== 'voice' || !M.isMember(user.id, ch.server_id)) fail('You can’t join that voice channel.');
     if (!M.canOpenChannel(user.id, ch)) fail('This channel is for people 18 and older. Confirm your age in Settings → Account.');
+    const room = M.getServer(ch.server_id);
+    if (room.kind === 'pair' && M.memberIds(room.id).some((id) => id !== user.id && M.blockedBetween(user.id, id))) fail('You can’t call them.');
     const old = voice.get(user.id);
     if (old && old.connId !== c.id) leaveVoice(user.id, 'other-device');
     else if (old) leaveVoice(user.id);
@@ -711,7 +740,7 @@ const handlers = {
     // Starting a call in a group chat or a 1-on-1 call room rings everyone else.
     const srv = M.getServer(ch.server_id);
     if (wasEmpty && srv.kind && srv.kind !== 'server') {
-      for (const id of M.memberIds(srv.id)) if (id !== user.id) {
+      for (const id of M.memberIds(srv.id)) if (id !== user.id && !M.blockedBetween(user.id, id)) {   // no ringing between people who blocked each other
         toUser(id, { t: 'ring', from: user.id, serverId: srv.id, channelId: ch.id });
         if ((M.notifyPrefs(id)[`s:${srv.id}`] || 'all') !== 'mute') pushIfAway(id, { title: `📞 ${user.name} is calling`, body: srv.kind === 'group' ? (srv.name || 'Group call') : 'Open Party Line to answer.', url: `/app?call=${ch.id}`, tag: `call:${srv.id}`, call: true });
       }
@@ -835,7 +864,7 @@ const handlers = {
     v.muted = !!d.muted; v.deafened = !!d.deafened; v.sharing = !!d.sharing;
     v.screenId = d.sharing && typeof d.screenId === 'string' ? d.screenId.slice(0, 80) : null;
     v.camera = !!d.camera;
-    if (!v.sharing && v.preview) { v.preview = null; toServer(v.serverId, { t: 'voice.preview', userId: user.id, img: null }); }
+    if (!v.sharing && v.preview) { v.preview = null; toServer(v.serverId, { t: 'voice.preview', userId: user.id, img: null, channelId: v.channelId }); }
     toServer(v.serverId, { t: 'voice', state: voiceView(user.id, v) });
     return {};
   },
@@ -859,8 +888,9 @@ const handlers = {
     if (!v || v.connId !== c.id || !v.sharing) return {};
     const img = String(d.img || '');
     if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(img) || img.length > 120_000) fail('That preview is too big.');
-    v.preview = img;
-    toServer(v.serverId, { t: 'voice.preview', userId: user.id, img });
+    if (Date.now() - (v.previewAt || 0) < 5000) return {};   // the app sends one every 15 s; more is flooding
+    v.preview = img; v.previewAt = Date.now();
+    toServer(v.serverId, { t: 'voice.preview', userId: user.id, img, channelId: v.channelId });   // channelId: 18+ voice channels' previews go to adults only
     return {};
   },
   rtc(c, user, d) {
@@ -890,7 +920,7 @@ const handlers = {
   'clip.post'(c, user, d) {
     const me = voice.get(user.id), ch = me && M.getChannel(me.channelId), srv = ch && M.getServer(ch.server_id);
     if (!srv) fail('Join the voice channel first.');
-    const of = Number(d.of), clipCh = srv.kind === 'server' ? M.clipsChannel(srv.id) : null;
+    const of = Number(d.of), clipCh = srv.kind === 'server' && !ch.adult ? M.clipsChannel(srv.id) : null;   // from an 18+ channel: its own chat
     const who = of === user.id ? 'my screen' : `**${(M.getUser(of) || { name: 'someone' }).name}**’s screen`;
     const where = clipCh ? clipCh.id : ch.id, up = M.getUpload(String(d.upload || ''));
     if (!up || up.user_id !== user.id || !up.type.startsWith('video/')) fail('The clip didn’t upload. Try again.');
@@ -904,6 +934,7 @@ const handlers = {
     const v = voice.get(Number(d.userId));
     if (!v) return {};
     if (!M.can(user, M.getServer(v.serverId), 'voice')) fail('You need the Moderate voice permission.');
+    guardTarget(user, M.getServer(v.serverId), Number(d.userId));
     log(user, v.serverId, 'Disconnected from voice', nm(Number(d.userId)));
     leaveVoice(Number(d.userId), 'admin');
     return {};
@@ -912,6 +943,7 @@ const handlers = {
     const v = voice.get(Number(d.userId));
     if (!v) return {};
     if (!M.can(user, M.getServer(v.serverId), 'voice')) fail('You need the Moderate voice permission.');
+    if (d.on) guardTarget(user, M.getServer(v.serverId), Number(d.userId));
     v.serverMuted = !!d.on;
     log(user, v.serverId, d.on ? 'Muted for everyone' : 'Unmuted', nm(Number(d.userId)));
     toServer(v.serverId, { t: 'voice', state: voiceView(Number(d.userId), v) });
@@ -921,6 +953,7 @@ const handlers = {
     const s = M.getServer(Number(d.serverId));
     if (!s || !M.can(user, s, 'kick')) fail('You need the Remove members permission.');
     if (Number(d.userId) === user.id) fail('That’s you.');
+    guardTarget(user, s, Number(d.userId));
     log(user, s.id, 'Removed from the server', nm(Number(d.userId)));
     removeFromServer(Number(d.userId), s.id, 'kicked');
     return {};
@@ -1002,14 +1035,21 @@ const handlers = {
   },
   'terms.agree'(c, user) { hub.userChanged(M.agreeTerms(user.id)); return {}; },
   /* Optional email: a code confirms the address; then it can reset a forgotten password. */
-  'email.start'(c, user, d) {
+  async 'email.start'(c, user, d) {
     if (!mailReady()) fail('Email isn’t set up on this server yet.');
+    // Whoever picks up an unlocked phone or computer can't put their own address on the account.
+    if (!await M.passwordOk(user.id, d.password)) fail('Your password is wrong.');
     const r = M.startEmail(user.id, d.email);
     hub.userChanged(M.getUser(user.id));
     return sendMail(r.email, `Your Party Line code: ${r.code}`, `Hi ${user.name},\n\nYour code to confirm this email for Party Line is: ${r.code}\n\nIt works for 15 minutes. If you didn’t ask for it, ignore this email.`)
       .then(() => ({ sent: true }), () => { throw new M.UserError('The email couldn’t be sent. Check the address, or try again later.'); });
   },
-  'email.confirm'(c, user, d) { hub.userChanged(M.confirmEmail(user.id, d.code)); return {}; },
+  'email.confirm'(c, user, d) {
+    const old = M.getUser(user.id).email, u = M.confirmEmail(user.id, d.code);
+    hub.userChanged(u);
+    if (old && old !== u.email) sendMail(old, 'Your Party Line email was changed', `Hi ${u.name},\n\nThe email on your Party Line account was just changed to ${u.email}. If that wasn’t you, sign in and change your password straight away, or ask an admin of your Party Line for help.`).catch(() => {});
+    return {};
+  },
   'email.remove'(c, user) { hub.userChanged(M.removeEmail(user.id)); return {}; },
   /* Optional age: a private birth date. 18+ channels open for people 18 or older. Set once (an admin can clear it). */
   'age.set'(c, user, d) { hub.userChanged(M.setBorn(user.id, d.born)); Bot.birthdays(); return {}; },   // born today: the wish comes right away
@@ -1138,7 +1178,7 @@ async function addPreviews(m) {
   broadcastAbout(now, { t: 'msg.edit', msg: M.setEmbeds(m.id, found) });
 }
 function canSee(userId, m) {
-  if (m.channel_id) { const ch = M.getChannel(m.channel_id); return !!ch && M.isMember(userId, ch.server_id); }
+  if (m.channel_id) return M.canOpenChannel(userId, M.getChannel(m.channel_id));   // in the server, and 18+ only for adults
   const dm = M.getDm(m.dm_id);
   return !!dm && (dm.user_a === userId || dm.user_b === userId);
 }
@@ -1217,7 +1257,7 @@ function hallOfFame(m, reactions) {
   const stars = ((reactions.find((e) => e.emoji === '⭐') || {}).users || []).filter((id) => id !== m.user_id).length;
   if (stars < HOF_STARS || !m.channel_id) return;
   const ch = M.getChannel(m.channel_id), srv = M.getServer(ch.server_id), author = M.getUser(m.user_id);
-  if (srv.kind !== 'server' || ch.name === 'hall-of-fame' || !author || author.is_bot || M.inHallOfFame(m.id)) return;
+  if (srv.kind !== 'server' || ch.adult || ch.name === 'hall-of-fame' || !author || author.is_bot || M.inHallOfFame(m.id)) return;   // never copies out of an 18+ channel
   let hof = M.textChannelNamed(srv.id, 'hall-of-fame');
   if (!hof) {
     hof = M.createChannel(srv.id, 'text', 'hall-of-fame');
@@ -1234,7 +1274,8 @@ function hallOfFame(m, reactions) {
 function sharePoll(pollId) {
   const p = M.getPoll(pollId), m = p && M.getMessage(p.message_id);
   if (!m) return;
-  const view = M.pollView(pollId), ids = m.channel_id ? M.memberIds(M.getChannel(m.channel_id).server_id) : (({ user_a, user_b }) => [user_a, user_b])(M.getDm(m.dm_id));
+  const ch = m.channel_id && M.getChannel(m.channel_id);
+  const view = M.pollView(pollId), ids = ch ? M.memberIds(ch.server_id).filter((id) => M.canOpenChannel(id, ch)) : (({ user_a, user_b }) => [user_a, user_b])(M.getDm(m.dm_id));
   for (const id of ids) if (online(id)) toUser(id, { t: 'poll', messageId: m.id, channelId: m.channel_id, dmId: m.dm_id, poll: Object.assign({}, view, { mine: M.myPollVotes(pollId, id) }) });
 }
 function finishPoll(p) {

@@ -143,7 +143,7 @@ app.post('/api/reset-email', throttle, wrap(async (req) => {
 }));
 app.post('/api/reset-email/confirm', throttle, wrap(async (req) => {
   const b = req.body || {};
-  const r = await M.finishEmailReset(b.name, b.code, b.newPassword, b.device);
+  const r = await M.finishEmailReset(b.name, b.code, b.newPassword, b.device, b.totp);
   hub.closeSessions(r.user.id, r.ended);   // every other device goes back to the sign-in screen
   return { token: r.token, user: M.publicUser(r.user) };
 }));
@@ -242,7 +242,9 @@ app.get('/api/dev/backup/:token', (req, res) => {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
   res.setHeader('content-type', 'application/gzip');
   res.setHeader('content-disposition', `attachment; filename="party-line-backup-${stamp}.tgz"`);
-  const tar = spawn('tar', ['czf', '-', '-C', dir, 'snapshot.db', '-C', config.dataDir, 'uploads'], { stdio: ['ignore', 'pipe', 'ignore'] });
+  // With the server's keys (notifications, link pictures), so a restore keeps notifications working.
+  const keys = ['vapid.json', 'preview-key'].filter((f) => fs.existsSync(path.join(config.dataDir, f)));
+  const tar = spawn('tar', ['czf', '-', '-C', dir, 'snapshot.db', '-C', config.dataDir, 'uploads', ...keys], { stdio: ['ignore', 'pipe', 'ignore'] });
   tar.stdout.pipe(res);
   tar.on('close', done); tar.on('error', (e) => { done(); console.error(e); res.destroy(); });
   res.on('close', () => { if (tar.exitCode === null) tar.kill(); });
@@ -271,7 +273,7 @@ app.post('/api/push/subscribe', auth, wrap((req) => {
   else Push.subscribe(req.user.id, b.subscription, b.device, M.sessionKey(bearer(req)));
   return { ok: true };
 }));
-app.post('/api/push/unsubscribe', auth, wrap((req) => { Push.unsubscribe(req.user.id, req.body.endpoint); return { ok: true }; }));
+app.post('/api/push/unsubscribe', auth, wrap((req) => { Push.unsubscribe(req.user.id, (req.body || {}).endpoint); return { ok: true }; }));
 
 app.get('/api/bookmarks', auth, wrap((req) => { Usage.countOnce(req.user.id, 'bookmarks'); return { messages: M.bookmarksOf(req.user.id) }; }));
 /* Media gallery for a channel (channelId) or a private chat (userId); see M.mediaOf. */

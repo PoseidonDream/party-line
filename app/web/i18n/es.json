@@ -1312,5 +1312,6 @@
 "If the connection drops, what you type waits and sends by itself when you’re back.": "Si se corta la conexión, lo que escribes espera y se envía solo cuando vuelves.",
 "Even volumes": "Volúmenes parejos",
 "Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Los amigos que hablan bajo ahora se oyen un poco más fuerte y los que hablan alto un poco más suave, automáticamente.",
-"{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "{0} mensaje(s) escritos sin conexión antes de la última actualización no se pudieron enviar. Vuelve a enviarlos."
+"{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "{0} mensaje(s) escritos sin conexión antes de la última actualización no se pudieron enviar. Vuelve a enviarlos.",
+"Download it and drag it into Applications to replace this one.": "Descárgala y arrástrala a Aplicaciones para reemplazar esta."
 }

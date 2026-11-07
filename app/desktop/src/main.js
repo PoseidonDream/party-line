@@ -249,6 +249,8 @@ function showWin() { if (!win) return; if (win.isMinimized()) win.restore(); win
 
 /* ---------- messages from the pages ---------- */
 ipcMain.handle('setup:save', async (e, url) => {
+  // Only the app's own setup and offline pages may change which server the app trusts (not the server's page).
+  if (!ownPage(e.senderFrame.url)) return { error: 'Not allowed.' };
   let u;
   try { u = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`); } catch { return { error: 'That doesn’t look like a web address.' }; }
   const base = u.origin;
@@ -264,7 +266,7 @@ ipcMain.handle('setup:save', async (e, url) => {
 ipcMain.handle('setup:current', () => cfg.server);
 /* Backups to this computer (see backup.js): only the Party Line page itself may ask, only for its server's one-time
    backup links, and one at a time. */
-const backupDir = () => path.join(app.getPath('documents'), 'Party Line backups');
+const backupDir = () => cfg.backupDir || path.join(app.getPath('documents'), 'Party Line backups');
 const fromApp = (e) => { try { return !!origin() && new URL(e.senderFrame.url).origin === origin(); } catch { return false; } };
 let backingUp = null;
 ipcMain.handle('backup:save', (e, link) => {
@@ -275,6 +277,14 @@ ipcMain.handle('backup:save', (e, link) => {
   return backingUp;
 });
 ipcMain.handle('backup:folder', (e) => (fromApp(e) ? backupDir() : null));
+/* Another folder for the backups (Documents is often synced to OneDrive or iCloud, and the backup holds everyone's messages). */
+ipcMain.handle('backup:choose', async (e) => {
+  if (!fromApp(e)) return null;
+  const r = await dialog.showOpenDialog(win, { title: 'Where should the backups go?', defaultPath: backupDir(), properties: ['openDirectory', 'createDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return null;
+  cfg.backupDir = r.filePaths[0]; saveCfg();
+  return cfg.backupDir;
+});
 ipcMain.on('backup:open', (e) => { if (!fromApp(e)) return; fs.mkdirSync(backupDir(), { recursive: true }); shell.openPath(backupDir()); });
 ipcMain.on('retry', () => openApp());
 ipcMain.on('badge', (e, n) => {

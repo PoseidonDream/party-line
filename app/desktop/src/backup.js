@@ -1,6 +1,7 @@
-/* Backups to this computer (turned on by an admin in the developer panel, on the computer they choose): each time
-   Party Line opens there, the newest full backup of the server is saved in Documents/Party Line backups. The older
-   one is deleted only after the new one is completely written and checked, so there's always one good copy. */
+/* Backups to this computer (turned on by an admin in the developer panel, on the computer they choose): when Party Line
+   opens there (at most once a day), the newest full backup of the server is saved in Documents/Party Line backups (or
+   the folder they chose). The older one is deleted only after the new one is completely written and checked, so
+   there's always one good copy. */
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');

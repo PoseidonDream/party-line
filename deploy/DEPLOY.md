@@ -126,7 +126,7 @@ Connect with `ssh root@YOUR-IP`, then:
 **Backups happen by themselves every night at 4:17** (server time). The newest 7 are kept in `/opt/party-line/deploy/backups/`. They live on the same server, so if the server dies they die with it. Three ways to keep a copy somewhere else (pick any):
 
 1. **Download one from the app.** Developer panel → Server → **Download a backup**. It saves everything (accounts, messages, photos, files) as one `.tgz` file. Keep it private: it holds everyone's messages.
-   In the desktop app you can also tick **Back up to this computer each time I open Party Line here** (on the computer you choose: the tick stays on that one). Each time Party Line opens there (at most once an hour), a fresh backup is saved in *Documents/Party Line backups* and the older one is deleted once the new one is safely saved, so there's always exactly one there.
+   In the desktop app you can also tick **Back up to this computer each time I open Party Line here** (on the computer you choose: the tick stays on that one). When Party Line opens there (at most once a day), a fresh backup is saved in *Documents/Party Line backups* (or the folder you pick with **Choose folder…**) and the older one is deleted once the new one is safely saved, so there's always exactly one there. If your Documents folder syncs to OneDrive or iCloud, the backup (everyone's messages) goes there too: pick another folder if you don't want that.
 2. **Copy them off the server automatically, every night (free).** Backblaze B2 gives 10 GB free:
    1. Sign up at backblaze.com → **B2 Cloud Storage**. Create a bucket (Private), e.g. `poseidon-party-backups`.
    2. **Application Keys → Add a New Application Key**, allow access to that bucket only. Copy the **keyID** and **applicationKey** (it's shown once).
@@ -171,7 +171,7 @@ What's up to you:
 - Anyone with your server's address can make an account and join the main server, so share the address only with friends. If a stranger shows up, remove them (click their name → Remove from server) and block them.
 - Keep the **automatic updates** on (they are by default), so safety fixes arrive by themselves.
 - Keep **backups** private: a backup holds everyone's messages.
-- Give admin (`ADMIN_NAMES`) only to people you trust: admins can read reports and feedback, and remove messages and people.
+- Give admin (`ADMIN_NAMES`) only to people you trust: admins can read reports and feedback, and remove messages and people. A name in `ADMIN_NAMES` counts once: the account that has it first becomes admin and keeps admin even if it's renamed, and nobody else can take that name afterwards. To take admin away, remove the name from `ADMIN_NAMES` and restart.
 
 ## How much can it handle?
 

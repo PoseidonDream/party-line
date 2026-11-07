@@ -1,8 +1,8 @@
 # Party Line: full code review report
 
-Started 7 November 2026. Nothing was changed in the code during this review (the Android app is in Google Play review,
-and any change to it would upload a new version). Each finding says what's wrong, what could happen, and the fix.
-When you're ready, say **"fix the review report"** and I'll fix them.
+Reviewed 7 November 2026; **fixed the same day** (each finding below starts with ✅ fixed, or says why not). The
+fixes touch the server, the web app and the desktop app (version 1.3.2); none of them changes the Android app, so the
+Google Play review isn't affected. Each finding says what was wrong, what could have happened, and the fix.
 
 Severity: 🔴 important · 🟠 worth fixing · 🟡 small
 
@@ -19,6 +19,7 @@ Severity: 🔴 important · 🟠 worth fixing · 🟡 small
 ## Findings
 
 ### 🔴 1. Admin rights follow the account *name*, so someone else can take them
+✅ **Fixed.**
 **Where:** `app/server/src/model.js` (`register`, `rename`, `syncAdmins`) and `config.js` (`ADMIN_NAMES`, default "Poseidon").
 **What's wrong:** an account is an admin because its name is "Poseidon", not because it's *your* account.
 - Making an account called "Poseidon" makes it an admin on the spot.
@@ -31,6 +32,7 @@ people, download a full backup of every message. And at the next update you lose
 account is made, if no admin exists yet), and renaming never adds or removes admin. Also stop renaming to an admin name.
 
 ### 🔴 2. Under-18s can see what's posted in 18+ channels, in three ways
+✅ **Fixed** (everything listed, except who's sitting in an 18+ voice channel, which still shows; names only).
 **Where:** `app/server/src/hub.js` (`hallOfFame`, `canSee`), `bot.js` (message reminders), `model.js` (`bookmarksOf`).
 **What's wrong:** 18+ channels are hidden from people who haven't confirmed they're adults, but three side doors skip
 that check:
@@ -53,12 +55,14 @@ votes, pins, bookmarks, reminders, group posts); the hall of fame skips 18+ chan
 updates and 18+ voice channel lists only go to people who may open that channel.
 
 ### 🟠 3. A moderator with "Remove members" can remove the server's owner (and admins)
+✅ **Fixed.**
 **Where:** `hub.js` → `admin.kick` (also `admin.voiceKick` and `admin.mute`).
 **What's wrong:** the only check is "not yourself". A member given the Remove members role can kick the owner of the
 server, or you as admin, out of the server, and disconnect or mute them in voice.
 **Fix:** nobody can remove, disconnect or mute the server's owner or a global admin, except the owner/admins themselves.
 
 ### 🟠 4. Anyone in a server can create channels (up to 60), without permission
+✅ **Fixed.**
 **Where:** `hub.js` → `chan.create`.
 **What's wrong:** deleting, renaming and moving channels needs the Manage channels permission, but creating one only
 needs being a member. It also works inside group chats and 1-on-1 call rooms (which aren't meant to have channels).
@@ -67,6 +71,7 @@ needs being a member. It also works inside group chats and 1-on-1 call rooms (wh
 (If you *want* everyone to make channels, say so and I'll keep it, but block it in group chats and calls.)
 
 ### 🟠 5. Blocking someone doesn't stop group chats or calls from them
+✅ **Fixed.**
 **Where:** `model.js` → `createGroup`; `hub.js` → `group.add`, `voice.join`.
 **What's wrong:** private messages and *starting* a call check blocking, but:
 - making a group chat or adding people to one doesn't: someone you blocked can start a group with you in it, and Party
@@ -77,6 +82,7 @@ needs being a member. It also works inside group chats and 1-on-1 call rooms (wh
 joining a 1-on-1 call room (no ringing either).
 
 ### 🟠 6. Resetting the password by email skips 2-step sign-in
+✅ **Fixed.**
 **Where:** `model.js` → `finishEmailReset`.
 **What's wrong:** with 2-step sign-in on, signing in needs the password *and* the 6-digit code. But "forgot password →
 code by email" signs you straight in with a new password, without asking for the 6-digit code.
@@ -85,36 +91,42 @@ they turned on 2-step sign-in to prevent exactly that.
 **Fix:** when 2-step sign-in is on, the email reset also asks for the 6-digit code (or turns into an admin-approved reset).
 
 ### 🟡 7. Adding a recovery email doesn't ask for the password
+✅ **Fixed.**
 **Where:** `hub.js` → `email.start` / `email.confirm`.
 **What could happen:** someone who picks up your unlocked phone or computer can add *their* email to your account, then
 later use "forgot password" to take it over, even after you change your password.
 **Fix:** ask for the password before adding or changing the email, and email the old address when it changes.
 
 ### 🟡 8. "Forgot password by email" tells strangers which accounts have an email
+✅ **Fixed.**
 **Where:** `index.js` → `/api/reset-email` and `model.js` → `startEmailReset`.
 **What's wrong:** it's meant to answer the same either way. But asking twice within a minute answers "A code was just
 sent, wait a minute" only for accounts that have an email, and "OK" for the others.
 **Fix:** answer the same "OK" in that case too (and quietly skip sending).
 
 ### 🟡 9. Any member can pin and unpin any message
+✅ **Fixed.**
 **Where:** `hub.js` → `msg.pin`.
 **What's wrong:** pinning needs no permission, so anyone can unpin the rules or announcements a moderator pinned
 (Party Bot even announces each pin). In most chat apps this needs the moderator permission.
 **Fix:** in servers, pinning needs Manage messages (in private chats and group chats, anyone can still pin). Your choice.
 
 ### 🟡 10. Giving someone "Manage server" quietly gives them every other power too
+✅ **Fixed.**
 **Where:** `hub.js` → `role.create`, `role.edit`, `role.assign`.
 **What's wrong:** a member with Manage server can make a role with every permission (Remove members, Moderate voice…)
 and give it to themselves. Not a bug as such, but worth knowing before you hand that permission out.
 **Fix (optional):** people can only hand out permissions they already have.
 
 ### 🟡 11. Server mute is a request, not a lock
+⏸️ **Not changed (optional).** Locking it needs the media server's control interface; your server doesn't run the media server now.
 **Where:** `hub.js` → `admin.mute` (and the voice server pass in `index.js`).
 **What's wrong:** "Mute for everyone" tells the person's app to mute. A modified app could ignore it. With the media
 server on, its pass could be issued without the right to speak while muted.
 **Fix (optional):** with the media server, take away the speaking right on the server side when someone is muted.
 
 ### 🟡 12. Link previews have no overall time limit
+✅ **Fixed.**
 **Where:** `app/server/src/preview.js` → `get()`.
 **What's wrong:** a page fetch gives up only after 6 seconds of *silence*. A site that sends one byte every few
 seconds keeps the connection open forever, and a page bigger than the limit is cut off without ever finishing, so
@@ -123,6 +135,7 @@ its preview (or the picture behind it) just hangs.
 **Fix:** an overall 10-second deadline for each fetch, and finish cleanly when a page is too big.
 
 ### 🟡 13. A few things grow forever or get slow as the server gets older
+✅ **Fixed.**
 **Where:** `preview.js` (`link_previews` table), `model.js` → `userDirectory`, `db.js`.
 - Every link ever previewed stays in the database (it's never cleaned up).
 - The developer panel's people list counts each person's messages one by one with no index, so with lots of messages
@@ -130,18 +143,21 @@ its preview (or the picture behind it) just hangs.
 **Fix:** delete previews older than a week in the hourly cleanup; add an index on who wrote each message.
 
 ### 🟡 14. `/remind` still posts in a chat you were removed from
+✅ **Fixed.**
 **Where:** `bot.js` → `fireReminders`.
 **What's wrong:** a reminder set with `/remind 2d …` is posted in that channel later even if you left or were kicked
 from the server in between (it also @mentions anyone named in the text).
 **Fix:** check you're still in that chat when it's due; otherwise send it to you privately.
 
 ### 🟡 15. Small server crash-proofing
+✅ **Fixed.**
 **Where:** `index.js` → `/api/push/unsubscribe`.
 **What's wrong:** it reads `req.body.endpoint` without checking a body was sent; a request without one gets a
 "something went wrong" error instead of a clean answer (harmless, but it fills the log).
 **Fix:** `(req.body || {}).endpoint`, like the other routes.
 
 ### 🟠 16. Restoring a backup can wipe everything, and breaks browser notifications
+✅ **Fixed.**
 **Where:** `deploy/backup.sh restore`; also what the backups contain (`backup.sh` and the in-app "Download a backup").
 **What's wrong:**
 - Restore deletes everything on the server *first* and only then unpacks the backup. If the backup file is damaged
@@ -153,6 +169,7 @@ from the server in between (it also @mentions anyone named in the text).
 `preview-key` in every backup.
 
 ### 🟠 17. Mac desktop app can't update itself, and never says so
+✅ **Fixed** (in the web app, so it works in the Mac app you already have): when a newer version is out, the Mac app shows a "New version: Download" card.
 **Where:** `app/desktop/src/main.js` → `setupUpdates`; `.github/workflows/desktop.yml` (no Apple signing).
 **What's wrong:** macOS only lets an app update itself if it's signed by Apple (the $99/year developer account). Your Mac
 app isn't, so the automatic update fails quietly: Mac users stay on the version they installed forever and never see
@@ -161,12 +178,14 @@ the "new version" card. (Windows and Linux update fine.) This is what you ran in
 the download page, until the app is Apple-signed.
 
 ### 🟠 18. Android phones with the downloaded APK stop hearing about updates after every desktop release
+✅ **Fixed.**
 **Where:** `app/web/js/main.js` → `checkAppUpdate`.
 **What's wrong:** the update check only looks at the *newest* GitHub release. Right now that's the desktop release
 1.3.1, which has no Android file, so APK users never get the "new version" card (Play Store users aren't affected).
 **Fix:** look through the last few releases, like the welcome page's download button already does.
 
 ### 🟠 19. An email password with spaces would break the nightly off-server backup
+✅ **Fixed.**
 **Where:** `deploy/backup.sh` (it reads `deploy/.env` as a shell script); `deploy/.env.example` shows `SMTP_PASS=abcd efgh ijkl mnop`.
 **What's wrong:** Gmail app passwords come with spaces. Docker reads such a line fine, but the backup script stops with
 an error on it, after saving the local backup but before copying it off the server and before recording that it ran.
@@ -174,6 +193,7 @@ Party Bot would then warn that backups aren't running, and the off-server copies
 **Fix:** read only the backup settings from `.env` (not run it as a script), and show the example without spaces.
 
 ### 🟡 20. The desktop app lets the Party Line page change which server the app trusts
+✅ **Fixed** in desktop version 1.3.2.
 **Where:** `app/desktop/src/preload.js` (`saveServer`) and `main.js` (`setup:save`).
 **What's wrong:** "change server" is meant for the app's own setup page, but the bridge offers it to the Party Line page
 too. Only matters if someone ever managed to run code inside your page (nothing found that allows that), but then they
@@ -181,12 +201,14 @@ could point the app at their own copy, which would get the microphone, screen sh
 **Fix:** accept "change server" only from the app's own setup and offline pages.
 
 ### 🟡 21. Updates install from GitHub automatically
+ℹ️ **Nothing to change in the code:** keep 2-step sign-in on for your GitHub account.
 **Where:** `deploy/auto-update.sh`.
 **What's wrong:** not a bug, but worth knowing: whatever is pushed to the `app` branch is running on your server within
 10 minutes. So your GitHub account is effectively the key to the server.
 **Fix (you):** keep 2-step sign-in on for GitHub, and don't give anyone else write access to the repository.
 
 ### 🟡 22. The "back up to this computer" copy may end up in the cloud, and can get heavy
+✅ **Fixed** in desktop version 1.3.2: at most once a day, and a "Choose folder…" button (the panel also warns about OneDrive/iCloud).
 **Where:** `app/desktop/src/backup.js` (Documents → Party Line backups).
 **What's wrong:** on many Windows PCs the Documents folder is synced to OneDrive (and on Macs, often to iCloud), so the
 backup, which holds everyone's private messages, gets uploaded to that cloud too. Also, it's a *full* backup at most
@@ -194,6 +216,7 @@ once an hour: when your server has gigabytes of photos and videos, that's a lot 
 **Fix:** let you pick the folder (default outside synced folders), and do it at most once a day.
 
 ### 🟠 23. The number of a deleted message (or account) can be given to the next one
+✅ **Fixed.**
 **Where:** `app/server/src/db.js` (the `users` and `messages` tables).
 **What's wrong:** every message and account has a number. When the *newest* message (or account) is deleted, the
 database gives that same number to the next new one. A few things still point at the old number:
@@ -207,12 +230,14 @@ database gives that same number to the next new one. A few things still point at
 message or account they belong to.
 
 ### 🟡 24. One person can flood everyone with screen-share previews
+✅ **Fixed.**
 **Where:** `hub.js` → `voice.preview`.
 **What's wrong:** each preview (up to 120 KB) is sent to everyone in the server, and there's no limit on how often,
 apart from the general 60-requests-a-second cap. A modified app could push megabytes a second to every member.
 **Fix:** accept at most one preview every few seconds per person.
 
 ### 🟡 25. A server's owner can leave it, leaving nobody in charge
+✅ **Fixed.**
 **Where:** `hub.js` → `server.leave`.
 **What's wrong:** the owner can simply leave their own server. It stays "owned" by someone who isn't in it any more, so
 nobody inside can manage it (only you as global admin).

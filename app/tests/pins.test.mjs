@@ -1,4 +1,4 @@
-/* Pinned messages: pin from the message menu, the bot's note, the 📌 list, unpin. */
+/* Pinned messages: pin from the message menu (in servers only moderators can), the bot's note, the 📌 list, unpin. */
 import { startServer, launchBrowser, signUp, RESULTS, fromMore } from './lib.mjs';
 
 export default async function (ok) {
@@ -14,10 +14,12 @@ export default async function (ok) {
     const msg = (p) => p.locator('#messages .msg:has-text("Game night is Friday")').first();   // the bot's note quotes it too
     await msg(b).waitFor();
     await msg(b).hover();
-    await msg(b).locator('.msg-tool[aria-label="Pin"]').click();
-    await a.waitForSelector('#messages .msg:has-text("Game night is Friday") .msg-pinned');
+    ok('in a server, a member without Manage messages has no Pin button', await msg(b).locator('.msg-tool[aria-label="Pin"]').count() === 0);
+    await msg(a).hover();
+    await msg(a).locator('.msg-tool[aria-label="Pin"]').click();
+    await b.waitForSelector('#messages .msg:has-text("Game night is Friday") .msg-pinned');
     ok('pinning marks the message for everyone', true);
-    await a.waitForSelector('#messages .msg:has(.bot-tag):has-text("Bora pinned a message")');
+    await a.waitForSelector('#messages .msg:has(.bot-tag):has-text("Poseidon pinned a message")');
     ok('Party Bot says who pinned it, replying to the message', await a.isVisible('#messages .msg:has-text("pinned a message") .reply-ref, #messages .msg.has-reply:has-text("pinned a message")'));
     await fromMore(a, 'pinsBtn');
     await a.waitForSelector('#searchResults .search-hit:has-text("Game night is Friday")');

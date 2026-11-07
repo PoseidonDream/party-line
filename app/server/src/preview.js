@@ -12,7 +12,7 @@ import crypto from 'node:crypto';
 import { one, run } from './db.js';
 import { config } from './config.js';
 
-const MAX_HTML = 512 * 1024, MAX_IMAGE = 5 * 1024 * 1024, TIMEOUT = 6000;
+const MAX_HTML = 512 * 1024, MAX_IMAGE = 5 * 1024 * 1024, TIMEOUT = 6000, DEADLINE = 10_000;
 const UA = 'Mozilla/5.0 (compatible; PartyLineBot/1.0; link previews)';
 
 /* ---------- which addresses may be fetched ---------- */
@@ -39,15 +39,20 @@ function safeLookup(host, opts, cb) {
     if (opts && opts.all) cb(null, ok); else cb(null, ok[0].address, ok[0].family);
   });
 }
-/* GET a URL, following up to 3 redirects, reading at most `max` bytes. Resolves { url, type, body }. */
+/* GET a URL, following up to 3 redirects, reading at most `max` bytes (more: truncated), all within 10 seconds
+   (a site trickling a byte at a time can't keep the connection open). Resolves { url, type, body, truncated }. */
 export function get(url, max, accept, hops = 0) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolveOnce, rejectOnce) => {
+    let settled = false, req = null;
+    const timer = setTimeout(() => { if (req) req.destroy(); finish(rejectOnce, new Error('timeout')); }, DEADLINE);
+    const finish = (fn, v) => { if (settled) return; settled = true; clearTimeout(timer); fn(v); };
+    const resolve = (v) => finish(resolveOnce, v), reject = (e) => finish(rejectOnce, e);
     let u;
     try { u = new URL(url); } catch { return reject(new Error('bad url')); }
     if (!/^https?:$/.test(u.protocol) || (u.port && !['80', '443'].includes(u.port) && !config.previewPrivate)) return reject(new Error('not allowed'));
     if (net.isIP(u.hostname.replace(/^\[|\]$/g, '')) && !config.previewPrivate && !isPublicAddress(u.hostname.replace(/^\[|\]$/g, ''))) return reject(new Error('private address'));
     const lib = u.protocol === 'https:' ? https : http;
-    const req = lib.get(u, { lookup: safeLookup, timeout: TIMEOUT, headers: { 'user-agent': UA, accept, 'accept-language': 'en,tr;q=0.8' } }, (res) => {
+    req = lib.get(u, { lookup: safeLookup, timeout: TIMEOUT, headers: { 'user-agent': UA, accept, 'accept-language': 'en,tr;q=0.8' } }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
         if (hops >= 3) return reject(new Error('too many redirects'));
@@ -55,7 +60,11 @@ export function get(url, max, accept, hops = 0) {
       }
       if (res.statusCode !== 200) { res.resume(); return reject(new Error(`status ${res.statusCode}`)); }
       const chunks = []; let size = 0;
-      res.on('data', (c) => { size += c.length; if (size > max) { req.destroy(); return; } chunks.push(c); });
+      res.on('data', (c) => {
+        size += c.length;
+        if (size > max) { resolve({ url: u.href, type: String(res.headers['content-type'] || ''), body: Buffer.concat(chunks), truncated: true }); req.destroy(); return; }
+        chunks.push(c);
+      });
       res.on('end', () => resolve({ url: u.href, type: String(res.headers['content-type'] || ''), body: Buffer.concat(chunks), truncated: size > max }));
       res.on('error', reject);
     });

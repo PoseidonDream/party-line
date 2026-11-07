@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('partyLineDesktop', {
   saveBackup: (url) => ipcRenderer.invoke('backup:save', url),
   backupFolder: () => ipcRenderer.invoke('backup:folder'),
   openBackupFolder: () => ipcRenderer.send('backup:open'),
+  chooseBackupFolder: () => ipcRenderer.invoke('backup:choose'),
   // used by the built-in setup and offline pages
   saveServer: (url) => ipcRenderer.invoke('setup:save', url),
   currentServer: () => ipcRenderer.invoke('setup:current'),

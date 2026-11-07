@@ -242,7 +242,9 @@ $('#authForm').addEventListener('submit', async (e) => {
       return;
     }
     if (authMode === 'mailreset') {
-      const r = await api('/api/reset-email/confirm', { body: { name: $('#authName').value, code: $('#mailCode').value, newPassword: $('#authPass').value, device: await appLabel() } });
+      let r;
+      try { r = await api('/api/reset-email/confirm', { body: { name: $('#authName').value, code: $('#mailCode').value, newPassword: $('#authPass').value, device: await appLabel(), totp: $('#authCode').value } }); }
+      catch (ex) { if (/2-step|6-digit/.test(ex.message)) { $('#codeField').hidden = false; $('#authCode').focus(); } throw ex; }   // 2-step sign-in is on: the app's code too
       setToken(r.token); store.set('hadAccount', true); $('#authPass').value = ''; $('#mailCode').value = '';
       toast('Your password is changed. You’re signed in.', 4000);
       start();
@@ -719,6 +721,7 @@ function renderSide() {
   const tl = $('#textList'), vl = $('#voiceList'), cl = $('#catList');
   tl.textContent = ''; vl.textContent = ''; cl.textContent = '';
   const manage = can(s, 'channels');
+  $('#addText').hidden = $('#addVoice').hidden = !manage;   // making channels needs Manage channels
   // Custom categories, each holding text and voice channels.
   const catLists = new Map();
   for (const cat of s.categories || []) {
@@ -1020,7 +1023,9 @@ async function checkAppUpdate() {
     mine = Number(v.code) || 0;
   } catch {}   // builds before the update check report 0
   try {
-    const rel = await (await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`)).json();
+    // The newest release that has the Android app (a desktop release may be newer and not carry it).
+    const list = await (await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=10`)).json();
+    const rel = (Array.isArray(list) ? list : []).find((r) => !r.draft && !r.prerelease && (r.assets || []).some((x) => x.name === 'Party-Line-android.apk')) || {};
     const apk = (rel.assets || []).find((x) => x.name === 'Party-Line-android.apk');
     const build = apk && Number((/build (\d+)/.exec(apk.label || '') || [])[1]);
     if (!build || build <= mine || store.get('skipBuild', 0) === build) return;
@@ -1032,7 +1037,7 @@ function showUpdateCard(title, note, goLabel, href, onGo, onLater) {
   $('#updateTitle').textContent = title; $('#updateNote').textContent = note;
   const go = $('#updateGo');
   go.setAttribute('role', href ? 'link' : 'button');
-  go.textContent = goLabel;
+  go.textContent = goLabel; go.removeAttribute('target');
   if (href) go.href = href; else go.removeAttribute('href');
   go.onclick = onGo ? (e) => { e.preventDefault(); onGo(); } : null;
   $('#updateLater').onclick = () => { if (onLater) onLater(); $('#updateBar').hidden = true; };
@@ -1044,6 +1049,20 @@ if (desktop && desktop.onUpdate) desktop.onUpdate((version) => {
 });
 setTimeout(checkAppUpdate, 5000);
 setInterval(checkAppUpdate, 6 * 3600_000);
+/* The Mac app can't update itself (that needs Apple's signature): when a newer version is out, it says so, with the
+   download. (Windows and Linux update by themselves and show their own "Restart to update" card.) */
+const newerVersion = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+async function checkMacUpdate() {
+  if (!desktop || !desktop.version || !/Mac/.test(navigator.userAgent)) return;
+  try {
+    const d = await api('/api/downloads');
+    if (!d.version || !newerVersion(d.version, desktop.version) || store.get('skipMac', '') === d.version) return;
+    showUpdateCard('A new version of Party Line is ready', 'Download it and drag it into Applications to replace this one.', 'Download', new URL(absUrl('/download/mac'), location.href).href, null, () => store.set('skipMac', d.version));
+    $('#updateGo').target = '_blank';   // opens in the browser, which downloads it
+  } catch {}
+}
+setTimeout(checkMacUpdate, 8000);
+setInterval(checkMacUpdate, 6 * 3600_000);
 let phoneInCall = null;
 function syncPhoneCall() {
   if (!phoneApp) return;
@@ -1231,7 +1250,8 @@ function messageEl(msg, prev, before = prev) {
   tool('clock', 'Remind me about this', (e) => openRemind(msg, e.currentTarget));
   const saved = S.bookmarks.has(msg.id);
   tool('bookmark', saved ? 'Remove from saved messages' : 'Save for later (only you see it)', () => act(() => live.req('bookmark.set', { id: msg.id, on: !saved }), saved ? null : 'Saved. Find it under Home → Saved messages.'), saved ? 'on' : '');
-  tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
+  const pinSrv = msg.channelId && findChannel(msg.channelId);   // in servers only moderators pin; in private and group chats anyone
+  if (!pinSrv || isPrivate(pinSrv.server) || can(pinSrv.server, 'messages')) tool('pin', msg.pinned ? 'Unpin' : 'Pin', () => act(() => live.req('msg.pin', { id: msg.id, on: !msg.pinned }), msg.pinned ? 'Unpinned.' : null), msg.pinned ? 'on' : '');
   if (!mine && !user(msg.userId).bot) tool('flag', 'Report', () => openReport({ messageId: msg.id, userId: msg.userId, text: decodeMentions(msg.body) || 'A photo, video or file' }));
   if (mine || S.me.admin || (srv && can(srv, 'messages'))) {
     tool('trash', 'Delete', async (ev) => {
@@ -4144,7 +4164,7 @@ function syncEmail() {
 }
 $('#emailBox').addEventListener('toggle', syncEmail);
 $('#emailSend').addEventListener('click', async () => {
-  if (await act(() => live.req('email.start', { email: $('#emailInput').value }, 30000))) { syncEmail(); $('#emailCode').value = ''; $('#emailCode').focus(); }   // the server's 'me' update came first
+  if (await act(() => live.req('email.start', { email: $('#emailInput').value, password: $('#emailPass').value }, 30000))) { $('#emailPass').value = ''; syncEmail(); $('#emailCode').value = ''; $('#emailCode').focus(); }   // the server's 'me' update came first
 });
 $('#emailConfirm').addEventListener('click', async () => {
   if (await act(() => live.req('email.confirm', { code: $('#emailCode').value }), 'Your email is confirmed.')) { $('#emailInput').value = ''; syncEmail(); }

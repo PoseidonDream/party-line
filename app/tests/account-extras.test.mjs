@@ -50,6 +50,9 @@ export default async function (ok) {
     await a.click('#emailBox summary');
     ok('Settings → Account has an optional Email box', await a.isVisible('#emailInput') && (await a.textContent('#emailState')) === 'None');
     await a.fill('#emailInput', 'Ayla@Example.com'); await a.click('#emailSend');
+    await a.waitForSelector('.toast:has-text("password is wrong")');
+    ok('adding an email asks for your password first (an unlocked phone isn’t enough)', await a.isHidden('#emailCodeRow'));
+    await a.fill('#emailPass', 'pass1234'); await a.click('#emailSend');
     await a.waitForSelector('#emailCodeRow:not([hidden])');
     const code = codeFor('ayla@example.com');
     ok('a 6-digit code is emailed to the address', !!code);
@@ -61,7 +64,7 @@ export default async function (ok) {
     ok('the right code confirms it', (await a.textContent('#emailNow')).includes('ayla@example.com'));
     const taken = await signUp(browser, srv.url, 'Bora');
     const bora = await liveOf(taken, srv.url);
-    ok('another account can’t use the same email', /already uses/.test(await tryReq(bora, 'email.start', { email: 'ayla@example.com' })));
+    ok('another account can’t use the same email', /already uses/.test(await tryReq(bora, 'email.start', { email: 'ayla@example.com', password: 'pass1234' })));
 
     // Forgot password, by email
     const r = await openPage(browser, srv.url);

@@ -35,7 +35,7 @@ Open http://localhost:3000. Settings (environment variables):
 |---|---|---|
 | `PORT` | Port to listen on | `3000` |
 | `DATA_DIR` | Where the database and uploads go | `server/data` |
-| `ADMIN_NAMES` | Comma-separated account names with admin powers | `Poseidon` |
+| `ADMIN_NAMES` | Comma-separated account names with admin powers (the first account with each name keeps it, even renamed) | `Poseidon` |
 | `TURN_URLS`, `TURN_SECRET` | Voice relay for strict networks (set up for you by `deploy/`) | none |
 | `TRUST_PROXY` | Set to `1` behind a reverse proxy such as Caddy | off |
 

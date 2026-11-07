@@ -5,8 +5,8 @@ import { fmtTime, fmtSize, toast, audioCtx, level } from './util.js';
 
 /* ---------- backups to this computer ----------
    In the desktop app, an admin can choose to have the newest full backup saved on this computer each time Party Line
-   opens here (this computer only: the choice stays on it). The desktop app deletes the older one once the new one is
-   safely saved, so there's always exactly one, and not more than one an hour if the app is restarted a lot. */
+   opens here (this computer only: the choice stays on it), at most once a day. The desktop app deletes the older one once
+   the new one is safely saved, so there's always exactly one. */
 const desktopApp = window.partyLineDesktop || null;
 const canBackUpHere = () => !!(desktopApp && desktopApp.saveBackup);
 const plainError = (e) => String((e && e.message) || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
@@ -18,7 +18,7 @@ async function saveBackupHere() {
 }
 export function backupOnOpen() {
   if (!canBackUpHere() || !store.get('backupHere', false)) return;
-  if (Date.now() - ((store.get('backupHereLast', null) || {}).at || 0) < 60 * 60_000) return;
+  if (Date.now() - ((store.get('backupHereLast', null) || {}).at || 0) < 24 * 3600_000) return;   // a full backup can be big: once a day
   saveBackupHere().then((r) => toast(`Backup saved on this computer (${fmtSize(r.bytes)}). The older one was deleted.`, 6000),
     (e) => toast(`The backup to this computer didn’t work: ${plainError(e)}`, 8000));
 }
@@ -161,12 +161,12 @@ function renderOverview() {
   if (canBackUpHere()) {
     const lab = el('label', 'check'), cb = document.createElement('input'), txt = el('span');
     cb.type = 'checkbox'; cb.id = 'devBackupHere'; cb.checked = !!store.get('backupHere', false);
-    txt.append(el('b', null, 'Back up to this computer each time I open Party Line here'), el('small', null, 'Only the newest backup is kept: the older one is deleted once the new one is safely saved.'));
+    txt.append(el('b', null, 'Back up to this computer each time I open Party Line here'), el('small', null, 'At most once a day. Only the newest backup is kept: the older one is deleted once the new one is safely saved.'));
     lab.append(cb, txt);
     const info = el('p', 'hint'); info.id = 'devBackupHereInfo';
     const showInfo = async () => {
       const last = store.get('backupHereLast', null), dir = await desktopApp.backupFolder().catch(() => '');
-      info.textContent = `${dir ? `Saved in ${dir}.` : ''}${last ? ` Last one: ${new Date(last.at).toLocaleString()} (${fmtSize(last.bytes)}).` : ''}`.trim();
+      info.textContent = `${dir ? `Saved in ${dir}. If that folder is synced to OneDrive or iCloud, the backup (everyone’s messages) goes there too: pick another folder if you don’t want that.` : ''}${last ? ` Last one: ${new Date(last.at).toLocaleString()} (${fmtSize(last.bytes)}).` : ''}`.trim();
       info.hidden = !info.textContent;
     };
     cb.addEventListener('change', async () => {
@@ -179,7 +179,13 @@ function renderOverview() {
     });
     const open = el('button', 'btn small', 'Open the backup folder'); open.type = 'button'; open.id = 'devBackupFolder';
     open.addEventListener('click', () => desktopApp.openBackupFolder());
-    b.append(lab, info, open);
+    const row = el('div', 'row'); row.appendChild(open);
+    if (desktopApp.chooseBackupFolder) {
+      const choose = el('button', 'btn small', 'Choose folder…'); choose.type = 'button'; choose.id = 'devBackupChoose';
+      choose.addEventListener('click', async () => { if (await desktopApp.chooseBackupFolder()) showInfo(); });
+      row.appendChild(choose);
+    }
+    b.append(lab, info, row);
     showInfo();
   } else if (desktopApp) b.appendChild(el('p', 'hint', 'Update the desktop app to have a backup saved on this computer each time you open it.'));
   b.appendChild(el('h3', 'dev-h', 'Voice channels'));

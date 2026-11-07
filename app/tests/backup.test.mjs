@@ -79,8 +79,8 @@ export default async function (ok) {
     await d.locator('#devBackupHere').scrollIntoViewIfNeeded();
     await d.locator('#devPanel').screenshot({ path: path.join(RESULTS, 'backup-here.png') });
     await d.reload(); await d.waitForSelector('#room:not([hidden])'); await d.waitForTimeout(2000);
-    ok('…opening the app again right away doesn’t save another (at most one an hour)', await d.evaluate(() => localStorage.getItem('__saved')) === '1');
-    await d.evaluate(() => localStorage.setItem('pl:backupHereLast', JSON.stringify({ at: Date.now() - 2 * 3600_000, bytes: 1 })));
+    ok('…opening the app again right away doesn’t save another (at most one a day)', await d.evaluate(() => localStorage.getItem('__saved')) === '1');
+    await d.evaluate(() => localStorage.setItem('pl:backupHereLast', JSON.stringify({ at: Date.now() - 25 * 3600_000, bytes: 1 })));
     await d.reload(); await d.waitForSelector('#room:not([hidden])');
     await d.waitForFunction(() => localStorage.getItem('__saved') === '2', null, { timeout: 15000 });
     await d.waitForSelector('.toast:has-text("Backup saved on this computer")');

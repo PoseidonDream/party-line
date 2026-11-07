@@ -244,7 +244,9 @@ function fireMsgReminders() {
   for (const r of M.dueMsgReminders()) {
     const m = M.getMessage(r.message_id);
     const dm = M.dmWith(bot.id, r.user_id, true);
-    if (!m) { post({ dmId: dm.id }, '⏰ Reminder: the message you asked me to remind you about has been deleted.'); continue; }
+    const ch = m && m.channel_id && M.getChannel(m.channel_id), pm = m && m.dm_id && M.getDm(m.dm_id);
+    const mayRead = m && (ch ? M.canOpenChannel(r.user_id, ch) : !!pm && (pm.user_a === r.user_id || pm.user_b === r.user_id));
+    if (!mayRead) { post({ dmId: dm.id }, '⏰ Reminder: the message you asked me to remind you about has been deleted.'); continue; }
     const where = r.jump.startsWith('c:') ? ` in ${(M.getChannel(m.channel_id) || {}).kind === 'voice' ? '🔊 ' : '#'}${(M.getChannel(m.channel_id) || { name: '?' }).name}` : ' in your private chat';
     const quote = M.readableBody(m.body).replace(/\s+/g, ' ').slice(0, 200) || (m.attachments ? '(a file)' : '');
     post({ dmId: dm.id }, `⏰ You asked me to remind you about this message from ${who(m.user_id)}${where}:\n> ${quote}\n<m:${r.jump}:${m.id}>`);
@@ -254,7 +256,11 @@ function fireReminders() {
   fireMsgReminders();
   for (const r of all('SELECT * FROM reminders WHERE due_at <= ? ORDER BY due_at LIMIT 50', Date.now())) {
     run('DELETE FROM reminders WHERE id = ?', r.id);
-    try { post(r.channel_id ? { channelId: r.channel_id } : { dmId: r.dm_id }, `⏰ ${at(r.user_id)} reminder: ${r.body}`); } catch {}
+    // Still in that chat? (They may have left the server since.) Otherwise it comes privately.
+    const ch = r.channel_id && M.getChannel(r.channel_id), dm = r.dm_id && M.getDm(r.dm_id);
+    const stillThere = ch ? M.canOpenChannel(r.user_id, ch) : !!dm && (dm.user_a === r.user_id || dm.user_b === r.user_id);
+    const where = stillThere ? (ch ? { channelId: ch.id } : { dmId: dm.id }) : { dmId: M.dmWith(bot.id, r.user_id, true).id };
+    try { post(where, `⏰ ${at(r.user_id)} reminder: ${r.body}`); } catch {}
   }
 }
 /* /game Name: add a game to this chat's list of games to play (the 🎮 button). /games: what's on it. */

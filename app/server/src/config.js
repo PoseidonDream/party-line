@@ -13,7 +13,8 @@ export const config = {
   port: env.PORT !== undefined && env.PORT !== '' ? Number(env.PORT) : 3000,   // 0 = any free port (tests)
   dataDir: path.resolve(env.DATA_DIR || path.join(here, '..', 'data')),
   webDir: path.resolve(env.WEB_DIR || path.join(here, '..', '..', 'web')),
-  // Accounts with these names are admins. Make the account yourself right after the first start.
+  // Admins: the account that first has one of these names (it keeps admin when renamed; see M.syncAdmins). Make the
+  // account yourself right after the first start.
   adminNames: list(env.ADMIN_NAMES || 'Poseidon'),
   // Optional TURN relay for people on strict networks (deploy/docker-compose.yml runs one).
   turnUrls: list(env.TURN_URLS),

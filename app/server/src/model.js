@@ -107,25 +107,43 @@ export const selfView = (u) => Object.assign(publicUser(u), { status: u.status |
   email: u.email || null, emailPending: u.email_pending || null, born: u.born || null, adult: isAdult(u), agreedVersion: u.agreed_version || null });
 export const getUser = (id) => one('SELECT * FROM users WHERE id = ?', id);
 export const userByName = (name) => one('SELECT * FROM users WHERE name_key = ?', foldKey(name));
-const isAdminName = (name) => config.adminNames.some((n) => foldKey(n) === foldKey(name));
+/* Admins: the names in ADMIN_NAMES (deploy/.env) say who's an admin, but only once. The account that holds such a name
+   first is remembered by its number (a "claim"): renaming never adds or takes away admin, and nobody else can take a
+   claimed name, even after the admin renamed or deleted their account. Taking a name out of ADMIN_NAMES ends its claim. */
+const kvGet = (k) => (one('SELECT value FROM kv WHERE key = ?', k) || {}).value;
+const kvSet = (k, v) => run('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value', k, v);
+const adminClaims = () => { try { return JSON.parse(kvGet('admin_claims') || '{}'); } catch { return {}; } };
+const saveClaims = (c) => kvSet('admin_claims', JSON.stringify(c));
+const adminKeyOf = (name) => { const k = foldKey(name); return config.adminNames.some((n) => foldKey(n) === k) ? k : null; };
+const claimedByOther = (name, userId) => { const k = adminKeyOf(name), c = k && adminClaims()[k]; return !!c && c !== userId; };
+/* Numbers for new messages and accounts never repeat. SQLite would give the newest deleted one's number to the next
+   one, and reminders, @mentions or votes still pointing at the old one would then point at someone else's. */
+function nextId(table) {
+  const id = Math.max(Number(kvGet(`seq:${table}`)) || 0, one(`SELECT MAX(id) AS m FROM ${table}`).m || 0) + 1;
+  kvSet(`seq:${table}`, String(id));
+  return id;
+}
 
 export async function register(name, pass, agree) {
   name = cleanName(name);
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   newPassOk(pass, 'Pick a password with at least 8 characters.');
-  if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');
+  if (userByName(name) || claimedByOther(name, 0)) fail('That name is taken. If it’s yours, sign in instead.');
   if (agree !== true) fail('To make an account, confirm you’re 13 or older and agree to the terms, the rules and the privacy policy.');
   const passHash = await hashPassAsync(pass);
   if (userByName(name)) fail('That name is taken. If it’s yours, sign in instead.');   // someone took it while hashing
   // news_seen -1: a new account, which starts after the newest "What's new" note instead of seeing them all
   // When they agreed to the terms, and to which version (a record of consent).
-  const id = Number(run('INSERT INTO users (name, name_key, pass_hash, is_admin, created_at, news_seen, agreed_at, agreed_version) VALUES (?, ?, ?, ?, ?, -1, ?, ?)',
-    name, foldKey(name), passHash, isAdminName(name) ? 1 : 0, now(), now(), config.termsVersion).lastInsertRowid);
+  const claims = adminClaims(), adminKey = adminKeyOf(name), admin = !!adminKey && !claims[adminKey];
+  const id = nextId('users');
+  run('INSERT INTO users (id, name, name_key, pass_hash, is_admin, created_at, news_seen, agreed_at, agreed_version) VALUES (?, ?, ?, ?, ?, ?, -1, ?, ?)',
+    id, name, foldKey(name), passHash, admin ? 1 : 0, now(), now(), config.termsVersion);
+  if (admin) { claims[adminKey] = id; saveClaims(claims); }
   // New accounts start in no server: friends bring them in with an invite link. Admins (and everyone, when the
   // server is set to AUTO_JOIN=1) land in the main server straight away.
   const def = one('SELECT id FROM servers WHERE is_default = 1');
-  if (def && (config.autoJoin || isAdminName(name))) joinServer(id, def.id);
+  if (def && (config.autoJoin || admin)) joinServer(id, def.id);
   return { user: getUser(id), token: newSession(id) };
 }
 export async function login(name, pass, code, device) {
@@ -264,12 +282,20 @@ export function removeEmail(userId) {
 export function startEmailReset(name) {
   const u = userByName(name);
   if (!u || !u.email || u.is_bot) return null;
+  if (u.email_code_at && Date.now() - u.email_code_at < CODE_GAP) return null;   // a code was just sent: same answer as for anyone
   return { email: u.email, code: issueCode(u), name: u.name };
 }
-export async function finishEmailReset(name, code, newPass, device) {
+export async function finishEmailReset(name, code, newPass, device, totp) {
   const u = userByName(name);
   if (!u || !u.email) fail('That code doesn’t match. Check the email and try again.');
   newPassOk(newPass, 'Pick a password with at least 8 characters.');
+  // With 2-step sign-in on, the email alone isn't enough: whoever got into the email also needs the phone's code.
+  if (u.totp_secret) {
+    const key = foldKey(name);
+    if (recentFailures(key).length >= FAIL_MAX) fail('Too many wrong tries for this account. Wait 15 minutes and try again.');
+    if (!totp) fail('This account has 2-step sign-in: also type the 6-digit code from your authenticator app.');
+    if (!totpOk(u.totp_secret, totp)) { noteFailure(key); fail('That 6-digit code is wrong or too old. Try the newest one from your authenticator app.'); }
+  }
   codeOk(u, code);
   run('UPDATE users SET pass_hash = ? WHERE id = ?', await hashPassAsync(newPass), u.id);
   const ended = all('SELECT token_hash FROM sessions WHERE user_id = ?', u.id).map((r) => r.token_hash);
@@ -456,7 +482,7 @@ export function rename(userId, name) {
   if (name.length < 2) fail('Pick a name with at least 2 characters.');
   if (foldKey(name) === foldKey(BOT_NAME)) fail('That name belongs to the bot. Pick another one.');
   const other = userByName(name);
-  if (other && other.id !== userId) fail('That name is taken.');
+  if ((other && other.id !== userId) || claimedByOther(name, userId)) fail('That name is taken.');
   run('UPDATE users SET name = ?, name_key = ? WHERE id = ?', name, foldKey(name), userId);
   return getUser(userId);
 }
@@ -524,8 +550,13 @@ export function ensureBot() {
   return one('SELECT * FROM users WHERE is_bot = 1');
 }
 export function syncAdmins() {
-  for (const u of all('SELECT id, name, is_admin FROM users')) {
-    const want = isAdminName(u.name) ? 1 : 0;
+  const claims = adminClaims(), names = new Set(config.adminNames.map(foldKey));
+  for (const k of Object.keys(claims)) if (!names.has(k)) delete claims[k];   // taken out of ADMIN_NAMES
+  for (const k of names) if (!claims[k]) { const u = one('SELECT id FROM users WHERE name_key = ? AND is_bot = 0', k); if (u) claims[k] = u.id; }
+  saveClaims(claims);
+  const ids = new Set(Object.values(claims));
+  for (const u of all('SELECT id, is_admin FROM users')) {
+    const want = ids.has(u.id) ? 1 : 0;
     if (want !== u.is_admin) run('UPDATE users SET is_admin = ? WHERE id = ?', want, u.id);
   }
 }
@@ -552,7 +583,7 @@ export function createGroup(ownerId, memberIds, name) {
   const others = [...new Set((memberIds || []).map(Number))].filter((id) => id !== ownerId);
   if (others.length < 2) fail('Pick at least two friends for a group chat.');
   if (others.length > 9) fail('Group chats can have up to 10 people.');
-  for (const id of others) if (!getUser(id) || !canSeeUser(ownerId, id)) fail('You can only add people you know.');
+  for (const id of others) if (!getUser(id) || !canSeeUser(ownerId, id) || blockedBetween(ownerId, id)) fail('You can only add people you know.');   // blocked either way: as if unknown
   return tx(() => {
     const id = Number(run("INSERT INTO servers (name, owner_id, invite, is_default, created_at, kind) VALUES (?, ?, ?, 0, ?, 'group')",
       String(name || '').replace(/\s+/g, ' ').trim().slice(0, 40), ownerId, inviteCode(), now()).lastInsertRowid);
@@ -589,6 +620,7 @@ export const serverIdsOf = (userId) => all('SELECT server_id FROM members WHERE 
 export const getChannel = (id) => one('SELECT * FROM channels WHERE id = ?', id);
 export const deleteServer = (id) => run('DELETE FROM servers WHERE id = ?', id);
 export const renameServer = (id, name) => run('UPDATE servers SET name = ? WHERE id = ?', name, id);
+export const setOwner = (id, userId) => run('UPDATE servers SET owner_id = ? WHERE id = ?', userId, id);
 export function canManage(user, server) { return !!user.is_admin || (server && server.owner_id === user.id); }
 /* Roles give members some of the owner's powers. The owner and global admins can always do everything. */
 export const PERMS = { channels: 1, messages: 2, voice: 4, kick: 8, server: 16 };
@@ -599,7 +631,12 @@ export function can(user, server, perm) {
   return !!r.p;
 }
 const permList = (bits) => Object.keys(PERMS).filter((k) => bits & PERMS[k]);
-const permBits = (list) => (Array.isArray(list) ? list : []).reduce((a, k) => a | (Object.hasOwn(PERMS, k) ? PERMS[k] : 0), 0);
+/* All the permissions someone has in a server, as bits (owners and admins: all of them). */
+export function permsOf(user, server) {
+  if (canManage(user, server)) return Object.values(PERMS).reduce((a, b) => a | b, 0);
+  return all('SELECT DISTINCT r.perms FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.user_id = ? AND mr.server_id = ?', user.id, server.id).reduce((a, r) => a | r.perms, 0);
+}
+export const permBits = (list) => (Array.isArray(list) ? list : []).reduce((a, k) => a | (Object.hasOwn(PERMS, k) ? PERMS[k] : 0), 0);
 const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c || '')) ? String(c) : null);
 export function createRole(serverId, d) {
   const name = String(d.name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -716,8 +753,9 @@ export const clipsChannel = (serverId) => one("SELECT * FROM channels WHERE serv
 export const textChannelNamed = (serverId, name) => one("SELECT * FROM channels WHERE server_id = ? AND kind = 'text' AND name = ?", serverId, name);
 /* A message by Party Bot carrying another message's files (the files stay as long as any message uses them). */
 export function postCopy(botId, where, body, attachments) {
-  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    where.channelId || null, where.dmId || null, botId, cleanBody(body), attachments || null, now()).lastInsertRowid);
+  const id = nextId('messages');
+  run('INSERT INTO messages (id, channel_id, dm_id, user_id, body, attachments, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    id, where.channelId || null, where.dmId || null, botId, cleanBody(body), attachments || null, now());
   return publicMessage(getMessage(id));
 }
 
@@ -832,8 +870,9 @@ export function postMessage(userId, where, body, attachments, replyTo, tag) {
   const parent = replyTo ? getMessage(Number(replyTo)) : null;
   const okParent = parent && (where.channelId ? parent.channel_id === where.channelId : parent.dm_id === where.dmId);
   const ttl = disappearOf(where);
-  const id = Number(run('INSERT INTO messages (channel_id, dm_id, user_id, body, attachments, created_at, reply_to, expires_at, client_tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null, ttl ? now() + ttl * 1000 : null, tag || null).lastInsertRowid);
+  const id = nextId('messages');
+  run('INSERT INTO messages (id, channel_id, dm_id, user_id, body, attachments, created_at, reply_to, expires_at, client_tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    id, where.channelId || null, where.dmId || null, userId, body, att.length ? JSON.stringify(att) : null, now(), okParent ? parent.id : null, ttl ? now() + ttl * 1000 : null, tag || null);
   if (poll) run('UPDATE polls SET message_id = ? WHERE id = ?', id, poll.id);
   if (group) run('UPDATE lfg SET message_id = ? WHERE id = ?', id, group.id);
   markRead(userId, where.channelId ? `c:${where.channelId}` : `d:${where.dmId}`, id);
@@ -1067,8 +1106,8 @@ export function setBookmark(userId, messageId, on) {
 export function bookmarksOf(userId) {
   const rows = all(`SELECT m.* FROM bookmarks b JOIN messages m ON m.id = b.message_id
     LEFT JOIN channels c ON c.id = m.channel_id LEFT JOIN dms d ON d.id = m.dm_id
-    WHERE b.user_id = ? AND ((c.id IS NOT NULL AND EXISTS (SELECT 1 FROM members WHERE server_id = c.server_id AND user_id = ?)) OR d.user_a = ? OR d.user_b = ?)
-    ORDER BY b.created_at DESC LIMIT 200`, userId, userId, userId, userId);
+    WHERE b.user_id = ? AND ((c.id IS NOT NULL AND EXISTS (SELECT 1 FROM members WHERE server_id = c.server_id AND user_id = ?) AND (c.adult = 0 OR ?)) OR d.user_a = ? OR d.user_b = ?)
+    ORDER BY b.created_at DESC LIMIT 200`, userId, userId, isAdult(getUser(userId)) ? 1 : 0, userId, userId);
   return decorate(rows);
 }
 
@@ -1190,7 +1229,7 @@ export function setFavGif(userId, uploadId, on) {
   } else run('DELETE FROM fav_gifs WHERE user_id = ? AND upload_id = ?', userId, String(uploadId || ''));
   return favGifs(userId);
 }
-export const deleteMessage = (id) => run('DELETE FROM messages WHERE id = ?', id);
+export const deleteMessage = (id) => { run('DELETE FROM messages WHERE id = ?', id); run('DELETE FROM msg_reminders WHERE message_id = ?', id); };
 export function history(col, targetId, before, limit = 50) {
   const live = '(expires_at IS NULL OR expires_at > ?)';   // disappeared messages that the cleanup hasn't removed yet
   const rows = before
@@ -1330,6 +1369,7 @@ export function pruneOld() {
   run('DELETE FROM reset_requests WHERE created_at < ?', now() - 7 * day);
   run('DELETE FROM reports WHERE handled_at IS NOT NULL AND handled_at < ?', now() - 90 * day);
   run('DELETE FROM audit WHERE at < ?', now() - 180 * day);
+  run('DELETE FROM link_previews WHERE fetched_at < ?', now() - 7 * day);   // fetched again if someone posts the link again
 }
 
 /* ---------- Deleting your account (Settings -> Account, or the /delete-account page) ----------
@@ -1345,6 +1385,8 @@ export function deleteAccount(userId) {
   tx(() => {
     run('DELETE FROM messages WHERE user_id = ?', userId);
     run('DELETE FROM polls WHERE created_by = ?', userId);
+    run('DELETE FROM poll_votes WHERE user_id = ?', userId);
+    run('DELETE FROM game_votes WHERE user_id = ?', userId);
     for (const t of ['sounds', 'emoji', 'feedback', 'game_ideas']) run(`DELETE FROM ${t} WHERE user_id = ?`, userId);
     for (const s of all('SELECT id, is_default FROM servers WHERE owner_id = ?', userId)) {
       const next = one('SELECT user_id FROM members WHERE server_id = ? AND user_id != ? ORDER BY joined_at LIMIT 1', s.id, userId);
@@ -1353,6 +1395,7 @@ export function deleteAccount(userId) {
     }
     run('DELETE FROM users WHERE id = ?', userId);   // and with it (ON DELETE CASCADE): sign-ins, memberships, private chats, reactions, votes…
     run("DELETE FROM servers WHERE kind = 'group' AND NOT EXISTS (SELECT 1 FROM members WHERE server_id = servers.id)");
+    run('DELETE FROM msg_reminders WHERE message_id NOT IN (SELECT id FROM messages)');   // reminders about messages that went with it
   });
   return servers.filter((id) => getServer(id));
 }
