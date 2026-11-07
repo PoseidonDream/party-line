@@ -14,13 +14,16 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 /* ---------- settings saved on this computer ---------- */
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
-let cfg = { server: '', pttKey: 'none', closeToTray: true, showGame: true, muteKey: 'CommandOrControl+Shift+M', deafenKey: 'CommandOrControl+Shift+D', overlay: true, startInTray: true };
+let cfg = { server: '', pttKey: 'none', closeAction: 'ask', showGame: true, muteKey: 'CommandOrControl+Shift+M', deafenKey: 'CommandOrControl+Shift+D', overlay: true, startInTray: true };
 function loadCfg() {
   try { cfg = Object.assign(cfg, JSON.parse(fs.readFileSync(cfgFile(), 'utf8'))); } catch {}
   if (!cfg.server && pkg.partyLine && pkg.partyLine.server) cfg.server = pkg.partyLine.server;
   // A key that's no longer offered (Pause, from older versions, never registered) goes back to the default.
   if (!MUTE_KEYS.includes(cfg.muteKey)) cfg.muteKey = MUTE_KEYS[0];
   if (!DEAFEN_KEYS.includes(cfg.deafenKey)) cfg.deafenKey = DEAFEN_KEYS[0];
+  // Closing the window: ask (the default), keep running in the tray, or quit. Older versions had a yes/no setting:
+  // someone who had turned "keep running" off keeps quitting; everyone else is asked once.
+  if (!['ask', 'tray', 'quit'].includes(cfg.closeAction)) cfg.closeAction = cfg.closeToTray === false ? 'quit' : 'ask';
 }
 const saveCfg = () => { try { fs.writeFileSync(cfgFile(), JSON.stringify(cfg, null, 2)); } catch {} };
 const origin = () => { try { return new URL(cfg.server).origin; } catch { return ''; } };
@@ -44,7 +47,12 @@ function createWindow() {
   win.on('focus', updateOverlay); win.on('blur', updateOverlay); win.on('show', updateOverlay); win.on('hide', updateOverlay);
   win.on('focus', setupHotkeys); win.on('blur', setupHotkeys);
   win.on('close', (e) => {
-    if (!quitting && cfg.closeToTray && tray) { e.preventDefault(); win.hide(); }
+    if (quitting) return;
+    e.preventDefault();
+    // Quit means the whole app (its hidden helper windows, the overlay and drawings, would otherwise keep it running).
+    // Also when there's no tray icon to come back from.
+    if (cfg.closeAction === 'quit' || !tray) { quitting = true; app.quit(); return; }
+    if (cfg.closeAction === 'tray') win.hide(); else askOnClose();
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url);
@@ -59,6 +67,31 @@ function createWindow() {
     if (isMain && code !== -3) win.loadFile(path.join(__dirname, 'offline.html'), { query: { server: cfg.server, error: desc } });
   });
   openApp();
+}
+/* ✕ on the window: keep Party Line running in the background (voice, notifications and keys keep working; it's in the
+   tray, next to the clock), or quit completely. "Don't ask again" remembers it (the tray menu changes it later).
+   In the language the app is set to. */
+const CLOSE_TEXT = {
+  en: ['Close Party Line?', 'Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.', 'Keep running in the background', 'Quit Party Line', 'Cancel', 'Don’t ask again'],
+  tr: ['Party Line kapatılsın mı?', 'Party Line arka planda çalışmaya devam edebilir: seste kalırsın, bildirim alırsın ve kısayol tuşların çalışır. Saatin yanındaki simgeden tekrar açabilirsin.', 'Arka planda çalışsın', 'Party Line’dan çık', 'Vazgeç', 'Bir daha sorma'],
+  de: ['Party Line schließen?', 'Party Line kann im Hintergrund weiterlaufen: Du bleibst im Sprachkanal, bekommst Benachrichtigungen und deine Tasten funktionieren weiter. Öffne es wieder über das Symbol neben der Uhr.', 'Im Hintergrund weiterlaufen', 'Party Line beenden', 'Abbrechen', 'Nicht mehr fragen'],
+  fr: ['Fermer Party Line ?', 'Party Line peut continuer en arrière-plan : tu restes en vocal, tu reçois les notifications et tes raccourcis marchent toujours. Rouvre-le depuis l’icône près de l’horloge.', 'Continuer en arrière-plan', 'Quitter Party Line', 'Annuler', 'Ne plus demander'],
+  es: ['¿Cerrar Party Line?', 'Party Line puede seguir en segundo plano: sigues en el canal de voz, recibes notificaciones y tus atajos siguen funcionando. Ábrelo de nuevo desde el icono junto al reloj.', 'Seguir en segundo plano', 'Salir de Party Line', 'Cancelar', 'No volver a preguntar'],
+  it: ['Chiudere Party Line?', 'Party Line può restare attivo in background: resti in vocale, ricevi le notifiche e i tuoi tasti continuano a funzionare. Riaprilo dall’icona vicino all’orologio.', 'Resta attivo in background', 'Esci da Party Line', 'Annulla', 'Non chiedere più'],
+  ru: ['Закрыть Party Line?', 'Party Line может работать в фоне: вы остаётесь в голосовом канале, получаете уведомления, и горячие клавиши работают. Откройте его снова через значок рядом с часами.', 'Работать в фоне', 'Выйти из Party Line', 'Отмена', 'Больше не спрашивать'],
+};
+let asking = false;
+async function askOnClose() {
+  if (asking) return;
+  asking = true;
+  const lang = await win.webContents.executeJavaScript('document.documentElement.lang').catch(() => 'en');
+  const [message, detail, keep, quit, cancel, remember] = CLOSE_TEXT[String(lang).slice(0, 2)] || CLOSE_TEXT.en;
+  const r = await dialog.showMessageBox(win, { type: 'question', title: 'Party Line', message, detail, buttons: [keep, quit, cancel], defaultId: 0, cancelId: 2, noLink: true, checkboxLabel: remember, checkboxChecked: false });
+  asking = false;
+  if (r.response === 2) return;
+  if (r.checkboxChecked) { cfg.closeAction = r.response === 0 ? 'tray' : 'quit'; saveCfg(); buildTray(); }
+  if (r.response === 0) win.hide();
+  else { quitting = true; app.quit(); }
 }
 function openApp() {
   if (cfg.server) win.loadURL(cfg.server);
@@ -235,7 +268,7 @@ function buildTray() {
     { label: 'Deafen key (works in any app)', submenu: DEAFEN_KEYS.map((k) => ({ label: keyLabel(k), type: 'radio', checked: cfg.deafenKey === k, click: () => { cfg.deafenKey = k; saveCfg(); setupHotkeys(); buildTray(); } })) },
     { label: 'Show who’s talking over games (overlay)', type: 'checkbox', checked: cfg.overlay !== false, click: (i) => { cfg.overlay = i.checked; saveCfg(); updateOverlay(); } },
     { label: 'Show friends what game I’m playing', type: 'checkbox', checked: cfg.showGame !== false, click: (i) => { cfg.showGame = i.checked; saveCfg(); if (games) games.refresh(); } },
-    { label: 'Keep running in the tray when closed', type: 'checkbox', checked: cfg.closeToTray, click: (i) => { cfg.closeToTray = i.checked; saveCfg(); } },
+    { label: 'When I close the window', submenu: [['ask', 'Ask me'], ['tray', 'Keep running in the tray'], ['quit', 'Quit Party Line']].map(([v, label]) => ({ label, type: 'radio', checked: cfg.closeAction === v, click: () => { cfg.closeAction = v; saveCfg(); buildTray(); } })) },
     { label: 'Start when I sign in to my computer', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => { setLogin(i.checked); buildTray(); } },
     { label: '…and start in the tray (no window)', type: 'checkbox', checked: cfg.startInTray !== false, enabled: app.getLoginItemSettings().openAtLogin, click: (i) => { cfg.startInTray = i.checked; saveCfg(); } },
     { label: 'Change server…', click: () => { showWin(); win.loadFile(path.join(__dirname, 'setup.html'), { query: { server: cfg.server } }); } },

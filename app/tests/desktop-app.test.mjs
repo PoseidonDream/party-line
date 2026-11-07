@@ -87,7 +87,22 @@ export default async function (ok) {
     await new Promise((r) => setTimeout(r, 4500));
     ok('…which hides again a few seconds later', await main((e) => { const w = e.BrowserWindow.getAllWindows().find((x) => x.getTitle() === 'Party Line drawings'); return !!w && !w.isVisible(); }));
     ok(`no JavaScript errors in the desktop app${errors.length ? ': ' + errors.join(' | ') : ''}`, !errors.length);
-    await app.close();
+
+    // ✕ on the window asks: keep running in the background, quit, or cancel (the question's answer is simulated here)
+    const answer = (response, remember) => main((e, a) => { e.dialog.showMessageBox = async (w, o) => { global.__asked = o; return { response: a[0], checkboxChecked: a[1] }; }; }, [response, remember]);
+    const mainWin = (what) => main((e, w) => { const x = e.BrowserWindow.getAllWindows().find((b) => b.webContents.getURL().startsWith('http')); if (!x) return null; if (w === 'close') x.close(); if (w === 'show') x.show(); return x.isVisible(); }, what);
+    await answer(0, false); await mainWin('close'); await new Promise((r) => setTimeout(r, 600));
+    const asked = await main(() => global.__asked && global.__asked.buttons);
+    ok('closing the window asks: keep running in the background, quit, or cancel', JSON.stringify(asked) === JSON.stringify(['Keep running in the background', 'Quit Party Line', 'Cancel']));
+    ok('…“keep running” hides the window and Party Line stays on', (await mainWin()) === false);
+    await mainWin('show'); await answer(2, false); await mainWin('close'); await new Promise((r) => setTimeout(r, 600));
+    ok('…“Cancel” leaves it open', (await mainWin()) === true);
+    const exited = new Promise((r) => app.process().once('exit', () => r(true)));
+    await answer(1, true); mainWin('close').catch(() => {});
+    const gone = await Promise.race([exited, new Promise((r) => setTimeout(() => r(false), 10000))]);
+    const saved = JSON.parse(fs.readFileSync(path.join(home, '.config', 'Party Line', 'config.json'), 'utf8')).closeAction;
+    ok('…“Quit” closes Party Line completely (and “Don’t ask again” remembers it)', gone && saved === 'quit');
+    await app.close().catch(() => {});
 
     // First start with no server set: the setup page; then the offline page while the server is down
     fs.writeFileSync(path.join(home, '.config', 'Party Line', 'config.json'), JSON.stringify({ server: '' }));
