@@ -5,8 +5,11 @@ import { startServer, launchBrowser, androidContext, RESULTS } from './lib.mjs';
 
 async function open(browser, url, myBuild, latestBuild) {
   const ctx = await androidContext(browser, url, { getVersion: { code: myBuild, name: `1.0.${myBuild}`, fromPlay: false } });
-  await ctx.route('https://api.github.com/**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({
-    tag_name: 'v1.1.0', assets: [{ name: 'Party-Line-android.apk', label: `Party Line for Android (build ${latestBuild})`, browser_download_url: 'https://github.com/x/y/releases/download/v1.1.0/Party-Line-android.apk' }] }) }));
+  // The newest release is a desktop one without the Android app: the check looks further back (review fix #18).
+  await ctx.route('https://api.github.com/**', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify([
+    { tag_name: 'v1.2.0', assets: [{ name: 'Party-Line-1.2.0-win-x64.exe', browser_download_url: 'https://github.com/x/y/releases/download/v1.2.0/Party-Line-1.2.0-win-x64.exe' }] },
+    { tag_name: 'v1.1.0', assets: [{ name: 'Party-Line-android.apk', label: `Party Line for Android (build ${latestBuild})`, browser_download_url: 'https://github.com/x/y/releases/download/v1.1.0/Party-Line-android.apk' }] },
+  ]) }));
   const p = await ctx.newPage();
   p.errors = []; p.on('pageerror', (e) => p.errors.push(e.message));
   await p.goto(url);
