@@ -543,6 +543,8 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .adm-danger { color: var(--danger); }
 .adm-danger:hover { border-color: var(--danger); }
 #confirmDlg { width: min(420px, calc(100% - 32px)); }
+#closeAskDlg { width: min(500px, calc(100% - 32px)); }
+#closeAskDlg .cf-btns { flex-wrap: wrap; }
 .cf { display: grid; gap: 10px; padding: 22px; }
 .cf h2 { margin: 0; font-size: 19px; font-weight: 700; text-wrap: balance; }
 .cf p { margin: 0; color: var(--dim); }

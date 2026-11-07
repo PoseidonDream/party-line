@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('partyLineDesktop', {
   backupFolder: () => ipcRenderer.invoke('backup:folder'),
   openBackupFolder: () => ipcRenderer.send('backup:open'),
   chooseBackupFolder: () => ipcRenderer.invoke('backup:choose'),
+  // ✕ on the window: the page shows its own "Keep running in the background / Quit" window and answers.
+  onCloseAsk: (cb) => ipcRenderer.on('close-ask', () => { ipcRenderer.send('close-shown'); cb(); }),
+  closeAnswer: (a) => ipcRenderer.send('close-answer', a),
   // used by the built-in setup and offline pages
   saveServer: (url) => ipcRenderer.invoke('setup:save', url),
   currentServer: () => ipcRenderer.invoke('setup:current'),

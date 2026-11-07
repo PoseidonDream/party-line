@@ -1313,5 +1313,10 @@
 "Even volumes": "Volumi uniformi",
 "Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Gli amici che parlano piano ora si sentono un po’ più forte e quelli rumorosi un po’ più piano, in automatico.",
 "{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "{0} messaggio/i scritto/i offline prima dell’ultimo aggiornamento non è stato possibile inviarli. Inviali di nuovo.",
-"Download it and drag it into Applications to replace this one.": "Scaricala e trascinala in Applicazioni per sostituire questa."
+"Download it and drag it into Applications to replace this one.": "Scaricala e trascinala in Applicazioni per sostituire questa.",
+"Close Party Line?": "Chiudere Party Line?",
+"Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.": "Party Line può restare attivo in background: resti in vocale, ricevi le notifiche e i tuoi tasti continuano a funzionare. Riaprilo dall’icona vicino all’orologio.",
+"Keep running in the background": "Resta attivo in background",
+"Quit Party Line": "Esci da Party Line",
+"Don’t ask again": "Non chiedere più"
 }

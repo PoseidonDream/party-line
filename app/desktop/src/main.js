@@ -80,17 +80,29 @@ const CLOSE_TEXT = {
   it: ['Chiudere Party Line?', 'Party Line può restare attivo in background: resti in vocale, ricevi le notifiche e i tuoi tasti continuano a funzionare. Riaprilo dall’icona vicino all’orologio.', 'Resta attivo in background', 'Esci da Party Line', 'Annulla', 'Non chiedere più'],
   ru: ['Закрыть Party Line?', 'Party Line может работать в фоне: вы остаётесь в голосовом канале, получаете уведомления, и горячие клавиши работают. Откройте его снова через значок рядом с часами.', 'Работать в фоне', 'Выйти из Party Line', 'Отмена', 'Больше не спрашивать'],
 };
-let asking = false;
+let asking = false, askTimer = null;
 async function askOnClose() {
   if (asking) return;
   asking = true;
+  // The Party Line page asks in its own window, in the app's style. If it doesn't open it within 2 seconds (the setup
+  // or offline page, or a page that's stuck), a plain system window asks instead.
+  const pageAsks = await win.webContents.executeJavaScript('!!window.__plCloseAsk').catch(() => false);
+  if (pageAsks) { win.webContents.send('close-ask'); askTimer = setTimeout(() => { askTimer = null; nativeAsk(); }, 2000); return; }
+  nativeAsk();
+}
+ipcMain.on('close-shown', (e) => { if (fromApp(e) && askTimer) { clearTimeout(askTimer); askTimer = null; } });
+ipcMain.on('close-answer', (e, a) => { if (fromApp(e) && asking) closeChoice(a && a.action, !!(a && a.remember)); });
+async function nativeAsk() {
   const lang = await win.webContents.executeJavaScript('document.documentElement.lang').catch(() => 'en');
   const [message, detail, keep, quit, cancel, remember] = CLOSE_TEXT[String(lang).slice(0, 2)] || CLOSE_TEXT.en;
   const r = await dialog.showMessageBox(win, { type: 'question', title: 'Party Line', message, detail, buttons: [keep, quit, cancel], defaultId: 0, cancelId: 2, noLink: true, checkboxLabel: remember, checkboxChecked: false });
+  closeChoice(['tray', 'quit', 'cancel'][r.response], r.checkboxChecked);
+}
+function closeChoice(action, remember) {
   asking = false;
-  if (r.response === 2) return;
-  if (r.checkboxChecked) { cfg.closeAction = r.response === 0 ? 'tray' : 'quit'; saveCfg(); buildTray(); }
-  if (r.response === 0) win.hide();
+  if (action !== 'tray' && action !== 'quit') return;   // cancelled
+  if (remember) { cfg.closeAction = action; saveCfg(); buildTray(); }
+  if (action === 'tray') win.hide();
   else { quitting = true; app.quit(); }
 }
 function openApp() {

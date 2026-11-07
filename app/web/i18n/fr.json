@@ -1313,5 +1313,10 @@
 "Even volumes": "Volumes équilibrés",
 "Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Les amis discrets passent maintenant un peu plus fort et les bruyants un peu moins, automatiquement.",
 "{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "{0} message(s) écrit(s) hors ligne avant la dernière mise à jour n’ont pas pu être envoyés. Renvoie-les, s’il te plaît.",
-"Download it and drag it into Applications to replace this one.": "Télécharge-la et fais-la glisser dans Applications pour remplacer celle-ci."
+"Download it and drag it into Applications to replace this one.": "Télécharge-la et fais-la glisser dans Applications pour remplacer celle-ci.",
+"Close Party Line?": "Fermer Party Line ?",
+"Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.": "Party Line peut continuer en arrière-plan : tu restes en vocal, tu reçois les notifications et tes raccourcis marchent toujours. Rouvre-le depuis l’icône près de l’horloge.",
+"Keep running in the background": "Continuer en arrière-plan",
+"Quit Party Line": "Quitter Party Line",
+"Don’t ask again": "Ne plus demander"
 }

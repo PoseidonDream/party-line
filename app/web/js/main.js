@@ -153,6 +153,18 @@ function confirmBox(title, text, okLabel = 'Delete', input, maxLength = 40) {
     if (input !== undefined) inp.select();
   });
 }
+/* The desktop app's ✕: Party Line's own window asks whether to keep running in the background or quit (the desktop
+   app does what's picked; see app/desktop/src/main.js). Esc or Cancel: nothing happens. */
+if (desktop && desktop.onCloseAsk) {
+  window.__plCloseAsk = true;
+  desktop.onCloseAsk(() => {
+    const d = $('#closeAskDlg');
+    if (d.open) return;
+    $('#caRemember').checked = false; d.returnValue = '';
+    d.addEventListener('close', () => desktop.closeAnswer({ action: ['tray', 'quit'].includes(d.returnValue) ? d.returnValue : 'cancel', remember: $('#caRemember').checked }), { once: true });
+    d.showModal(); $('#caKeep').focus();
+  });
+}
 async function act(fn, okText) {
   try { const r = await fn(); if (okText) toast(okText, 2200); return r; }
   catch (e) { toast(e.message || 'Something went wrong.', 4500); return null; }

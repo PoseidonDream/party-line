@@ -1313,5 +1313,10 @@
 "Even volumes": "Dengeli ses seviyesi",
 "Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Kısık sesli arkadaşlar artık biraz daha yüksek, yüksek sesliler biraz daha alçak duyuluyor; otomatik olarak.",
 "{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "Son güncellemeden önce çevrimdışıyken yazılan {0} mesaj gönderilemedi. Lütfen tekrar gönder.",
-"Download it and drag it into Applications to replace this one.": "İndir ve eskisinin yerine Uygulamalar klasörüne sürükle."
+"Download it and drag it into Applications to replace this one.": "İndir ve eskisinin yerine Uygulamalar klasörüne sürükle.",
+"Close Party Line?": "Party Line kapatılsın mı?",
+"Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.": "Party Line arka planda çalışmaya devam edebilir: seste kalırsın, bildirim alırsın ve kısayol tuşların çalışır. Saatin yanındaki simgeden tekrar açabilirsin.",
+"Keep running in the background": "Arka planda çalışsın",
+"Quit Party Line": "Party Line’dan çık",
+"Don’t ask again": "Bir daha sorma"
 }

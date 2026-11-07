@@ -1313,5 +1313,10 @@
 "Even volumes": "Ровная громкость",
 "Quiet friends now come through a bit louder and loud ones a bit softer, automatically.": "Тихие друзья теперь звучат чуть громче, а громкие чуть тише, автоматически.",
 "{0} message(s) written offline before the last update couldn’t be sent. Please send them again.": "Сообщений, написанных без сети до последнего обновления, не удалось отправить: {0}. Отправь их ещё раз.",
-"Download it and drag it into Applications to replace this one.": "Скачайте её и перетащите в «Программы», чтобы заменить эту."
+"Download it and drag it into Applications to replace this one.": "Скачайте её и перетащите в «Программы», чтобы заменить эту.",
+"Close Party Line?": "Закрыть Party Line?",
+"Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.": "Party Line может работать в фоне: вы остаётесь в голосовом канале, получаете уведомления, и горячие клавиши работают. Откройте его снова через значок рядом с часами.",
+"Keep running in the background": "Работать в фоне",
+"Quit Party Line": "Выйти из Party Line",
+"Don’t ask again": "Больше не спрашивать"
 }

@@ -1186,6 +1186,15 @@
   </form>
 </dialog>
 
+<dialog id="closeAskDlg" aria-labelledby="caTitle">
+  <form method="dialog" class="cf">
+    <h2 id="caTitle">Close Party Line?</h2>
+    <p>Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.</p>
+    <label class="check"><input type="checkbox" id="caRemember"><span>Don’t ask again</span></label>
+    <div class="cf-btns"><button class="btn" value="cancel">Cancel</button><button class="btn" value="quit" id="caQuit">Quit Party Line</button><button class="btn primary" value="tray" id="caKeep">Keep running in the background</button></div>
+  </form>
+</dialog>
+
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo" hidden>
   <div class="lb-bar">
     <span class="lb-name" id="lbName"></span>
