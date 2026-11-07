@@ -25,7 +25,10 @@ export default async function (ok) {
     for (let i = 0; i < 100 && (await gainForBora()) >= 0.9; i++) await a.waitForTimeout(500);
     const down = await gainForBora();
     ok(`…and a loud one turned down (×${down}), never below half`, down < 0.9 && down >= 0.5);
-    const vol = await a.evaluate(async () => { const V = await import('/js/voice.js'); return (await V.diagnostics()).peers[0].audioEl.volume; });
+    // The volume slides there over a fraction of a second (no jumps): a busy machine can take a little longer.
+    const volNow = () => a.evaluate(async () => { const V = await import('/js/voice.js'); return (await V.diagnostics()).peers[0].audioEl.volume; });
+    let vol = await volNow();
+    for (let i = 0; i < 15 && vol >= 0.95; i++) { await a.waitForTimeout(200); vol = await volNow(); }
     ok(`…by changing how loud they play for you (volume ${vol})`, vol < 0.95);
     const errs = [...a.errors, ...b.errors];
     ok(`no JavaScript errors${errs.length ? ': ' + errs.join(' | ') : ''}`, !errs.length);
