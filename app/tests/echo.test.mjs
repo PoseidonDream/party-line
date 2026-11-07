@@ -21,10 +21,19 @@ export default async function (ok) {
 
     await a.evaluate(async () => {
       const V = await import('/js/voice.js'), { audioCtx } = await import('/js/util.js');
-      const p = [...V.V.peers.values()][0], c = audioCtx();
-      const src = c.createMediaStreamSource(p.stream || p.audioEl.srcObject), delay = c.createDelay(1), an = c.createAnalyser();
-      delay.delayTime.value = 0.15; an.fftSize = 512; src.connect(delay); delay.connect(an);
-      V.localMeter.analyser = an;   // what the echo check hears from "Deniz's microphone": Bora, 150 ms late
+      const c = audioCtx();
+      let stream = null, an = null;
+      // What the echo check hears from "Deniz's microphone": Bora, 150 ms late. Kept up for the whole wait, also if
+      // the connection or the microphone is set up again meanwhile (which a slow test machine sometimes does).
+      setInterval(() => {
+        const p = [...V.V.peers.values()][0], s = p && (p.stream || (p.audioEl && p.audioEl.srcObject));
+        if (s && s !== stream) {
+          stream = s;
+          const src = c.createMediaStreamSource(s), delay = c.createDelay(1);
+          an = c.createAnalyser(); an.fftSize = 512; delay.delayTime.value = 0.15; src.connect(delay); delay.connect(an);
+        }
+        if (an && V.localMeter.analyser !== an) V.localMeter.analyser = an;
+      }, 250);
     });
     // It needs about 10 s of samples and two matching checks; a busy test machine samples slower, so up to a minute.
     await a.waitForSelector('.toast:has-text("hearing themselves")', { timeout: 60000 });
