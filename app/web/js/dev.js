@@ -304,7 +304,7 @@ function micSummary(d) {
   add('Microphone', d.mic ? `${d.mic.label || 'mic'} · ${d.mic.state}${d.mic.muted ? ' · muted by computer' : ''}` : 'not started', !!(d.mic && (d.mic.state !== 'live' || d.mic.muted)));
   add('Sending', d.send ? (d.send.live ? 'yes' : d.muted ? 'no (muted)' : d.deafened ? 'no (deafened)' : d.ptt ? 'no (push to talk)' : 'no') + (d.send.state !== 'live' ? ` · track ${d.send.state}` : '') : '–', !!(d.send && d.send.state !== 'live'));
   add('Mic problem', d.micIssue || 'none', !!d.micIssue);
-  add('Noise filter', d.noise === 'on' ? `on: ${{ speech: 'speech model (GTCRN)', steady: 'steady-noise filter (the speech model couldn’t run)', browser: 'browser’s filter only' }[d.filter] || (d.filterRunning ? 'running' : 'starting')}${d.gate ? ', with the voice gate (silent between sentences)' : ', no voice gate (an older app?)'}` : 'off');
+  add('Noise filter', d.noise === 'on' ? `on: ${{ speech: 'speech model (GTCRN)', steady: 'steady-noise filter (the speech model couldn’t run)', browser: 'browser’s filter only' }[d.filter] || (d.filterRunning ? 'running' : 'starting')}${d.gate ? ', with the voice gate (silent between sentences)' : ', no voice gate (an older app?)'}${d.lowCut ? ', the low cut' : ''}${d.filter === 'speech' && d.browserNs === true ? ', and the browser’s filter too (an older app?)' : ''}` : 'off');
   add('Audio engine', d.audio ? `${d.audio.state} · ${d.audio.sampleRate} Hz` : '–', !!(d.audio && d.audio.state !== 'running'));
   return ul;
 }

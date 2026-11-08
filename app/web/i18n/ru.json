@@ -1318,5 +1318,7 @@
 "Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.": "Party Line может работать в фоне: вы остаётесь в голосовом канале, получаете уведомления, и горячие клавиши работают. Откройте его снова через значок рядом с часами.",
 "Keep running in the background": "Работать в фоне",
 "Quit Party Line": "Выйти из Party Line",
-"Don’t ask again": "Больше не спрашивать"
+"Don’t ask again": "Больше не спрашивать",
+"Clearer voice, quieter background": "Голос чище, фон тише",
+"The noise filter got stronger: between sentences your microphone is now silent, and music, hum, fans and typing are cut much more. Still one switch: the 🌊 button.": "Шумоподавление стало сильнее: между фразами твой микрофон теперь молчит, а музыка, гул, вентиляторы и стук клавиш убираются гораздо лучше. По-прежнему один переключатель: кнопка 🌊."
 }

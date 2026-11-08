@@ -28,19 +28,25 @@ export function issueFromError(err) {
     default: return 'unknown';
   }
 }
+/* With the speech model running, the browser's own noise filter is off: in front of the model it smears noise into
+   something the model no longer recognises (measured with music behind a voice: between sentences −27 dB with it,
+   −54 dB without). Where the model can't run, the browser's filter stays on. */
+let speechOk = null;   // can the speech model run on this device? (null: not tried yet)
+const browserNs = () => settings.noiseMode === 'on' && speechOk !== true;
 function acquireMic(deviceId) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     const e = new Error('no media'); e.name = 'NoMedia'; return Promise.reject(e);
   }
   return navigator.mediaDevices.getUserMedia({
-    audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: true, noiseSuppression: settings.noiseMode === 'on', autoGainControl: true },
+    audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: true, noiseSuppression: browserNs(), autoGainControl: true },
   });
 }
 const silentStream = () => audioCtx().createMediaStreamDestination().stream;
 
 /* The noise filter. GTCRN, a small speech model (runs on this device, in WebAssembly), keeps voices and removes
-   everything else: music, keyboards, fans, people talking on TV. Where it can't run, Party Line's older filter
-   (steady noise only) steps in, and the browser's own filter is on too either way. */
+   everything else: music, keyboards, fans. A steep low cut (100 Hz) in front of it takes rumble, hum, bass and
+   thumps away first (a voice has almost nothing that low). Where the model can't run, Party Line's older filter
+   (steady noise only) steps in, with the browser's own filter. */
 let workletReady = null, gtcrnReady = null;
 function loadDenoiser() {
   const c = audioCtx();
@@ -61,9 +67,12 @@ function loadGtcrn() {
 function teardownFx() {
   const fx = V.fx; V.fx = null;
   if (!fx) return;
-  for (const n of [fx.source, fx.node, fx.gate, fx.gain, ...(fx.effect ? fx.effect.nodes : [])]) { try { n && n.stop && n.stop(); } catch {} try { n && n.disconnect(); } catch {} }
+  for (const n of [fx.source, ...(fx.lowcut || []), fx.node, fx.gate, fx.gain, ...(fx.effect ? fx.effect.nodes : [])]) { try { n && n.stop && n.stop(); } catch {} try { n && n.disconnect(); } catch {} }
   if (fx.filter === 'speech') try { fx.node.port.postMessage('destroy'); } catch {}   // stop the model running in the background
 }
+/* The low cut in front of the noise filter: two filters make one steep one (4th-order Butterworth at 100 Hz; for these
+   filters the browser takes Q in dB). */
+export const lowCut = (c) => [-5.33, 2.32].map((q) => { const b = c.createBiquadFilter(); b.type = 'highpass'; b.frequency.value = 100; b.Q.value = q; return b; });
 // The mic goes through the audio engine when the noise filter is on, your mic volume isn't 100% or there's a voice effect.
 const needsFx = () => settings.noiseMode === 'on' || Math.abs(settings.inputVol - 1) > 0.004 || settings.voiceFx !== 'none';
 
@@ -221,8 +230,9 @@ async function buildSend(raw) {
     try {
       const wasmBinary = await loadGtcrn();
       node = new AudioWorkletNode(c, '@sapphi-red/web-noise-suppressor/gtcrn', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { maxChannels: 1, wasmBinary } });
-      filter = 'speech';
+      filter = 'speech'; speechOk = true;
     } catch {
+      speechOk = false;
       try {
         await loadDenoiser();
         node = new AudioWorkletNode(c, 'pl-denoise', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { strength: 1 } });
@@ -244,14 +254,17 @@ async function buildSend(raw) {
   gain.gain.value = settings.inputVol;
   const dest = c.createMediaStreamDestination();
   try { dest.channelCount = 1; } catch {}
-  let last = source;   // mic → noise filter → gate → effect → volume
+  const lowcut = settings.noiseMode === 'on' ? lowCut(c) : null;
+  let last = source;   // mic → low cut → noise filter → gate → effect → volume
+  if (lowcut) for (const b of lowcut) { last.connect(b); last = b; }
+  const feed = last;   // what feeds the noise filter (cut off from it while it rests)
   if (node) { last.connect(node); last = node; }
   if (gate) { last.connect(gate); last = gate; }
   if (effect) { last.connect(effect.input); last = effect.output; }
   last.connect(gain);
   gain.connect(dest);
   teardownFx();
-  V.fx = { source, node, gate, gain, dest, effect, filter };
+  V.fx = { source, lowcut, feed, node, gate, gain, dest, effect, filter };
   return dest.stream;
 }
 export let localMeter = { source: null, analyser: null };
@@ -274,7 +287,10 @@ async function installMic(raw, real) {
   track.addEventListener('unmute', () => { log('info', 'Microphone unmuted by the computer'); if (V.rawStream === raw && V.micIssue === 'osmuted') setIssue(null); });
 }
 function setIssue(kind) { if (V.micIssue !== kind) { V.micIssue = kind; hooks.micIssue(kind); hooks.change(); } }
+let nsRetried = false;   // the microphone was opened again once to switch the browser's filter (not every time: some can't)
 export async function setupMic(deviceId = settings.micId) {
+  // Whether the speech model runs here decides whether the browser's own filter is wanted (see browserNs)
+  if (settings.noiseMode === 'on' && speechOk === null) await loadGtcrn().then(() => { speechOk = true; }, () => { speechOk = false; });
   let stream = null, err = null;
   try { stream = await acquireMic(deviceId); }
   catch (e) {
@@ -286,6 +302,10 @@ export async function setupMic(deviceId = settings.micId) {
   if (stream) {
     await installMic(stream, true); V.noMic = false;
     const t = stream.getAudioTracks()[0];
+    // The speech model didn't start after all (or started after failing before): once more, with the browser's
+    // own filter switched to match
+    const ns = t && t.getSettings ? t.getSettings().noiseSuppression : undefined;
+    if (!nsRetried && typeof ns === 'boolean' && ns !== browserNs()) { nsRetried = true; return setupMic(deviceId); }
     setIssue(t && t.muted ? 'osmuted' : null);
   } else {
     if (!V.micStream) await installMic(silentStream(), false);
@@ -323,7 +343,7 @@ export function applyMic() { if (V.sendTrack) V.sendTrack.enabled = micLive(); r
 function restFilter(rest) {
   const fx = V.fx;
   if (!fx || !fx.node || !!fx.resting === rest) return;
-  try { if (rest) fx.source.disconnect(fx.node); else fx.source.connect(fx.node); fx.resting = rest; } catch {}
+  try { if (rest) fx.feed.disconnect(fx.node); else fx.feed.connect(fx.node); fx.resting = rest; } catch {}
 }
 
 /* ================= joining and leaving ================= */
@@ -825,7 +845,7 @@ export async function diagnostics() {
     muted: V.muted, deafened: V.deafened, serverMuted: V.serverMuted, ptt: settings.ptt, sharing: V.sharing, camera: V.camera,
     mic: raw ? { label: raw.label, state: raw.readyState, muted: raw.muted, enabled: raw.enabled } : null,
     send: V.sendTrack ? { state: V.sendTrack.readyState, enabled: V.sendTrack.enabled, live: micLive() } : null,
-    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filterResting: !!(V.fx && V.fx.resting), gate: !!(V.fx && V.fx.gate), filter: V.fx ? V.fx.filter || null : null, audio: ctx,
+    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filterResting: !!(V.fx && V.fx.resting), gate: !!(V.fx && V.fx.gate), lowCut: !!(V.fx && V.fx.lowcut), browserNs: raw && raw.getSettings ? raw.getSettings().noiseSuppression : null, filter: V.fx ? V.fx.filter || null : null, audio: ctx,
     peers: [],
   };
   for (const p of V.peers.values()) {

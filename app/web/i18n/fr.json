@@ -1318,5 +1318,7 @@
 "Party Line can keep running in the background: you stay in voice, get notifications, and your keys keep working. Open it again from the icon next to the clock.": "Party Line peut continuer en arrière-plan : tu restes en vocal, tu reçois les notifications et tes raccourcis marchent toujours. Rouvre-le depuis l’icône près de l’horloge.",
 "Keep running in the background": "Continuer en arrière-plan",
 "Quit Party Line": "Quitter Party Line",
-"Don’t ask again": "Ne plus demander"
+"Don’t ask again": "Ne plus demander",
+"Clearer voice, quieter background": "Voix plus claire, fond plus calme",
+"The noise filter got stronger: between sentences your microphone is now silent, and music, hum, fans and typing are cut much more. Still one switch: the 🌊 button.": "Le filtre anti-bruit est plus fort : entre les phrases, ton micro est maintenant silencieux, et la musique, le bourdonnement, les ventilateurs et le bruit du clavier sont bien plus atténués. Toujours un seul interrupteur : le bouton 🌊."
 }
