@@ -50,7 +50,8 @@ export default async function (ok) {
     await a.waitForSelector('#tiles .tile:has-text("Bora") .tile-sub:has-text("Connected")', { timeout: 15000 });
     await b.waitForSelector('#tiles .tile:has-text("Poseidon") .tile-sub:has-text("Connected")', { timeout: 15000 });
     ok('voice connects both ways', true);
-    ok('audio is received', await b.evaluate(() => { const el = document.querySelector('#audioSink audio'); return !!(el && el.srcObject && el.srcObject.getAudioTracks().length); }));
+    // (through the media server, "Connected" shows when they join; their sound follows a moment later)
+    ok('audio is received', await b.waitForFunction(() => { const el = document.querySelector('#audioSink audio'); return !!(el && el.srcObject && el.srcObject.getAudioTracks().length); }, null, { timeout: 10000 }).then(() => true, () => false));
 
     await a.keyboard.press('m');
     await b.waitForSelector('#tiles .tile:has-text("Poseidon") .tile-sub:has-text("Muted")');
