@@ -61,7 +61,7 @@ function loadGtcrn() {
 function teardownFx() {
   const fx = V.fx; V.fx = null;
   if (!fx) return;
-  for (const n of [fx.source, fx.node, fx.gain, ...(fx.effect ? fx.effect.nodes : [])]) { try { n && n.stop && n.stop(); } catch {} try { n && n.disconnect(); } catch {} }
+  for (const n of [fx.source, fx.node, fx.gate, fx.gain, ...(fx.effect ? fx.effect.nodes : [])]) { try { n && n.stop && n.stop(); } catch {} try { n && n.disconnect(); } catch {} }
   if (fx.filter === 'speech') try { fx.node.port.postMessage('destroy'); } catch {}   // stop the model running in the background
 }
 // The mic goes through the audio engine when the noise filter is on, your mic volume isn't 100% or there's a voice effect.
@@ -69,6 +69,14 @@ const needsFx = () => settings.noiseMode === 'on' || Math.abs(settings.inputVol 
 
 /* ================= voice effects (for fun: your friends hear you through them) ================= */
 export const VOICE_FX = ['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch', 'slowmo'];
+/* The voice gate (gate-worklet.js): with the noise filter on, the mic is cut completely between sentences. */
+let gateReady = null;
+function loadGate() {
+  const c = audioCtx();
+  if (!c.audioWorklet || typeof AudioWorkletNode !== 'function') return Promise.reject(new Error('no worklet'));
+  if (!gateReady) gateReady = c.audioWorklet.addModule(absUrl('/gate-worklet.js')).catch((e) => { gateReady = null; throw e; });
+  return gateReady;
+}
 let pitchReady = null;
 function loadPitch() {
   const c = audioCtx();
@@ -222,6 +230,11 @@ async function buildSend(raw) {
       } catch { filter = 'browser'; }   // the browser's own filter still runs
     }
   }
+  // With the noise filter on, the mic is also cut between sentences (friends hear nothing while you're not talking).
+  let gate = null;
+  if (settings.noiseMode === 'on') {
+    try { await loadGate(); gate = new AudioWorkletNode(c, 'pl-voice-gate', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] }); } catch {}
+  }
   let effect = null;
   if (settings.voiceFx !== 'none') {
     try { effect = await effectChain(c, settings.voiceFx); }
@@ -231,13 +244,14 @@ async function buildSend(raw) {
   gain.gain.value = settings.inputVol;
   const dest = c.createMediaStreamDestination();
   try { dest.channelCount = 1; } catch {}
-  let last = source;   // mic → noise filter → effect → volume
+  let last = source;   // mic → noise filter → gate → effect → volume
   if (node) { last.connect(node); last = node; }
+  if (gate) { last.connect(gate); last = gate; }
   if (effect) { last.connect(effect.input); last = effect.output; }
   last.connect(gain);
   gain.connect(dest);
   teardownFx();
-  V.fx = { source, node, gain, dest, effect, filter };
+  V.fx = { source, node, gate, gain, dest, effect, filter };
   return dest.stream;
 }
 export let localMeter = { source: null, analyser: null };
@@ -811,7 +825,7 @@ export async function diagnostics() {
     muted: V.muted, deafened: V.deafened, serverMuted: V.serverMuted, ptt: settings.ptt, sharing: V.sharing, camera: V.camera,
     mic: raw ? { label: raw.label, state: raw.readyState, muted: raw.muted, enabled: raw.enabled } : null,
     send: V.sendTrack ? { state: V.sendTrack.readyState, enabled: V.sendTrack.enabled, live: micLive() } : null,
-    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filterResting: !!(V.fx && V.fx.resting), filter: V.fx ? V.fx.filter || null : null, audio: ctx,
+    micIssue: V.micIssue, noMic: V.noMic, noise: settings.noiseMode, filterRunning: !!(V.fx && V.fx.node), filterResting: !!(V.fx && V.fx.resting), gate: !!(V.fx && V.fx.gate), filter: V.fx ? V.fx.filter || null : null, audio: ctx,
     peers: [],
   };
   for (const p of V.peers.values()) {

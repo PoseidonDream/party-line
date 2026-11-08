@@ -20,7 +20,7 @@ export default async function (ok) {
     await joinVoice(a);
     await a.waitForFunction(async () => { const V = await import('/js/voice.js'); return (await V.diagnostics()).filter === 'speech'; }, null, { timeout: 10000 });
     const d1 = await diag();
-    ok('the noise filter is on by default, using the speech model (GTCRN)', d1.noise === 'on' && d1.filter === 'speech' && d1.filterRunning);
+    ok('the noise filter is on by default, using the speech model (GTCRN), with the voice gate after it', d1.noise === 'on' && d1.filter === 'speech' && d1.filterRunning && d1.gate === true);
     await a.click('#setBtn'); await a.click('#settings [data-settab="voice"]');
     ok('…with one switch in Settings and the 🌊 button showing it’s on', await a.evaluate(() => document.querySelector('#setNoise').checked && document.querySelectorAll('input[name="noise"]').length === 0 && document.querySelector('#noiseBtn').getAttribute('aria-pressed') === 'true'));
     await a.waitForSelector('#noiseState:not([hidden])');
@@ -29,8 +29,7 @@ export default async function (ok) {
 
     // The measurement: voice over music, through the same filter the app uses
     // Measured in real time: a busy test machine can drop audio, so up to three tries, keeping the best.
-    let r = { musicDrop: 0 };
-    for (let attempt = 0; attempt < 3 && !(r.musicDrop < -12); attempt++) r = await a.evaluate(async (b64) => {
+    const measure = (withGate) => a.evaluate(async ([b64, withGate]) => {
       const ctx = new AudioContext({ sampleRate: 48000 });
       const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
       const voice = await ctx.decodeAudioData(bytes.buffer);
@@ -57,12 +56,14 @@ export default async function (ok) {
       await ctx.audioWorklet.addModule('/vendor/gtcrn-worklet.js');
       const wasmBinary = await (await fetch('/vendor/gtcrn.wasm')).arrayBuffer();
       const node = new AudioWorkletNode(ctx, '@sapphi-red/web-noise-suppressor/gtcrn', { outputChannelCount: [1], processorOptions: { maxChannels: 1, wasmBinary } });
+      let tail = node;   // with the gate: the same chain as the app (mic → noise filter → gate)
+      if (withGate) { await ctx.audioWorklet.addModule('/gate-worklet.js'); tail = new AudioWorkletNode(ctx, 'pl-voice-gate', { outputChannelCount: [1] }); node.connect(tail); }
       // record what comes out (a ScriptProcessor: the page's safety rules don't allow a recorder module from a blob)
       const chunks = [], rec = ctx.createScriptProcessor(1024, 1, 1);
       rec.onaudioprocess = (e) => chunks.push(e.inputBuffer.getChannelData(0).slice());
       const mute = ctx.createGain(); mute.gain.value = 0; rec.connect(mute); mute.connect(ctx.destination);
       await new Promise((res) => setTimeout(res, 1200));   // the model loads
-      const src = ctx.createBufferSource(); src.buffer = mix; src.connect(node); node.connect(rec);
+      const src = ctx.createBufferSource(); src.buffer = mix; src.connect(node); tail.connect(rec);
       const from = chunks.length; src.start();
       await new Promise((res) => setTimeout(res, (n / sr + 0.6) * 1000));
       const got = chunks.slice(from), out = new Float32Array(got.length * 1024); got.forEach((c, i) => out.set(c, i * 1024));
@@ -73,9 +74,33 @@ export default async function (ok) {
       const db = (x) => 20 * Math.log10(x + 1e-9);
       await ctx.close();
       return { musicDrop: db(rms(y, (i) => !talk[i])) - db(rms(m, (i) => !talk[i])), voiceKept: db(rms(y, (i) => talk[i])) - db(vr), lagMs: lag / 48 };
-    }, VOICE);
+    }, [VOICE, withGate]);
+    let r = { musicDrop: 0 };
+    for (let attempt = 0; attempt < 3 && !(r.musicDrop < -12); attempt++) r = await measure(false);
     ok(`music between sentences drops by more than 12 dB (${r.musicDrop?.toFixed(1)} dB)`, r.musicDrop < -12);
     ok(`…while the voice comes through (${r.voiceKept?.toFixed(1)} dB, delay ${r.lagMs?.toFixed(0)} ms)`, r.voiceKept > -6 && r.lagMs < 80);
+    // The voice gate on its own (it's what still helps where the speech model can't run): a steady background noise,
+    // like a fan, under the voice. Between sentences it's cut to silence; the voice comes through.
+    const gated = await a.evaluate(async (b64) => {
+      const sr = 48000, probe = new AudioContext({ sampleRate: sr });
+      const voice = await probe.decodeAudioData(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer); await probe.close();
+      const v = voice.getChannelData(0), n = v.length + sr;   // a second of fan before the voice starts
+      const ctx = new OfflineAudioContext(1, n, sr);
+      await ctx.audioWorklet.addModule('/gate-worklet.js');
+      const mix = ctx.createBuffer(1, n, sr), m = mix.getChannelData(0), fan = new Float32Array(n);
+      let lp = 0; for (let i = 0; i < n; i++) { lp += (Math.random() * 2 - 1 - lp) * 0.05; fan[i] = lp * 0.12; }   // low rumble, about -40 dB
+      for (let i = 0; i < n; i++) m[i] = (i >= sr ? v[i - sr] : 0) + fan[i];
+      const src = ctx.createBufferSource(); src.buffer = mix;
+      const gate = new AudioWorkletNode(ctx, 'pl-voice-gate', { outputChannelCount: [1] });
+      src.connect(gate); gate.connect(ctx.destination); src.start();
+      const y = (await ctx.startRendering()).getChannelData(0);
+      const talk = new Uint8Array(n); for (let i = sr; i < n; i++) if (Math.abs(v[i - sr]) > 0.01) for (let j = Math.max(0, i - 4800); j < Math.min(n, i + 19200); j++) talk[j] = 1;
+      const rms = (x, ok) => { let e = 0, c = 0; for (let i = 0; i < n; i++) if (ok(i)) { e += x[i] * x[i]; c++; } return Math.sqrt(e / Math.max(1, c)); };
+      const db = (x) => 20 * Math.log10(x + 1e-9), gap = (i) => i > sr / 2 && !talk[i];   // after half a second to learn the room
+      return { noiseDrop: db(rms(y, gap)) - db(rms(m, gap)), voiceKept: db(rms(y, (i) => talk[i] && i >= sr)) - db(rms(m, (i) => talk[i] && i >= sr)) };
+    }, VOICE);
+    ok(`the voice gate cuts a steady background noise between sentences (${gated.noiseDrop.toFixed(1)} dB)`, gated.noiseDrop < -30);
+    ok(`…while the voice comes through (${gated.voiceKept.toFixed(1)} dB)`, gated.voiceKept > -3);
 
     // Muted: the filter rests (nothing of it is sent); unmuted: it works again
     await a.click('#micBtn');
