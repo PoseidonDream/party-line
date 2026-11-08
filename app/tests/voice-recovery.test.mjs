@@ -1,7 +1,13 @@
 /* Voice comes back by itself after network dropouts, without anyone leaving and rejoining.
-   Blocks voice traffic with iptables, so it needs root or passwordless sudo (GitHub's runners have it). */
+   Blocks voice traffic with iptables, so it needs root or passwordless sudo (GitHub's runners have it).
+   Both microphones play a recorded voice: the noise filter removes test beeps, and the voice gate then sends
+   silence, which through the media server is next to no data (that's on purpose), so beeps can't show it flowing. */
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { startServer, launchBrowser, signUp, joinVoice } from './lib.mjs';
 import { execSync } from 'node:child_process';
+
+const VOICE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'voice.wav');
 
 const sudo = process.getuid && process.getuid() === 0 ? '' : 'sudo -n ';
 const RULE = '-p udp ! --dport 53 -j DROP';
@@ -20,7 +26,7 @@ export default async function (ok) {
   if (!canBlock()) { ok('skipped: needs iptables (root or passwordless sudo)', true); return; }
   process.on('exit', unblock);
   const srv = await startServer();
-  const browser = await launchBrowser();
+  const browser = await launchBrowser({ micFile: VOICE });
   try {
     const watch = { permissions: ['microphone'] };
     const people = [];
