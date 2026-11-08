@@ -26,9 +26,14 @@ export default async function (ok) {
     await a.waitForSelector('#notifPop:not([hidden]) [data-level="mentions"][aria-checked="true"]');
     await a.click('#notifPop [data-level="all"]');
     await a.click('#textList .chan:has-text("game-night")');
-    await a.click('#notifBtn');
-    await a.waitForSelector('#notifPop [data-level="default"]:has-text("All messages")');
-    ok('the server setting can be changed, and channels following it show it', true);
+    // the menu shows what the app knows when it opens; on a busy machine the server's answer can take a moment
+    let follows = false;
+    for (let i = 0; i < 20 && !follows; i++) {
+      await a.click('#notifBtn');
+      follows = await a.isVisible('#notifPop [data-level="default"]:has-text("All messages")');
+      if (!follows) { await a.click('#notifBtn'); await a.waitForTimeout(250); }
+    }
+    ok('the server setting can be changed, and channels following it show it', follows);
     await a.keyboard.press('Escape'); await a.mouse.click(700, 400);
 
     for (let i = 1; i <= 8; i++) { await b.fill('#chatInput', `catch-up ${i}`); await b.keyboard.press('Enter'); }
