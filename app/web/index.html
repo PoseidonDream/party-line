@@ -9,6 +9,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/looks.css">
 <script src="/js/theme.js"></script>
 </head>
 <body>
@@ -919,6 +920,15 @@
           <select id="setLang" class="input lang-select"></select>
           <p class="hint">The app’s buttons and menus. What people write stays as they wrote it.</p>
         </div>
+        <fieldset class="field">
+          <legend class="flabel">Look</legend>
+          <div class="look-pick" role="radiogroup">
+            <label class="look-opt" data-demo="classic"><input type="radio" name="look" value="classic"><span class="look-card"><span class="look-demo" aria-hidden="true"><i class="ld-rail"></i><i class="ld-side"><i></i><i></i><i></i></i><i class="ld-main"><i class="ld-head"></i><i class="ld-msg"></i><i class="ld-msg short"></i><i class="ld-box"></i></i></span><b>Classic</b><small>The original, with glowing lamps</small></span></label>
+            <label class="look-opt" data-demo="paper"><input type="radio" name="look" value="paper"><span class="look-card"><span class="look-demo" aria-hidden="true"><i class="ld-rail"></i><i class="ld-side"><i></i><i></i><i></i></i><i class="ld-main"><i class="ld-head"></i><i class="ld-msg"></i><i class="ld-msg short"></i><i class="ld-box"></i></i></span><b>Paper</b><small>Warm and calm, like a notebook</small></span></label>
+            <label class="look-opt" data-demo="arcade"><input type="radio" name="look" value="arcade"><span class="look-card"><span class="look-demo" aria-hidden="true"><i class="ld-rail"></i><i class="ld-side"><i></i><i></i><i></i></i><i class="ld-main"><i class="ld-head"></i><i class="ld-msg"></i><i class="ld-msg short"></i><i class="ld-box"></i></i></span><b>Arcade</b><small>Bright blocks, thick outlines</small></span></label>
+          </div>
+          <p class="hint">Every look has a dark and a light side: choose below. Each device remembers its own.</p>
+        </fieldset>
         <fieldset class="field">
           <legend class="flabel">Theme</legend>
           <div class="theme-pick" role="radiogroup">

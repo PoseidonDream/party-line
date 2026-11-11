@@ -1,0 +1,324 @@
+/* Looks: other faces for the same app, chosen per device in Settings → Look ("Classic" is app.css as it is).
+   js/theme.js puts data-look on <html> before the page draws. Each look is a set of colours (dark first, like
+   Classic, then light: both the "Light" choice and "System" on a light device), followed by its shapes. The shapes
+   are written inside :where(), so they weigh exactly what the rules in app.css weigh and simply come later: a look
+   never out-ranks a state (selected, hover, primary…) by accident. The accent colours in app.css still win over a
+   look's own accent, so the accent picker keeps working. */
+
+/* =====================================================================================================
+   PAPER — warm and calm, like a good notebook: paper and ink, one terracotta accent, serif headings,
+   thin ruled lines and small offset shadows instead of glows.
+   ===================================================================================================== */
+html[data-look="paper"] {   /* by lamplight (dark) */
+  --bg: #1c1915; --panel: #25211b; --panel-2: #322b22; --field: #151310; --line: #453c2f; --line-soft: rgba(255, 240, 210, .08);
+  --fg: #efe7d8; --dim: #ab9d86;
+  --look-accent: #e0795f; --lamp: #e0795f; --lamp-ink: #f0937a; --lamp-glow: rgba(224, 121, 95, .32); --lamp-tint: rgba(224, 121, 95, .14); --on-lamp: #24120c;
+  --ok: #5fc391; --on-ok: #06180f; --danger: #ff6b5e; --danger-soft: rgba(255, 107, 94, .14); --on-danger: #2a0906; --streak: #ffa94d;
+  --jack: #151310; --stage-bg: #0f0d0b; --scrim: rgba(10, 8, 5, .72);
+  --shadow: 0 18px 50px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 240, 210, .05);
+  --glass: rgba(37, 33, 27, .96);
+  --av-s: 30%; --av-l: 36%; --av-fg: #efe7d8; --name-s: 45%; --name-l: 72%;
+  --font-display: "Charis SIL", "Charter", "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --serif: "Charis SIL", "Charter", "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --p-rule: #5b4f3e; --p-drop: rgba(0, 0, 0, .42); --p-side: #221e18; --p-rail: #191612; --p-head: rgba(255, 240, 210, .03);
+  --p-dots: rgba(255, 240, 210, .035); --p-hover: rgba(255, 240, 210, .05); --p-ring: rgba(239, 231, 216, .4);
+  --lg1: #ffd76a; --lg2: #fff; --lg3: #ffb347;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  html[data-look="paper"]:not([data-theme="dark"]) {
+    --bg: #f7f2e8; --panel: #f0e9db; --panel-2: #e7dcc8; --field: #fdfaf4; --line: #d8ccb5; --line-soft: rgba(70, 50, 20, .1);
+    --fg: #2b251c; --dim: #675b49;
+    --look-accent: #b84a31; --lamp: #b84a31; --lamp-ink: #a23f29; --lamp-glow: rgba(184, 74, 49, .24); --lamp-tint: rgba(184, 74, 49, .11); --on-lamp: #fff8f0;
+    --ok: #26704c; --on-ok: #f3fff8; --danger: #b3261e; --danger-soft: rgba(179, 38, 30, .1); --on-danger: #fff7f5; --streak: #9a3412;
+    --jack: #e2d6bf; --stage-bg: #201c16; --scrim: rgba(60, 45, 20, .38);
+    --shadow: 0 14px 40px rgba(70, 50, 20, .16), 0 0 0 1px rgba(70, 50, 20, .06);
+    --glass: rgba(253, 250, 244, .97);
+    --av-s: 38%; --av-l: 74%; --av-fg: #2b251c; --name-s: 48%; --name-l: 28%;
+    --p-rule: #c9bca2; --p-drop: rgba(70, 50, 20, .1); --p-side: #f0e9db; --p-rail: #e9dfcd; --p-head: rgba(253, 250, 244, .6);
+    --p-dots: rgba(70, 50, 20, .045); --p-hover: rgba(70, 50, 20, .06); --p-ring: rgba(43, 37, 28, .45);
+    --lg1: #a8432b; --lg2: #c9781f; --lg3: #7a2e1d;
+    color-scheme: light;
+  }
+}
+html[data-look="paper"][data-theme="light"] {
+  --bg: #f7f2e8; --panel: #f0e9db; --panel-2: #e7dcc8; --field: #fdfaf4; --line: #d8ccb5; --line-soft: rgba(70, 50, 20, .1);
+  --fg: #2b251c; --dim: #675b49;
+  --look-accent: #b84a31; --lamp: #b84a31; --lamp-ink: #a23f29; --lamp-glow: rgba(184, 74, 49, .24); --lamp-tint: rgba(184, 74, 49, .11); --on-lamp: #fff8f0;
+  --ok: #26704c; --on-ok: #f3fff8; --danger: #b3261e; --danger-soft: rgba(179, 38, 30, .1); --on-danger: #fff7f5; --streak: #9a3412;
+  --jack: #e2d6bf; --stage-bg: #201c16; --scrim: rgba(60, 45, 20, .38);
+  --shadow: 0 14px 40px rgba(70, 50, 20, .16), 0 0 0 1px rgba(70, 50, 20, .06);
+  --glass: rgba(253, 250, 244, .97);
+  --av-s: 38%; --av-l: 74%; --av-fg: #2b251c; --name-s: 48%; --name-l: 28%;
+  --p-rule: #c9bca2; --p-drop: rgba(70, 50, 20, .1); --p-side: #f0e9db; --p-rail: #e9dfcd; --p-head: rgba(253, 250, 244, .6);
+  --p-dots: rgba(70, 50, 20, .045); --p-hover: rgba(70, 50, 20, .06); --p-ring: rgba(43, 37, 28, .45);
+  --lg1: #a8432b; --lg2: #c9781f; --lg3: #7a2e1d;
+  color-scheme: light;
+}
+
+:where(html[data-look="paper"]) body { background: var(--bg) radial-gradient(var(--p-dots) 1px, transparent 1.2px) 0 0 / 5px 5px; }
+/* the frame: one sheet, ruled */
+:where(html[data-look="paper"]) .app { background: transparent; }
+:where(html[data-look="paper"]) .side { background: var(--p-side); border-right: 1px solid var(--line); }
+:where(html[data-look="paper"]) .rail { background: var(--p-rail); border-right: 1px solid var(--line); }
+:where(html[data-look="paper"]) .user-area { background: var(--p-rail); border-top: 1px solid var(--line); border-right: 1px solid var(--line); }
+:where(html[data-look="paper"]) .main { background: transparent; }
+:where(html[data-look="paper"]) .rail-btn { border-radius: 10px; font: 700 15px/1 var(--serif); letter-spacing: 0; box-shadow: inset 0 0 0 1.5px var(--p-ring); }
+:where(html[data-look="paper"]) .rail-btn:hover, :where(html[data-look="paper"]) .rail-btn[aria-current="true"] { border-radius: 10px; }
+:where(html[data-look="paper"]) .rail-btn[aria-current="true"] { box-shadow: inset 0 0 0 1.5px var(--fg), 3px 3px 0 var(--lamp); }
+:where(html[data-look="paper"]) .rail-btn.rail-home { background: var(--field); color: var(--fg); }
+:where(html[data-look="paper"]) .rail-btn.rail-home[aria-current="true"] { background: var(--fg); color: var(--bg); box-shadow: none; }
+:where(html[data-look="paper"]) .rail-item::before { background: var(--lamp); box-shadow: none; width: 3px; }
+:where(html[data-look="paper"]) .rail-add { border-radius: 10px; border: 1.5px dashed var(--p-rule); background: transparent; }
+:where(html[data-look="paper"]) .rail-add:hover { border-radius: 10px; }
+:where(html[data-look="paper"]) .rail-sep { background: var(--line); height: 1px; }
+:where(html[data-look="paper"]) .server-btn { font: italic 700 22px/1 var(--serif); text-transform: none; letter-spacing: -.01em; }
+:where(html[data-look="paper"]) .server-head { border-bottom: 1px solid var(--line); }
+:where(html[data-look="paper"]) .cat-toggle, :where(html[data-look="paper"]) .cat-label { letter-spacing: .12em; font-weight: 600; }
+:where(html[data-look="paper"]) .chan { border-radius: 0; border-left: 3px solid transparent; }
+:where(html[data-look="paper"]) .chan:hover { background: var(--p-hover); }
+:where(html[data-look="paper"]) .chan[aria-current="true"] { background: var(--field); color: var(--fg); font-weight: 700; border-left-color: var(--lamp); box-shadow: 0 1px 0 var(--line), 0 -1px 0 var(--line); }
+:where(html[data-look="paper"]) .chan[aria-current="true"] .glyph, :where(html[data-look="paper"]) .chan[aria-current="true"] > .ic { color: var(--lamp-ink); }
+:where(html[data-look="paper"]) .glyph { font: italic 400 20px/1 var(--serif); }
+:where(html[data-look="paper"]) .chan.in-voice .ic { filter: none; }
+:where(html[data-look="paper"]) .nav-item { border-radius: 0; border-left: 3px solid transparent; }
+:where(html[data-look="paper"]) .nav-item[aria-current="true"] { background: var(--field); border-left-color: var(--lamp); }
+:where(html[data-look="paper"]) .mini-av, :where(html[data-look="paper"]) .avatar { font-family: var(--serif); font-weight: 700; }
+:where(html[data-look="paper"]) .mini-av:not(.has-img), :where(html[data-look="paper"]) .avatar:not(.has-img) { box-shadow: inset 0 0 0 1.5px var(--p-ring); }
+:where(html[data-look="paper"]) .ub:hover { background: var(--p-hover); }
+:where(html[data-look="paper"]) .status-dot { --dot-ring: var(--p-rail); }
+/* the chat: a page of writing */
+:where(html[data-look="paper"]) .main-head { border-bottom: 1px solid var(--line); background: var(--p-head); }
+:where(html[data-look="paper"]) .view-icon { font-family: var(--serif); font-style: italic; }
+:where(html[data-look="paper"]) .view-title { font: 700 20px/1.2 var(--serif); letter-spacing: -.01em; }
+:where(html[data-look="paper"]) .chan-intro { border-bottom: 3px double var(--line); padding-bottom: 20px; }
+:where(html[data-look="paper"]) .chan-intro .glyph-big { background: transparent; border: 1.5px solid var(--fg); font: italic 400 34px/1 var(--serif); width: 58px; height: 58px; border-radius: 12px; }
+:where(html[data-look="paper"]) .chan-intro h2 { font: 700 clamp(30px, 3.6vw, 42px)/1.1 var(--serif); letter-spacing: -.02em; }
+:where(html[data-look="paper"]) .day-line { font: italic 400 14px var(--serif); letter-spacing: 0; text-transform: none; }
+:where(html[data-look="paper"]) .msg { border-radius: 0; }
+:where(html[data-look="paper"]) .messages > .msg:hover { background: var(--p-hover); }
+:where(html[data-look="paper"]) .msg > .mini-av { border-radius: 10px; }
+:where(html[data-look="paper"]) .msg-name { font: 700 16px/1.3 var(--serif); }
+:where(html[data-look="paper"]) .msg-time { font: 500 11.5px var(--font-body); letter-spacing: .02em; }
+:where(html[data-look="paper"]) .msg-body { font-size: 16px; line-height: 1.55; }
+:where(html[data-look="paper"]) .msg-reply span { font-style: italic; }
+:where(html[data-look="paper"]) .msg-reply::before { border-color: var(--p-rule); }
+:where(html[data-look="paper"]) .reaction { border-radius: 6px; background: var(--field); }
+:where(html[data-look="paper"]) .reaction.mine { background: var(--lamp-tint); border-color: var(--lamp); }
+:where(html[data-look="paper"]) .poll-card, :where(html[data-look="paper"]) .lfg-card { border-radius: 4px; background: var(--field); border: 1px solid var(--line); border-top: 3px solid var(--fg); box-shadow: 4px 4px 0 var(--p-drop); }
+:where(html[data-look="paper"]) .poll-q { font: 700 17px/1.3 var(--serif); }
+:where(html[data-look="paper"]) .poll-opt { border-radius: 4px; background: transparent; }
+:where(html[data-look="paper"]) .poll-opt::before { background: var(--lamp-tint); }
+:where(html[data-look="paper"]) .poll-opt.won { box-shadow: none; font-weight: 700; }
+:where(html[data-look="paper"]) .composer-box { border-radius: 6px; background: var(--field); border: 1px solid var(--p-rule); box-shadow: 3px 3px 0 var(--p-drop); }
+:where(html[data-look="paper"]) .composer-box:focus-within { border-color: var(--fg); box-shadow: 3px 3px 0 var(--lamp); }
+/* buttons, fields, cards */
+:where(html[data-look="paper"]) .btn { border-radius: 6px; background: var(--field); border-color: var(--p-rule); box-shadow: none; }
+:where(html[data-look="paper"]) .btn:hover { border-color: var(--fg); }
+:where(html[data-look="paper"]) .btn.primary { background: var(--fg); color: var(--bg); border-color: transparent; box-shadow: 4px 4px 0 var(--lamp); }
+:where(html[data-look="paper"]) .btn.primary:hover { filter: none; box-shadow: 5px 5px 0 var(--lamp); }
+:where(html[data-look="paper"]) .head-actions .btn.small:not(.primary) { background: transparent; border-color: transparent; }
+:where(html[data-look="paper"]) .head-actions #vcChatBtn { background: var(--lamp); color: var(--on-lamp); border-radius: 6px; box-shadow: none; }
+:where(html[data-look="paper"]) .input, :where(html[data-look="paper"]) select, :where(html[data-look="paper"]) .field input[type="text"], :where(html[data-look="paper"]) textarea.input { border-radius: 6px; background: var(--field); border-color: var(--p-rule); }
+:where(html[data-look="paper"]) .input:focus, :where(html[data-look="paper"]) select:focus, :where(html[data-look="paper"]) textarea.input:focus { border-color: var(--fg); box-shadow: 3px 3px 0 var(--lamp-tint); }
+:where(html[data-look="paper"]) .tab { border-radius: 0; border-bottom: 2px solid transparent; }
+:where(html[data-look="paper"]) .tab:hover { background: transparent; color: var(--fg); }
+:where(html[data-look="paper"]) .tab[aria-selected="true"] { background: transparent; border-bottom-color: var(--lamp); color: var(--fg); }
+:where(html[data-look="paper"]) .tab-add, :where(html[data-look="paper"]) .tab-add:hover { background: var(--ok); color: var(--on-ok); border-radius: 6px; border-bottom-color: transparent; }
+:where(html[data-look="paper"]) dialog, :where(html[data-look="paper"]) .menu, :where(html[data-look="paper"]) .popover { border-radius: 8px; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:where(html[data-look="paper"]) dialog h2, :where(html[data-look="paper"]) .dash-card h3, :where(html[data-look="paper"]) .join-card h2 { font-family: var(--serif); text-transform: none; letter-spacing: -.01em; }
+:where(html[data-look="paper"]) .count-pill { background: var(--lamp); color: var(--on-lamp); }
+:where(html[data-look="paper"]) .theme-pick { border-radius: 6px; }
+:where(html[data-look="paper"]) .theme-opt span { border-radius: 4px; }
+:where(html[data-look="paper"]) .name-legend { background-image: linear-gradient(100deg, var(--nc, var(--lg1)) 0%, var(--lg2) 45%, var(--nc, var(--lg1)) 60%, var(--lg3) 100%); }
+/* voice */
+:where(html[data-look="paper"]) .vc-status { border-radius: 6px; background: var(--field); }
+:where(html[data-look="paper"]) .tile { border-radius: 8px; background: var(--field); border: 1px solid var(--p-rule); box-shadow: 5px 5px 0 var(--p-drop); }
+:where(html[data-look="paper"]) .tile .avatar:not(.has-img) { box-shadow: inset 0 0 0 2px var(--p-ring); }
+:where(html[data-look="paper"]) .tile-name { font: 700 16px/1.3 var(--serif); }
+/* the sign-in screen and the loading screen */
+:where(html[data-look="paper"]) .wordmark { font: 700 clamp(72px, 11vw, 148px)/.86 var(--serif); text-transform: none; letter-spacing: -.045em; }
+:where(html[data-look="paper"]) .wordmark .lit, :where(html[data-look="paper"]) .boot-mark .lit { color: var(--lamp-ink); font-style: italic; text-shadow: none; animation: none; }
+:where(html[data-look="paper"]) .boot-mark { font: 700 clamp(44px, 11vw, 66px)/1 var(--serif); text-transform: none; letter-spacing: -.03em; }
+:where(html[data-look="paper"]) .jack { background: transparent; box-shadow: inset 0 0 0 1.5px var(--p-rule); }
+:where(html[data-look="paper"]) .jack.lit::after { box-shadow: none; }
+:where(html[data-look="paper"]) .strip { font: italic 400 15px var(--serif); letter-spacing: 0; text-transform: none; }
+:where(html[data-look="paper"]) .lede { font-family: var(--serif); }
+:where(html[data-look="paper"]) .join-card { border-radius: 8px; background: var(--field); border: 1px solid var(--p-rule); box-shadow: 8px 8px 0 var(--p-drop); -webkit-backdrop-filter: none; backdrop-filter: none; }
+:where(html[data-look="paper"]) .join-lang, :where(html[data-look="paper"]) .theme-toggle { background: var(--field); border-color: var(--p-rule); }
+
+/* =====================================================================================================
+   ARCADE — loud and playful, like stickers on an arcade cabinet: blocks of colour, thick dark outlines,
+   hard drop shadows, chunky monospace headings.
+   ===================================================================================================== */
+html[data-look="arcade"] {   /* after dark */
+  --ink: #07060b; --a-yellow: #ffd93b; --a-blue: #3f5bff; --a-mint: #2fe3a0; --on-sticker: #15131a;
+  --bg: #1d1a2c; --panel: #2a2640; --panel-2: #3a3558; --field: #151222; --line: #07060b; --line-soft: rgba(255, 255, 255, .1);
+  --fg: #f6f3ff; --dim: #b9b3cf;
+  --look-accent: #ff6fae; --lamp: #ff6fae; --lamp-ink: #ff9cc8; --lamp-glow: rgba(255, 111, 174, .4); --lamp-tint: rgba(255, 111, 174, .16); --on-lamp: #15131a;
+  --ok: #3fe6a8; --on-ok: #04140c; --danger: #ff6b5e; --danger-soft: rgba(255, 107, 94, .16); --on-danger: #2a0906; --streak: #ffa94d;
+  --jack: #151222; --stage-bg: #07060b; --scrim: rgba(5, 4, 10, .72);
+  --shadow: 6px 6px 0 var(--ink); --glass: #2a2640;
+  --av-s: 88%; --av-l: 66%; --av-fg: #15131a; --name-s: 85%; --name-l: 74%;
+  --font-display: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --a-side: #3a2a8a; --a-side-fg: #f6f3ff; --a-side-dim: #cfc8f3; --a-side-ok: #6ff0bf; --a-side-hover: rgba(255, 255, 255, .1);
+  --a-rail: #2337c9; --a-user: #0e6f50; --a-user-fg: #f6f3ff; --a-user-dim: #c9f3e2;
+  --a-card: #2a2640; --a-chip: var(--a-yellow); --a-grid: rgba(255, 255, 255, .035); --a-join: #2b2470; --a-dots: rgba(0, 0, 0, .45);
+  --lg1: #ffd76a; --lg2: #fff; --lg3: #ffb347;
+  --a-user-danger: #ffc9c2;
+  --b: 2.5px solid var(--ink);
+  /* the page's own ink, for menus that open on top of a coloured block (which has its own) */
+  --r-fg: var(--fg); --r-dim: var(--dim); --r-ok: var(--ok); --r-danger: var(--danger);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  html[data-look="arcade"]:not([data-theme="dark"]) {
+    --ink: #15131a;
+    --bg: #fffcf2; --panel: #ffffff; --panel-2: #fff1b8; --field: #ffffff; --line: #15131a; --line-soft: rgba(21, 19, 26, .14);
+    --fg: #15131a; --dim: #575263;
+    --look-accent: #ff5fa2; --lamp: #ff5fa2; --lamp-ink: #c2185f; --lamp-glow: rgba(255, 95, 162, .35); --lamp-tint: rgba(255, 95, 162, .18); --on-lamp: #15131a;
+    --ok: #0b7a52; --on-ok: #ffffff; --danger: #d11f24; --danger-soft: rgba(209, 31, 36, .12); --on-danger: #ffffff; --streak: #9a3412;
+    --jack: #ffffff; --stage-bg: #15131a; --scrim: rgba(21, 19, 26, .5);
+    --glass: #ffffff;
+    --name-s: 80%; --name-l: 32%;
+    --a-side: var(--a-yellow); --a-side-fg: #15131a; --a-side-dim: #4a431f; --a-side-ok: #0a5c3e; --a-side-hover: rgba(255, 255, 255, .55);
+    --a-rail: var(--a-blue); --a-user: var(--a-mint); --a-user-fg: #15131a; --a-user-dim: #0e4a35;
+    --a-card: #ffffff; --a-chip: #ffffff; --a-grid: rgba(21, 19, 26, .05); --a-join: var(--a-yellow); --a-dots: rgba(21, 19, 26, .9); --a-user-danger: #a3141a;
+    --lg1: #c2185f; --lg2: #3f5bff; --lg3: #7a1fd8;
+    color-scheme: light;
+  }
+}
+html[data-look="arcade"][data-theme="light"] {
+  --ink: #15131a;
+  --bg: #fffcf2; --panel: #ffffff; --panel-2: #fff1b8; --field: #ffffff; --line: #15131a; --line-soft: rgba(21, 19, 26, .14);
+  --fg: #15131a; --dim: #575263;
+  --look-accent: #ff5fa2; --lamp: #ff5fa2; --lamp-ink: #c2185f; --lamp-glow: rgba(255, 95, 162, .35); --lamp-tint: rgba(255, 95, 162, .18); --on-lamp: #15131a;
+  --ok: #0b7a52; --on-ok: #ffffff; --danger: #d11f24; --danger-soft: rgba(209, 31, 36, .12); --on-danger: #ffffff; --streak: #9a3412;
+  --jack: #ffffff; --stage-bg: #15131a; --scrim: rgba(21, 19, 26, .5);
+  --glass: #ffffff;
+  --name-s: 80%; --name-l: 32%;
+  --a-side: var(--a-yellow); --a-side-fg: #15131a; --a-side-dim: #4a431f; --a-side-ok: #0a5c3e; --a-side-hover: rgba(255, 255, 255, .55);
+  --a-rail: var(--a-blue); --a-user: var(--a-mint); --a-user-fg: #15131a; --a-user-dim: #0e4a35;
+  --a-card: #ffffff; --a-chip: #ffffff; --a-grid: rgba(21, 19, 26, .05); --a-join: var(--a-yellow); --a-dots: rgba(21, 19, 26, .9); --a-user-danger: #a3141a;
+  --lg1: #c2185f; --lg2: #3f5bff; --lg3: #7a1fd8;
+  color-scheme: light;
+}
+
+/* the frame: blocks of colour (what sits on a block takes the block's own ink) */
+:where(html[data-look="arcade"]) .side { background: var(--a-side); border-right: var(--b); --fg: var(--a-side-fg); --dim: var(--a-side-dim); --ok: var(--a-side-ok); color: var(--fg); }
+:where(html[data-look="arcade"]) .side .menu, :where(html[data-look="arcade"]) .side .popover { --fg: var(--r-fg); --dim: var(--r-dim); --ok: var(--r-ok); color: var(--fg); }
+:where(html[data-look="arcade"]) .rail { background: var(--a-rail); border-right: var(--b); }
+:where(html[data-look="arcade"]) .user-area { background: var(--a-user); border-top: var(--b); border-right: var(--b); --fg: var(--a-user-fg); --dim: var(--a-user-dim); --ok: var(--a-user-fg); --danger: var(--a-user-danger); color: var(--fg); }
+:where(html[data-look="arcade"]) .user-area .menu, :where(html[data-look="arcade"]) .user-area .popover { --fg: var(--r-fg); --dim: var(--r-dim); --ok: var(--r-ok); --danger: var(--r-danger); color: var(--fg); }
+:where(html[data-look="arcade"]) .main { background: var(--bg) linear-gradient(var(--a-grid) 1px, transparent 1px) 0 0 / 100% 28px; }
+:where(html[data-look="arcade"]) .rail-btn { border-radius: 12px; border: var(--b); font: 600 15px/1 var(--font-display); letter-spacing: 0; box-shadow: 3px 3px 0 var(--ink); }
+:where(html[data-look="arcade"]) .rail-btn:hover, :where(html[data-look="arcade"]) .rail-btn[aria-current="true"] { border-radius: 12px; }
+:where(html[data-look="arcade"]) .rail-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+:where(html[data-look="arcade"]) .rail-btn[aria-current="true"] { box-shadow: 3px 3px 0 var(--ink), 0 0 0 3px var(--a-yellow); }
+:where(html[data-look="arcade"]) .rail-btn.rail-home { background: #ffffff; color: var(--on-sticker); }
+:where(html[data-look="arcade"]) .rail-btn.rail-home[aria-current="true"] { background: var(--lamp); color: var(--on-lamp); }
+:where(html[data-look="arcade"]) .rail-item::before { background: var(--a-yellow); box-shadow: none; width: 5px; }
+:where(html[data-look="arcade"]) .rail-add { border-radius: 12px; border: 2.5px dashed #ffffff; background: transparent; color: #ffffff; }
+:where(html[data-look="arcade"]) .rail-add:hover { border-radius: 12px; background: #ffffff; color: var(--on-sticker); border-style: solid; border-color: var(--ink); }
+:where(html[data-look="arcade"]) .rail-sep { background: rgba(255, 255, 255, .5); }
+:where(html[data-look="arcade"]) .server-btn { font: 600 18px/1 var(--font-display); letter-spacing: -.02em; }
+:where(html[data-look="arcade"]) .server-btn:hover { background: var(--a-side-hover); }
+:where(html[data-look="arcade"]) .server-head { border-bottom: var(--b); }
+:where(html[data-look="arcade"]) .conn-line { font-weight: 600; }
+:where(html[data-look="arcade"]) .cat-toggle, :where(html[data-look="arcade"]) .cat-label { font: 600 11.5px var(--font-display); letter-spacing: .04em; }
+:where(html[data-look="arcade"]) .chan { border-radius: 10px; font-weight: 600; border: 2.5px solid transparent; color: var(--fg); }
+:where(html[data-look="arcade"]) .chan:hover { background: var(--a-side-hover); }
+:where(html[data-look="arcade"]) .chan[aria-current="true"] { background: var(--a-chip); color: var(--on-sticker); border: var(--b); box-shadow: 3px 3px 0 var(--ink); font-weight: 700; }
+:where(html[data-look="arcade"]) .chan[aria-current="true"] .glyph, :where(html[data-look="arcade"]) .chan[aria-current="true"] > .ic { color: var(--on-sticker); }
+:where(html[data-look="arcade"]) .chan[aria-current="true"] .count-pill { box-shadow: 0 0 0 2px var(--ink); }
+:where(html[data-look="arcade"]) .glyph { font: 600 19px/1 var(--font-display); }
+:where(html[data-look="arcade"]) .chan.in-voice .ic { filter: none; }
+:where(html[data-look="arcade"]) .nav-item { border-radius: 10px; border: 2.5px solid transparent; color: var(--fg); }
+:where(html[data-look="arcade"]) .nav-item:hover { background: var(--a-side-hover); }
+:where(html[data-look="arcade"]) .nav-item[aria-current="true"] { background: var(--a-chip); color: var(--on-sticker); border: var(--b); box-shadow: 3px 3px 0 var(--ink); }
+:where(html[data-look="arcade"]) .member, :where(html[data-look="arcade"]) .dm-item { color: var(--fg); font-weight: 600; }
+:where(html[data-look="arcade"]) .member:hover { background: var(--a-side-hover); }
+:where(html[data-look="arcade"]) .mini-av, :where(html[data-look="arcade"]) .avatar { font-family: var(--font-display); font-weight: 600; border-radius: 30%; }
+:where(html[data-look="arcade"]) .mini-av:not(.has-img), :where(html[data-look="arcade"]) .avatar:not(.has-img) { box-shadow: inset 0 0 0 2px var(--ink); }
+:where(html[data-look="arcade"]) .ub { border-radius: 10px; }
+:where(html[data-look="arcade"]) .ub:hover { background: var(--a-side-hover); }
+:where(html[data-look="arcade"]) .voice-status { border-bottom: var(--b); }
+:where(html[data-look="arcade"]) .status-dot { --dot-ring: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+/* the chat */
+:where(html[data-look="arcade"]) .main-head { border-bottom: var(--b); background: var(--a-card); }
+:where(html[data-look="arcade"]) .view-title { font: 600 18px/1.2 var(--font-display); text-transform: uppercase; letter-spacing: -.02em; }
+:where(html[data-look="arcade"]) .head-actions .btn.small:not(.primary) { color: var(--fg); border-radius: 10px; box-shadow: none; border: 2.5px solid transparent; background: transparent; }
+:where(html[data-look="arcade"]) .head-actions .btn.small:not(.primary):hover { background: var(--a-yellow); color: var(--on-sticker); border-color: var(--ink); transform: none; }
+:where(html[data-look="arcade"]) .chan-intro { border-bottom: var(--b); }
+:where(html[data-look="arcade"]) .chan-intro .glyph-big { background: var(--lamp); color: var(--on-lamp); border: var(--b); border-radius: 16px; box-shadow: 4px 4px 0 var(--ink); font-family: var(--font-display); }
+:where(html[data-look="arcade"]) .chan-intro h2 { font: 600 clamp(26px, 3.2vw, 38px)/1.1 var(--font-display); text-transform: uppercase; letter-spacing: -.04em; }
+:where(html[data-look="arcade"]) .day-line { font: 600 11px var(--font-display); letter-spacing: .06em; }
+:where(html[data-look="arcade"]) .day-line span { padding: 4px 10px; background: var(--a-yellow); color: var(--on-sticker); border: 2px solid var(--ink); border-radius: 6px; }
+:where(html[data-look="arcade"]) .day-line::before, :where(html[data-look="arcade"]) .day-line::after { background: var(--ink); height: 2px; }
+:where(html[data-look="arcade"]) .msg { border-radius: 0; }
+:where(html[data-look="arcade"]) .messages > .msg:hover { background: var(--lamp-tint); }
+:where(html[data-look="arcade"]) .msg > .mini-av { border-radius: 12px; }
+:where(html[data-look="arcade"]) .msg > .mini-av:not(.has-img) { box-shadow: inset 0 0 0 2.5px var(--ink), 3px 3px 0 var(--ink); }
+:where(html[data-look="arcade"]) .msg > .mini-av.has-img { box-shadow: 0 0 0 2.5px var(--ink), 3px 3px 0 2.5px var(--ink); }
+:where(html[data-look="arcade"]) .msg-name { font: 600 14.5px/1.4 var(--font-display); letter-spacing: -.02em; }
+:where(html[data-look="arcade"]) .msg-time { font: 400 11px var(--font-display); }
+:where(html[data-look="arcade"]) .msg-body { font-weight: 500; }
+:where(html[data-look="arcade"]) .msg-reply::before { border-color: var(--ink); }
+:where(html[data-look="arcade"]) .reaction { height: 28px; border-radius: 8px; background: var(--a-card); border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); font-weight: 700; }
+:where(html[data-look="arcade"]) .reaction.mine { background: var(--a-yellow); color: var(--on-sticker); border-color: var(--ink); }
+:where(html[data-look="arcade"]) .reaction.add { box-shadow: none; border-style: dashed; }
+:where(html[data-look="arcade"]) .poll-card, :where(html[data-look="arcade"]) .lfg-card { border-radius: 14px; background: var(--a-card); border: var(--b); box-shadow: 6px 6px 0 var(--ink); padding: 16px; gap: 8px; }
+:where(html[data-look="arcade"]) .poll-q { font: 600 15px/1.4 var(--font-display); letter-spacing: -.02em; }
+:where(html[data-look="arcade"]) .poll-q .ic { color: var(--a-blue); }
+:where(html[data-look="arcade"]) .poll-opt { border-radius: 10px; background: var(--field); border: 2px solid var(--ink); font-weight: 700; }
+:where(html[data-look="arcade"]) .poll-opt::before { background: var(--lamp); opacity: .7; }
+:where(html[data-look="arcade"]) .poll-opt.mine { border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+:where(html[data-look="arcade"]) .poll-opt.won { border-color: var(--ink); box-shadow: 3px 3px 0 var(--a-blue); }
+:where(html[data-look="arcade"]) .composer-box { border-radius: 14px; background: var(--a-card); border: var(--b); box-shadow: 5px 5px 0 var(--ink); }
+:where(html[data-look="arcade"]) .composer-box:focus-within { border-color: var(--ink); box-shadow: 5px 5px 0 var(--lamp); }
+/* buttons, fields, cards */
+:where(html[data-look="arcade"]) .btn { border-radius: 10px; background: var(--a-card); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); font-weight: 700; }
+:where(html[data-look="arcade"]) .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); border-color: var(--ink); }
+:where(html[data-look="arcade"]) .btn.primary { background: var(--lamp); color: var(--on-lamp); border: var(--b); border-radius: 12px; box-shadow: 5px 5px 0 var(--ink); font-family: var(--font-display); font-weight: 600; text-transform: uppercase; }
+:where(html[data-look="arcade"]) .btn.primary:hover { filter: none; box-shadow: 6px 6px 0 var(--ink); }
+:where(html[data-look="arcade"]) .btn.small.primary { box-shadow: 3px 3px 0 var(--ink); border-radius: 10px; }
+:where(html[data-look="arcade"]) .head-actions #vcChatBtn { background: var(--a-yellow); color: var(--on-sticker); border: var(--b); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink); }
+:where(html[data-look="arcade"]) .input, :where(html[data-look="arcade"]) select, :where(html[data-look="arcade"]) .field input[type="text"], :where(html[data-look="arcade"]) textarea.input { border-radius: 10px; background: var(--field); border: 2px solid var(--ink); }
+:where(html[data-look="arcade"]) .input:focus, :where(html[data-look="arcade"]) select:focus, :where(html[data-look="arcade"]) textarea.input:focus { border-color: var(--ink); box-shadow: 4px 4px 0 var(--lamp); }
+:where(html[data-look="arcade"]) .tab { border-radius: 8px; border: 2px solid transparent; font-weight: 700; }
+:where(html[data-look="arcade"]) .tab[aria-selected="true"] { background: var(--a-yellow); border-color: var(--ink); color: var(--on-sticker); }
+:where(html[data-look="arcade"]) .tab-add, :where(html[data-look="arcade"]) .tab-add:hover { border-color: var(--ink); }
+:where(html[data-look="arcade"]) dialog, :where(html[data-look="arcade"]) .menu, :where(html[data-look="arcade"]) .popover { border-radius: 14px; border: var(--b); -webkit-backdrop-filter: none; backdrop-filter: none; }
+:where(html[data-look="arcade"]) dialog h2, :where(html[data-look="arcade"]) .dash-card h3, :where(html[data-look="arcade"]) .join-card h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: -.03em; }
+:where(html[data-look="arcade"]) .flabel { font-family: var(--font-display); }
+:where(html[data-look="arcade"]) .theme-pick { border: 2px solid var(--ink); }
+:where(html[data-look="arcade"]) .name-legend { background-image: linear-gradient(100deg, var(--nc, var(--lg1)) 0%, var(--lg2) 45%, var(--nc, var(--lg1)) 60%, var(--lg3) 100%); }
+/* voice: a wall of coloured cards (ink on colour, in the dark too) */
+:where(html[data-look="arcade"]) .vc-status { border-radius: 12px; background: var(--a-card); border: var(--b); box-shadow: 4px 4px 0 var(--ink); }
+:where(html[data-look="arcade"]) .tiles { gap: 20px; }
+:where(html[data-look="arcade"]) .tile { border-radius: 18px; border: var(--b); box-shadow: 6px 6px 0 var(--ink); background: var(--a-yellow); --fg: #15131a; --dim: #3d3848; --danger: #a3141a; color: var(--fg); }
+:where(html[data-look="arcade"]) .tile:nth-child(4n + 2) { background: #9db2ff; }
+:where(html[data-look="arcade"]) .tile:nth-child(4n + 3) { background: #ffa9cd; }
+:where(html[data-look="arcade"]) .tile:nth-child(4n + 4) { background: #8ff0c9; }
+:where(html[data-look="arcade"]) .tile .avatar { border-radius: 28%; }
+:where(html[data-look="arcade"]) .tile .avatar:not(.has-img) { background: #ffffff; color: #15131a; box-shadow: inset 0 0 0 3px var(--ink), 4px 4px 0 var(--ink); }
+:where(html[data-look="arcade"]) .tile-name { font: 600 15px/1.4 var(--font-display); letter-spacing: -.02em; }
+:where(html[data-look="arcade"]) .tile-sub { font-weight: 600; }
+:where(html[data-look="arcade"]) .vs-state { font-family: var(--font-display); }
+/* the sign-in screen and the loading screen */
+:where(html[data-look="arcade"]) body:has(#join:not([hidden])) { background: var(--a-join) radial-gradient(var(--a-dots) 1.4px, transparent 1.6px) 0 0 / 22px 22px; }
+:where(html[data-look="arcade"]) .wordmark { font: 600 clamp(64px, 10.5vw, 136px)/.9 var(--font-display); letter-spacing: -.08em; }
+:where(html[data-look="arcade"]) .wordmark .lit, :where(html[data-look="arcade"]) .boot-mark .lit { color: var(--on-lamp); text-shadow: none; display: inline-block; background: var(--lamp); padding: 0 .12em; border: 4px solid var(--ink); border-radius: 16px; box-shadow: 8px 8px 0 var(--ink); transform: rotate(-2deg); margin-top: .08em; animation: none; }
+:where(html[data-look="arcade"]) .boot-mark { font: 600 clamp(36px, 9vw, 56px)/1.1 var(--font-display); letter-spacing: -.07em; }
+:where(html[data-look="arcade"]) .boot-mark .lit { border-width: 3px; border-radius: 10px; box-shadow: 4px 4px 0 var(--ink); }
+:where(html[data-look="arcade"]) .jack { border-radius: 8px; background: var(--a-card); box-shadow: inset 0 0 0 2.5px var(--ink); }
+:where(html[data-look="arcade"]) .jack::after { border-radius: 3px; }
+:where(html[data-look="arcade"]) .jack.lit { background: var(--a-yellow); }
+:where(html[data-look="arcade"]) .jack.lit::after { background: var(--a-blue); box-shadow: none; }
+:where(html[data-look="arcade"]) .join .strip { font: 600 12px var(--font-display); letter-spacing: 0; color: var(--on-sticker); background: var(--a-yellow); display: inline-block; padding: 2px 6px; border: 2px solid var(--ink); }
+:where(html[data-look="arcade"]) .join .lede { font-weight: 600; background: var(--a-card); border: var(--b); border-radius: 14px; box-shadow: 5px 5px 0 var(--ink); padding: 12px 16px; max-width: 38ch; }
+:where(html[data-look="arcade"]) .join-card { border-radius: 20px; background: var(--a-card); border: 3px solid var(--ink); box-shadow: 10px 10px 0 var(--ink); -webkit-backdrop-filter: none; backdrop-filter: none; }
+:where(html[data-look="arcade"]) .join-lang, :where(html[data-look="arcade"]) .theme-toggle { background: var(--a-card); border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+
+/* In the accent picker, the first colour is "the look's own" */
+:where(html[data-look]) .accent-opt:first-child span { background: var(--look-accent, var(--sw)); }

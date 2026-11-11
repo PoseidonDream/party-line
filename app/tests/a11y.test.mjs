@@ -31,12 +31,23 @@ export default async function (ok) {
       }
       await v.close();
     }
+    for (const [look, theme] of [['paper', 'dark'], ['paper', 'light'], ['arcade', 'dark'], ['arcade', 'light']]) {   // the sign-in screen in the other looks
+      const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+      await ctx.addInitScript(([look, theme]) => localStorage.setItem('pl:settings', JSON.stringify({ look, theme, themeV: 2 })), [look, theme]);
+      const v = await ctx.newPage();
+      await v.goto(srv.url + '/app'); await v.waitForSelector('#cookieBanner:not([hidden])');
+      await v.evaluate(AXE).catch(() => {});
+      const found = await v.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes[0].target.join(' ')})`));
+      for (const x of found) early.push(`${look} ${theme} /app: ${x}`);
+      await ctx.close();
+    }
     ok(`the welcome page, sign-in screen, cookie notice and policy pages have no accessibility problems${early.length ? ': ' + early.slice(0, 6).join(' | ') : ''}`, !early.length);
 
-    for (const theme of ['dark', 'light']) {
-      const a = await signUp(browser, srv.url, theme === 'dark' ? 'Poseidon' : 'Lale');
-      if (theme === 'light') {
-        await a.evaluate(() => { const s = JSON.parse(localStorage.getItem('pl:settings') || '{}'); s.theme = 'light'; localStorage.setItem('pl:settings', JSON.stringify(s)); });
+    // Every look (Settings → Look), dark and light: the same screens, the same checks (text contrast above all)
+    for (const [look, theme, who] of [['classic', 'dark', 'Poseidon'], ['classic', 'light', 'Lale'], ['paper', 'dark', 'Pinar'], ['paper', 'light', 'Pelin'], ['arcade', 'dark', 'Arda'], ['arcade', 'light', 'Aras']]) {
+      const a = await signUp(browser, srv.url, who), lead = look === 'classic' && theme === 'dark';   // (the keyboard checks run once)
+      if (!lead) {
+        await a.evaluate(([look, theme]) => { const s = JSON.parse(localStorage.getItem('pl:settings') || '{}'); s.theme = theme; s.look = look; localStorage.setItem('pl:settings', JSON.stringify(s)); }, [look, theme]);
         await a.reload(); await a.waitForSelector('#room:not([hidden])');
       }
       await req(a, 'msg.send', { channelId: 1, body: 'hi from me', attachments: [] });
@@ -49,7 +60,7 @@ export default async function (ok) {
         for (const x of v) found.push(`${where}: ${x}`);
       };
       await audit('chat');
-      if (theme === 'dark') {
+      if (lead) {
         const firstInRoom = await a.evaluate(() => document.querySelector('#room').querySelector('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])').id);
         await a.focus('#textList .chan >> nth=0'); await a.focus('#skipLink');
         const first = [firstInRoom, await a.evaluate(() => { const r = document.activeElement.getBoundingClientRect(); return r.top >= 0 && r.height > 20; })];
@@ -72,7 +83,7 @@ export default async function (ok) {
       const PNG = Buffer.from(await a.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 300; const g = c.getContext('2d'); g.fillStyle = '#4a7'; g.fillRect(0, 0, 400, 300); g.fillStyle = '#a47'; g.fillRect(0, 0, 200, 150); return c.toDataURL('image/png').split(',')[1]; }), 'base64');
       await a.setInputFiles('#setBgFile', { name: 'bg.png', mimeType: 'image/png', buffer: PNG });
       await a.waitForSelector('#cropDlg[open]'); await audit('crop window');
-      if (theme === 'dark') {
+      if (lead) {
         await a.focus('#cropFrame');
         const before = await a.evaluate(() => document.querySelector('#cropFrame').style.backgroundPosition);
         await a.keyboard.press('ArrowLeft'); await a.keyboard.press('ArrowLeft'); await a.keyboard.press('+');
@@ -83,8 +94,8 @@ export default async function (ok) {
       await a.keyboard.press('Escape');
       await a.click('#attachBtn'); await a.click('#attachPoll'); await audit('new poll'); await a.keyboard.press('Escape');
       await a.click('#voiceList .chan:has-text("Lobby")'); await a.waitForSelector('#voiceStatus:not([hidden])', { timeout: 10000 }); await audit('voice');
-      ok(`${theme} look: no accessibility problems${found.length ? ': ' + [...new Set(found)].slice(0, 6).join(' | ') : ''}`, !found.length);
-      if (theme === 'dark') {
+      ok(`${look}, ${theme}: no accessibility problems${found.length ? ': ' + [...new Set(found)].slice(0, 8).join(' | ') : ''}`, !found.length);
+      if (lead) {
         const stays = [];
         for (const [open, pop] of [['#soundBtn', '#soundPop'], ['#fxBtn', '#fxPop'], ['#meBtn', '#micPanel'], ['general'], ['#serverBtn', '#serverMenu'], ['#attachBtn', '#attachMenu'], ['#statusBtn', '#statusPop'], ['#laterBtn', '#laterPop']]) {
           if (open === 'general') { await a.click('#textList .chan:has-text("general")'); continue; }

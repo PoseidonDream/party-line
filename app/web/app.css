@@ -663,6 +663,34 @@ kbd { font: 600 12px var(--font-mono); padding: 2px 7px; border-radius: 6px; bor
 .theme-opt span { display: grid; place-items: center; height: 36px; border-radius: 9px; font-weight: 600; color: var(--dim); cursor: pointer; }
 .theme-opt input:checked + span { background: var(--lamp); color: var(--on-lamp); }
 .theme-opt input:focus-visible + span { outline: 2px solid var(--lamp); outline-offset: 2px; }
+/* The look chooser (Settings → Look; the looks themselves are in looks.css): three small pictures of the app, each
+   drawn in its look's own colours and in the brightness that's on now (data-mode on <html>, set with the theme). */
+.look-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.look-opt { position: relative; cursor: pointer; }
+.look-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.look-card { display: grid; gap: 2px; height: 100%; align-content: start; padding: 8px 8px 10px; border-radius: 14px; border: 1px solid var(--line); background: var(--field); text-align: center; transition: border-color .12s, box-shadow .15s; }
+.look-opt:hover .look-card { border-color: var(--dim); }
+.look-opt input:checked + .look-card { border-color: var(--lamp); box-shadow: 0 0 0 2px var(--lamp); }
+.look-opt input:focus-visible + .look-card { outline: 2px solid var(--lamp); outline-offset: 3px; }
+.look-card b { font-size: 14px; margin-top: 6px; }
+.look-card small { color: var(--dim); font-size: 12px; line-height: 1.3; }
+.look-demo { display: grid; grid-template-columns: 12% 28% minmax(0, 1fr); aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; border: var(--d-edge, 1px solid var(--d-line)); background: var(--d-main); }
+.look-demo i { display: block; }
+.ld-rail { background: var(--d-rail); border-right: var(--d-edge, 1px solid var(--d-line)); }
+.ld-side { background: var(--d-side); border-right: var(--d-edge, 1px solid var(--d-line)); display: grid; align-content: start; gap: 5px; padding: 9px 5px 0; }
+.ld-side i { height: 4px; border-radius: 2px; background: var(--d-ink); opacity: .45; }
+.ld-side i:first-child { background: var(--d-accent); opacity: 1; height: 7px; border-radius: var(--d-r, 3px); }
+.ld-main { display: grid; grid-template-rows: auto auto auto 1fr; gap: 5px; padding: 0 7px 6px; }
+.ld-head { height: 9px; margin: 0 -7px 2px; border-bottom: var(--d-edge, 1px solid var(--d-line)); background: var(--d-head, transparent); }
+.ld-msg { height: 4px; border-radius: 2px; background: var(--d-ink); opacity: .6; width: 82%; }
+.ld-msg.short { width: 52%; }
+.ld-box { align-self: end; height: 9px; border-radius: var(--d-r, 4px); border: var(--d-edge, 1px solid var(--d-line)); background: var(--d-box, transparent); box-shadow: var(--d-drop, none); }
+.look-opt[data-demo="classic"] { --d-rail: #050507; --d-side: #0b0b0f; --d-main: #000000; --d-ink: #8a8e9c; --d-line: #2a2c35; --d-accent: #ffad1f; --d-box: #0b0b0f; }
+:root[data-mode="light"] .look-opt[data-demo="classic"] { --d-rail: #ffffff; --d-side: #f7f8fa; --d-main: #e8ebf0; --d-ink: #576071; --d-line: #c8ced9; --d-accent: #f0a020; --d-box: #f7f8fa; }
+.look-opt[data-demo="paper"] { --d-rail: #191612; --d-side: #221e18; --d-main: #1c1915; --d-ink: #ab9d86; --d-line: #5b4f3e; --d-accent: #e0795f; --d-box: #151310; --d-r: 1px; --d-drop: 2px 2px 0 rgba(0, 0, 0, .5); }
+:root[data-mode="light"] .look-opt[data-demo="paper"] { --d-rail: #e9dfcd; --d-side: #f0e9db; --d-main: #f7f2e8; --d-ink: #675b49; --d-line: #c9bca2; --d-accent: #b84a31; --d-box: #fdfaf4; --d-drop: 2px 2px 0 rgba(70, 50, 20, .18); }
+.look-opt[data-demo="arcade"] { --d-rail: #2337c9; --d-side: #3a2a8a; --d-main: #1d1a2c; --d-ink: #cfc8f3; --d-accent: #ffd93b; --d-box: #2a2640; --d-head: #2a2640; --d-edge: 2px solid #07060b; --d-drop: 2px 2px 0 #07060b; }
+:root[data-mode="light"] .look-opt[data-demo="arcade"] { --d-rail: #3f5bff; --d-side: #ffd93b; --d-main: #fffcf2; --d-ink: #15131a; --d-accent: #ffffff; --d-box: #ffffff; --d-head: #ffffff; --d-edge: 2px solid #15131a; --d-drop: 2px 2px 0 #15131a; }
 .theme-toggle { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
 .theme-toggle:hover { border-color: var(--dim); }
 

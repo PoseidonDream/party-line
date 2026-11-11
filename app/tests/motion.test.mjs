@@ -46,10 +46,10 @@ export default async function (ok) {
       words: [...document.querySelectorAll('h1 .w')].map((el) => getComputedStyle(el).animationName.split(',')[0]),
       lamp: getComputedStyle(document.querySelector('h1 .lit')).animationName.includes('lamp-on'),
       cards: [...document.querySelectorAll('.pk')].every((el) => getComputedStyle(el).animationName.includes('up-in')),
-      waiting: [...document.querySelectorAll('.feat')].map((el) => getComputedStyle(el).opacity),
+      waiting: [...document.querySelectorAll('.feat')].every((el) => el.classList.contains('rv') && !el.classList.contains('in')),   // (told apart by their marks, not by how they look: on a very slow machine the page's safety net shows everything after 6 s)
     }));
     ok('the welcome page arrives: the headline word by word (“Talk.” lights up like a lamp), then the downloads', hero.anim && hero.words.length === 3 && hero.words.every((n) => n === 'up-in') && hero.lamp && hero.cards);
-    ok('the feature cards wait below, out of sight', hero.waiting.every((o) => o === '0'));
+    ok('the feature cards wait below, out of sight', hero.waiting);
     const lit = () => w.evaluate(() => [...document.querySelectorAll('.jacks i')].map((i) => (i.classList.contains('on') ? 1 : 0)).join(''));
     const before = await lit(); await w.waitForFunction((b) => [...document.querySelectorAll('.jacks i')].map((i) => (i.classList.contains('on') ? 1 : 0)).join('') !== b, before, { timeout: 5000 });
     ok('the lamps on the little switchboard blink', true);

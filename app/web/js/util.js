@@ -14,6 +14,7 @@ if (settings.noiseMode !== 'off') settings.noiseMode = 'on';   // one switch now
 if (!['none', 'robot', 'deep', 'chipmunk', 'cave', 'radio', 'alien', 'demon', 'underwater', 'arcade', 'wobbly', 'ghost', 'harmony', 'stadium', 'glitch', 'slowmo'].includes(settings.voiceFx)) settings.voiceFx = 'none';   // the same list as VOICE_FX in voice.js
 if (!['system', 'dark', 'light'].includes(settings.theme)) settings.theme = 'dark';
 if (!['amber', 'cyan', 'violet', 'green', 'pink', 'white'].includes(settings.accent)) settings.accent = 'amber';
+if (!['classic', 'paper', 'arcade'].includes(settings.look)) settings.look = 'classic';
 // Party Line went black: "match my device" from before becomes dark once (people can switch back in Settings).
 if (!settings.themeV) { if (settings.theme === 'system') settings.theme = 'dark'; settings.themeV = 2; }
 settings.inputVol = clampLevel(settings.inputVol); settings.outputVol = clampLevel(settings.outputVol);

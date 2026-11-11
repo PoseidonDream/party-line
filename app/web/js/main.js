@@ -32,8 +32,12 @@ const isDark = () => settings.theme === 'dark' || (settings.theme === 'system' &
 function applyTheme() {
   const root = document.documentElement;
   if (settings.theme === 'system') delete root.dataset.theme; else root.dataset.theme = settings.theme;
+  // The look (Settings → Look; looks.css): Classic is the app as it is, the others restyle it. Each has a dark and a light side.
+  if (settings.look && settings.look !== 'classic') root.dataset.look = settings.look; else delete root.dataset.look;
+  root.dataset.mode = isDark() ? 'dark' : 'light';   // (for the small pictures in the look chooser)
+  for (const r of document.querySelectorAll('input[name="look"]')) r.checked = r.value === (settings.look || 'classic');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = isDark() ? '#000000' : '#e8ebf0';
+  if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || (isDark() ? '#000000' : '#e8ebf0');   // the phone's status bar
   $('#themeToggle').querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
   for (const r of document.querySelectorAll('input[name="theme"]')) r.checked = r.value === settings.theme;
   if (settings.accent && settings.accent !== 'amber') root.dataset.accent = settings.accent; else delete root.dataset.accent;
@@ -3707,6 +3711,7 @@ $('#inVol').addEventListener('input', (e) => { $('#inVolOut').textContent = `${e
 $('#outVol').addEventListener('input', (e) => { $('#outVolOut').textContent = `${e.target.value}%`; settings.outputVol = clampLevel(e.target.value / 100); saveSettings(); Voice.applyAllVolumes(); });
 $('#setNoise').addEventListener('change', (e) => Voice.setNoiseMode(e.target.checked ? 'on' : 'off').then(renderUserArea));
 document.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', () => setTheme(r.value)));
+document.querySelectorAll('input[name="look"]').forEach((r) => r.addEventListener('change', () => { settings.look = r.value; saveSettings(); applyTheme(); track('theme'); }));
 document.querySelectorAll('input[name="accent"]').forEach((r) => r.addEventListener('change', () => { settings.accent = r.value; saveSettings(); applyTheme(); track('theme'); }));
 document.querySelectorAll('input[name="quality"]').forEach((r) => r.addEventListener('change', () => { settings.quality = r.value; saveSettings(); }));
 $('#setClips').addEventListener('change', (e) => { settings.clips = e.target.checked; saveSettings(); syncStageExtras(); });
