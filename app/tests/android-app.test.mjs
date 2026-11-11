@@ -13,7 +13,7 @@ export default async function (ok) {
     p.on('console', (m) => { if (m.type() === 'error' && /Content Security Policy/.test(m.text())) p.errors.push(m.text()); });
     await p.goto(srv.url + '/app');
     await p.waitForSelector('#join:not([hidden])', { timeout: 8000 });
-    ok('the app opens on the sign-in screen (not stuck on “Connecting…”)', await p.isHidden('#booting'));
+    ok('the app opens on the sign-in screen (not stuck on “Connecting…”)', await p.waitForSelector('#booting', { state: 'hidden', timeout: 3000 }).then(() => true, () => false));   // (the loading screen fades out)
 
     await p.click('#tabRegister'); await p.fill('#authName', 'Phone'); await p.fill('#authPass', 'pass1234');
     await p.check('#authAgree'); await p.click('#authBtn');

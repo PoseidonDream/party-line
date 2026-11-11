@@ -20,7 +20,7 @@ export default async function (ok) {
     // Before signing in: the sign-in screen with its cookie notice, and the policy pages, in both looks
     const early = [];
     for (const scheme of ['dark', 'light']) {
-      const v = await browser.newPage({ colorScheme: scheme });
+      const v = await browser.newPage({ colorScheme: scheme, reducedMotion: 'reduce' });   // the settled look, not a frame half-way through an entrance
       for (const where of ['/', '/app', '/privacy', '/terms', '/cookies', '/rules', '/delete-account']) {
         await v.goto(srv.url + where);
         if (where === '/app') await v.waitForSelector('#cookieBanner:not([hidden])');
@@ -44,6 +44,7 @@ export default async function (ok) {
       const audit = async (where) => {
         await a.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));   // they fade in and go away
         await a.evaluate(AXE).catch(() => {});
+        await a.waitForSelector('#booting', { state: 'hidden' });   // (the loading screen has finished fading out)
         const v = await a.evaluate(async () => (await window.axe.run(document, { resultTypes: ['violations'] })).violations.map((x) => `${x.id} (${x.nodes[0].target.join(' ')})`));
         for (const x of v) found.push(`${where}: ${x}`);
       };

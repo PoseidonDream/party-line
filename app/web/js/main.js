@@ -189,8 +189,17 @@ function showAuth(mode) {
   $('#codeField').hidden = true; $('#authCode').value = '';
   $('#authError').hidden = true;
 }
+/* The loading screen: hidden means it fades out (app.css); a moment later it's taken out of the page altogether, so
+   its lamps don't keep running behind the app. */
+let bootGone = 0;
+function showBoot(on) {
+  const el = $('#booting');
+  clearTimeout(bootGone);
+  if (on) el.classList.remove('gone'); else bootGone = setTimeout(() => el.classList.add('gone'), 600);
+  el.hidden = !on;
+}
 function showJoinScreen() {
-  $('#booting').hidden = true; $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false; $('#joinLangBox').hidden = false;
+  showBoot(false); $('#room').hidden = true; $('#join').hidden = false; $('#themeToggle').hidden = false; $('#joinLangBox').hidden = false;
   if (S.pendingInvite) { $('#joinInvite').hidden = false; $('#joinInvite').textContent = 'You were invited to a server. Sign in or create an account to join.'; }
   showAuth(S.wantSignIn || store.get('hadAccount', false) ? 'login' : 'register');
   if (store.get('resetReq', null)) showResetWait(); else setTimeout(() => $('#authName').focus(), 50);
@@ -281,7 +290,7 @@ $('#authForm').addEventListener('submit', async (e) => {
 
 let bootTimer = 0;
 function start() {
-  $('#join').hidden = true; $('#booting').hidden = false; $('#bootText').textContent = 'Connecting…'; $('#bootHelp').hidden = true;
+  $('#join').hidden = true; showBoot(true); $('#bootText').textContent = 'Connecting…'; $('#bootHelp').hidden = true;
   live.lastClose = null; live.lastError = '';
   clearTimeout(bootTimer); bootTimer = setTimeout(bootTrouble, 10000);
   live.connect();
@@ -354,7 +363,7 @@ live.on('ready', (d) => {
   for (const [k, m] of S.msgs) if (m.loaded) S.msgs.delete(k);   // reload what we show, in case we missed messages
   const first = !S.ready;
   S.ready = true;
-  $('#booting').hidden = true; $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true; $('#joinLangBox').hidden = true;
+  showBoot(false); $('#join').hidden = true; $('#room').hidden = false; $('#themeToggle').hidden = true; $('#joinLangBox').hidden = true;
   checkTerms();
   if (first) {
     const last = store.get('lastView', null);

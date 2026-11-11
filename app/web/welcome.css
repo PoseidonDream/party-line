@@ -92,3 +92,42 @@ h1 .lit { color: var(--lamp); text-shadow: 0 0 28px var(--lamp-glow); }
   .lede { font-size: 17px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn, .jacks i { transition: none; } }
+
+/* ---------- movement (only with the "anim" class from js/welcome-anim.js: never with "reduce motion") ---------- */
+/* Arriving: the switchboard, then the headline word by word ("Talk." flickers on like a lamp), the text, the buttons,
+   and the downloads one after the other. */
+.anim .jacks { animation: up-in .5s ease backwards; }
+.anim h1 .w { animation: up-in .6s cubic-bezier(.2, .8, .2, 1) backwards; }
+.anim h1 .w:nth-child(1) { animation-delay: .08s; }
+.anim h1 .w:nth-child(2) { animation-delay: .22s; }
+.anim h1 .w:nth-child(3) { animation-delay: .36s; }
+.anim h1 .lit { animation: up-in .6s cubic-bezier(.2, .8, .2, 1) .22s backwards, lamp-on 1s ease-out .7s backwards; }
+.anim .lede { animation: up-in .6s ease .5s backwards; }
+.anim .row { animation: up-in .6s ease .62s backwards; }
+.anim .pk { animation: up-in .5s ease backwards; }
+.anim .pk:nth-child(2) { animation-delay: .3s; }
+.anim .pk:nth-child(3) { animation-delay: .37s; }
+.anim .pk:nth-child(4) { animation-delay: .44s; }
+.anim .pk:nth-child(5) { animation-delay: .51s; }
+.anim .pk:nth-child(6) { animation-delay: .58s; }
+.anim .pk.rec { animation: up-in .5s ease .3s backwards, rec-ring 1.6s ease-out 1.1s 2; }   /* this device's download: a ring, twice */
+@keyframes up-in { from { opacity: 0; transform: translateY(18px); } }
+@keyframes lamp-on { 0% { color: #7a6a4a; text-shadow: none; } 22% { color: var(--lamp); text-shadow: 0 0 28px var(--lamp-glow); } 30% { color: #8a744a; text-shadow: none; } 44% { color: var(--lamp); text-shadow: 0 0 36px var(--lamp-glow); } 52% { color: #b8923f; } 64%, 100% { color: var(--lamp); text-shadow: 0 0 28px var(--lamp-glow); } }
+@keyframes rec-ring { 0% { box-shadow: 0 0 0 3px rgba(255, 173, 31, .15), 0 0 0 0 rgba(255, 173, 31, .45); } 100% { box-shadow: 0 0 0 3px rgba(255, 173, 31, .15), 0 0 0 16px rgba(255, 173, 31, 0); } }
+/* The main button's lamp breathes */
+.anim .row .btn.lamp { animation: lamp-breathe 3.2s ease-in-out 1.4s infinite alternate; }
+@keyframes lamp-breathe { from { box-shadow: 0 0 30px var(--lamp-glow); } to { box-shadow: 0 0 58px rgba(255, 173, 31, .55); } }
+/* Rising into view when you scroll to it: the screenshot and the feature cards (welcome-anim.js adds "rv", then "in") */
+.anim .rv { opacity: 0; transform: translateY(32px) scale(.98); transition: opacity .7s ease, transform .8s cubic-bezier(.2, .8, .2, 1); }
+.anim .rv.in, .anim-all .rv { opacity: 1; transform: none; }
+.anim .feat.rv:nth-child(3) { transition-delay: .1s; }
+.anim .feat.rv:nth-child(4) { transition-delay: .2s; }
+/* Under the pointer: cards lift a little, and a feature's picture hops */
+@media (hover: hover) {
+  .anim .pk, .anim .feat { transition: transform .2s ease, border-color .2s, box-shadow .2s, opacity .7s ease; }
+  .anim .pk:hover { transform: translateY(-3px); border-color: #3a3d48; }
+  .anim .pk.rec:hover { border-color: var(--lamp); }
+  .anim .feat.in:hover { transform: translateY(-4px); border-color: #3a3d48; box-shadow: 0 18px 40px rgba(0, 0, 0, .5); transition-delay: 0s; }
+  .anim .feat .em { display: inline-block; transition: transform .25s cubic-bezier(.3, 1.6, .5, 1); }
+  .anim .feat:hover .em { transform: scale(1.2) rotate(-8deg); }
+}

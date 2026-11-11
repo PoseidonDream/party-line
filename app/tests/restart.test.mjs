@@ -33,6 +33,6 @@ export default async function (ok) {
     ok('a blocked live connection is explained after 10 seconds', /can’t open its live connection/.test(await c.textContent('#bootWhy')) && (await c.textContent('#bootDetail')) === 'WebSocket 1006');
     await c.click('#bootSignOut');
     await c.waitForSelector('#join:not([hidden])');
-    ok('…and you can sign out from there', await c.isHidden('#booting'));
+    ok('…and you can sign out from there', await c.waitForSelector('#booting', { state: 'hidden', timeout: 3000 }).then(() => true, () => false));
   } finally { await browser.close(); await srv.stop(); }
 }

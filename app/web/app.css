@@ -259,9 +259,30 @@ input[type="range"], input[type="checkbox"], input[type="radio"], progress { acc
 .rail-sep { width: 32px; height: 2px; flex: none; border-radius: 1px; background: var(--line); }
 .rail-add { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 1px dashed var(--dim); border-radius: 50%; background: var(--panel); color: var(--ok); transition: border-radius .15s; }
 .rail-add:hover { border-radius: 16px; border-style: solid; border-color: transparent; background: var(--ok); color: var(--on-ok); }
-.switching { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding-inline: 16px; background: var(--scrim); }
-.switch-card { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); font-weight: 600; }
-.boot-box { display: grid; gap: 12px; justify-items: center; max-width: 360px; }
+/* The loading screen (while the app starts and connects): the name, with a light running along a row of switchboard
+   jacks like a call being put through. It's all CSS, so it moves before the app's code has even arrived. Once the
+   app (or the sign-in screen) is ready underneath, it fades away instead of vanishing: [hidden] here means "fading
+   out, then invisible" (with reduced motion: simply invisible), and main.js takes it out of the page afterwards. */
+.switching { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding-inline: 16px; background: var(--bg); }
+.switching[hidden] { display: grid !important; visibility: hidden; opacity: 0; pointer-events: none; animation: boot-out .38s ease both; }
+.switching.gone { display: none !important; }
+.switch-card { display: flex; align-items: center; gap: 12px; color: var(--dim); font-weight: 600; animation: boot-rise .4s ease .3s both; }
+.boot-box { display: grid; gap: 22px; justify-items: center; max-width: 360px; }
+.boot-logo { display: grid; gap: 22px; justify-items: center; animation: boot-rise .5s cubic-bezier(.2, .8, .2, 1) both; }
+.boot-mark { margin: 0; font: 800 clamp(44px, 11vw, 68px)/.9 var(--font-display); text-transform: uppercase; letter-spacing: .01em; white-space: nowrap; }
+.boot-mark .lit { color: var(--lamp-ink); text-shadow: 0 0 28px var(--lamp-glow); animation: boot-flicker .9s ease-out both, boot-glow 2.4s ease-in-out .9s infinite alternate; }
+.boot-jacks { display: flex; gap: 14px; }
+.boot-jacks .jack { width: 24px; height: 24px; }
+.boot-jacks .jack::after { inset: 7.5px; transition: none; animation: boot-lamp 1.6s ease-in-out infinite; }
+.boot-jacks .jack:nth-child(2)::after { animation-delay: .16s; }
+.boot-jacks .jack:nth-child(3)::after { animation-delay: .32s; background: var(--lamp); box-shadow: 0 0 14px 3px var(--lamp-glow); }   /* (what shows without animations) */
+.boot-jacks .jack:nth-child(4)::after { animation-delay: .48s; }
+.boot-jacks .jack:nth-child(5)::after { animation-delay: .64s; }
+@keyframes boot-lamp { 0%, 55%, 100% { background: transparent; box-shadow: none; } 18%, 30% { background: var(--lamp); box-shadow: 0 0 16px 4px var(--lamp-glow); } }
+@keyframes boot-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes boot-flicker { 0% { opacity: .2; } 10% { opacity: 1; } 16% { opacity: .35; } 26% { opacity: 1; } 34% { opacity: .7; } 44%, 100% { opacity: 1; } }
+@keyframes boot-glow { from { text-shadow: 0 0 18px var(--lamp-glow); } to { text-shadow: 0 0 38px var(--lamp-glow), 0 0 4px var(--lamp-glow); } }
+@keyframes boot-out { from { opacity: 1; visibility: visible; } to { opacity: 0; visibility: hidden; transform: scale(1.04); } }
 .boot-help { padding: 14px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); text-align: center; }
 .boot-help p { margin: 0 0 8px; }
 .boot-detail { color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }

@@ -63,6 +63,8 @@ export default async function (ok) {
     const ios = await first(UA.iphone, phone);
     ok('on an iPhone (no app there), the browser, with how to add it to the Home Screen', ios.os === 'browser' && ios.ios);
     const fits = await and.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+    await and.p.evaluate(() => document.documentElement.classList.add('anim-all'));   // (what rises in as you scroll: all shown for the picture)
+    await and.p.waitForTimeout(900);
     await and.p.screenshot({ path: path.join(RESULTS, 'welcome-phone.png'), fullPage: true });
     ok('…and the page fits a phone screen (no sideways scrolling)', fits);
     await win.p.waitForSelector('#ver:not([hidden])');
